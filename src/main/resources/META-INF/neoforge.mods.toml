@@ -1,0 +1,41 @@
+modLoader="javafml" #mandatory
+loaderVersion="${loader_version_range}" #mandatory
+license="${mod_license}"
+issueTrackerURL="https://github.com/" #optional
+
+[[mods]] #mandatory
+modId="${mod_id}" #mandatory
+version="${mod_version}" #mandatory
+displayName="${mod_name}" #mandatory
+authors="${mod_authors}" #optional
+description='''${mod_description}'''
+
+# EconomicMaster is a server-side only mod: it registers no client-side rendering,
+# screens, or renderers, so it is safe to leave off a physical client's mod list
+# (or a client without it can still join a server running it, since it changes no
+# client-server handshake data).
+
+[[dependencies.${mod_id}]] #optional
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="SERVER"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="SERVER"
+
+# Soft-dependency: EconomicMaster works completely standalone. If FTB Quests happens
+# to be installed, it is only ever used through FTB Quests' own "Command" reward type
+# calling `/economicmaster reward <player> <tipo_o_cantidad>` - there is no compile-time
+# or hard runtime coupling, so declaring it here is purely informational/ordering.
+[[dependencies.${mod_id}]]
+    modId="ftbquests"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="SERVER"

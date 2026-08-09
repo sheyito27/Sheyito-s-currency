@@ -1,0 +1,67 @@
+package com.sheyito.economicmaster.config;
+
+import com.sheyito.economicmaster.EconomicMaster;
+import com.sheyito.economicmaster.util.JsonFileUtil;
+import net.neoforged.fml.loading.FMLPaths;
+
+import java.nio.file.Path;
+
+/**
+ * Loads and holds every config/sheyitoscurrency/*.json file in memory. All fields are
+ * auto-generated with sane defaults the first time the server starts.
+ */
+public final class ConfigManager {
+
+    private static volatile GeneralConfig general;
+    private static volatile MobRewardsConfig mobRewards;
+    private static volatile SalaryConfig salary;
+    private static volatile QuestRewardsConfig questRewards;
+    private static volatile SubscriptionsConfig subscriptions;
+    private static volatile ShopConfig shop;
+
+    private ConfigManager() {
+    }
+
+    /**
+     * Resolved lazily (not as a static field) so merely loading the {@code ConfigManager}
+     * class - including reflectively, e.g. to mock it in tests - never touches FML.
+     */
+    private static Path configDir() {
+        return FMLPaths.CONFIGDIR.get().resolve(EconomicMaster.MODID);
+    }
+
+    public static synchronized void load() {
+        Path CONFIG_DIR = configDir();
+        general = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("general.json"), GeneralConfig.class, GeneralConfig::defaults);
+        mobRewards = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("mobs.json"), MobRewardsConfig.class, MobRewardsConfig::defaults);
+        salary = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("salary.json"), SalaryConfig.class, SalaryConfig::defaults);
+        questRewards = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("quests_rewards.json"), QuestRewardsConfig.class, QuestRewardsConfig::defaults);
+        subscriptions = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("subscriptions.json"), SubscriptionsConfig.class, SubscriptionsConfig::defaults);
+        shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
+        EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
+    }
+
+    public static GeneralConfig general() {
+        return general;
+    }
+
+    public static MobRewardsConfig mobRewards() {
+        return mobRewards;
+    }
+
+    public static SalaryConfig salary() {
+        return salary;
+    }
+
+    public static QuestRewardsConfig questRewards() {
+        return questRewards;
+    }
+
+    public static SubscriptionsConfig subscriptions() {
+        return subscriptions;
+    }
+
+    public static ShopConfig shop() {
+        return shop;
+    }
+}
