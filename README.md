@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable, intercambio seguro `/trade` con GUI tipo cofre, tiendas de cartel+cofre, e integración nativa con **FTB Quests** para recompensas monetarias por misión.
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -18,10 +18,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 ## Persistencia
 
 - **Configuración** (editable, se autogenera en el primer arranque): `config/sheyitoscurrency/`
-  - `general.json` — símbolo de moneda, decimales, saldo inicial, opciones de aviso por chat.
-  - `mobs.json` — whitelist de entidades y el dinero que dan al morir a manos de un jugador.
+  - `general.json` — nombre de la moneda (`currencyName`, "Sheyicoins" por defecto), decimales, saldo inicial, opciones de aviso por chat.
+  - `mobs.json` — whitelist de entidades y el dinero que dan al morir a manos de un jugador. **Desactivado por defecto** (`enabled: false`).
   - `salary.json` — salario diario y la curva de niveles (ver más abajo).
-  - `quests_rewards.json` — un único importe fijo (`amount`, 50 por defecto) que paga toda misión de FTB Quests.
+  - `quests_rewards.json` — un único importe fijo (`amount`, 10 por defecto) que paga toda misión de FTB Quests, automáticamente.
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
@@ -42,8 +42,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/subscribe cancel` — cancelas tu propia suscripción a otro jugador.
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
-- `/trade money <monto>` — ofrecer dinero durante un intercambio abierto.
-- `/trade cancel` — cancelar el intercambio en curso.
+- `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
@@ -52,25 +51,23 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 ## Integración con FTB Quests
 
-Sheyito's currency **no depende en tiempo de compilación** de FTB Quests. La integración se hace mediante el comando administrativo `/sheyitoscurrency reward`, pensado para llamarse desde una **Recompensa de tipo "Command"** en el editor de misiones de FTB Quests. Es deliberadamente sencillo: **el mismo comando, sin cambios, va en todas las misiones** — no hay que configurar nada por misión:
+**Totalmente automática, sin configurar nada por misión.** Si FTB Quests está presente en el servidor, el mod se engancha directamente a su evento interno de misión completada (`ObjectCompletedEvent.QUEST`): **toda misión terminada, de cualquier tipo, paga automáticamente** el importe de `quests_rewards.json` (`amount`, 10 por defecto) a todos los miembros online del equipo que la completó. No hace falta tocar el editor de misiones ni añadir ninguna recompensa manualmente.
+
+Sheyito's currency **no depende en tiempo de compilación** de FTB Quests de forma dura: se compila contra sus clases con `compileOnly` (nunca se empaqueta ni se exige), y todo el código que las referencia vive aislado en una sola clase que solo se toca si `ModList` detecta `ftbquests` cargado al arrancar — si no está instalado, el mod funciona exactamente igual sin él.
+
+Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si querés que pague un importe distinto al automático:
 
 ```
-sheyitoscurrency reward @p
+sheyitoscurrency reward @p 200
 ```
 
-Esto paga siempre el importe fijo de `quests_rewards.json` (`amount`, 50 por defecto). Si alguna vez quieres que una misión concreta pague otra cantidad, puedes añadir un monto al final: `sheyitoscurrency reward @p 200`.
-
-Importante sobre cómo cargar esto en FTB Quests:
 - En el campo de texto del reward **no** se pone la barra `/` inicial (FTB Quests la añade sola).
-- El interruptor **"Run as Player" debe estar DESACTIVADO** (modo consola). En ese modo FTB Quests ejecuta el comando con permiso de operador (nivel 2, lo que este comando requiere) y además resuelve `@p` al jugador que completó la misión.
-- `@p` (jugador más cercano) es el selector que hay que usar — **no existe un `@S`** en FTB Quests; si lo usas, el comando falla en silencio porque `@S` no es un selector válido de Minecraft.
-- El mod deja un log `Sheyito's currency: /sheyitoscurrency reward invocado para ...` cada vez que el comando se ejecuta — si completas una misión y esa línea no aparece en `logs/latest.log`, el problema está en la configuración del reward de FTB Quests (no en el mod).
-
-Si FTB Quests está presente en el servidor, el log del mod lo detecta automáticamente al arrancar (solo informativo, no cambia el comportamiento).
+- El interruptor **"Run as Player" debe estar DESACTIVADO** (modo consola), así FTB Quests resuelve `@p` al jugador que completó la misión con permiso de operador.
+- `@p` (jugador más cercano) es el selector correcto — **no existe un `@S`** en FTB Quests.
 
 ## Caza de mobs
 
-`config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
+**Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si querés que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
 
 ## Salario diario y niveles
 
@@ -86,16 +83,20 @@ No hay planes predefinidos: cualquier jugador puede vender su propio servicio de
 
 ## Intercambio seguro (/trade)
 
-GUI estilo cofre vainilla para intercambiar ítems y dinero entre dos jugadores, sin ningún riesgo de estafa ni duplicación:
+GUI estilo cofre vainilla (5 filas) para intercambiar ítems y dinero entre dos jugadores, sin ningún riesgo de estafa ni duplicación:
 
 1. `/trade <jugador>` envía una invitación; el otro jugador tiene que aceptarla explícitamente con `/trade accept` (o el botón clicable en el chat) - a nadie se le abre un GUI sin haberlo pedido.
-2. Al aceptar, se abren dos ventanas tipo cofre (una por jugador). Los ítems se arrastran físicamente a la fila superior igual que en cualquier cofre. El dinero se ofrece con `/trade money <monto>` (los menús vainilla no tienen campo de texto).
-3. Cada uno ve en tiempo real lo que el otro está ofreciendo (fila espejo de solo lectura) y el dinero ofrecido.
-4. Al hacer clic en el ítem de "Confirmar" ambos lados, se llena una barra de 9 paneles de vidrio (verde = confirmado, con sonido en cada paso) durante unos 3 segundos. Mover un ítem o cambiar el monto de dinero mientras tanto reinicia la confirmación.
-5. Al completarse la barra, el intercambio se ejecuta de forma atómica: se revalida el saldo de ambos, se transfiere el dinero, y los ítems pasan al inventario del otro jugador (si no cabe completo, se tira al suelo - nunca se pierde).
-6. Cerrar la ventana, cancelar, o desconectarse a mitad de un intercambio devuelve automáticamente todo lo que tenías puesto en tu oferta.
+2. Al aceptar, se abren dos ventanas tipo cofre (una por jugador):
+   - **Fila 1**: tus ítems ofrecidos (arrastralos igual que en cualquier cofre).
+   - **Fila 2**: lo que te ofrece el otro jugador (solo lectura, en vivo).
+   - **Fila 3**: la barra de progreso de confirmación.
+   - **Fila 4**: tus slots de dinero (fondo verde) — depositá lingotes/gemas para ofrecer dinero: lingote de cobre = 1, lingote de hierro = 10, lingote de oro = 100, diamante = 1000, lingote de netherita = 10.000. El total se recalcula solo. Para "quitar" dinero, simplemente sacá el ítem del slot (como en cualquier cofre) - no hay un comando ni un botón separado para eso. Al lado: tu total ofrecido, el botón de confirmar, y el de cancelar.
+   - **Fila 5**: espejo de solo lectura de los depósitos de dinero del otro jugador, y su total.
+3. Al hacer clic en "Confirmar" ambos lados, se llena una barra de 9 paneles de vidrio (verde = confirmado, con sonido en cada paso) durante unos 3 segundos. Mover un ítem, depositar/retirar dinero, o cambiar cualquier cosa mientras tanto reinicia la confirmación.
+4. Al completarse la barra, el intercambio se ejecuta de forma atómica: los lingotes/gemas depositados se convierten en dinero real para el otro jugador, y los ítems ofrecidos pasan al inventario del otro (si no cabe completo, se tira al suelo - nunca se pierde). Sonido de éxito (recogida de experiencia).
+5. Cerrar la ventana, cancelar, o desconectarse a mitad de un intercambio devuelve automáticamente todo lo que tenías puesto en tu oferta, ítems y dinero incluidos (como ítems, no como saldo). Sonido de fallo (yunque).
 
-Como reutiliza un tipo de menú vainilla (`GENERIC_9x4`, el mismo que un cofre de 4 filas), el cliente no necesita el mod instalado para ver la ventana - solo el servidor sabe que es un intercambio.
+Como reutiliza un tipo de menú vainilla (`GENERIC_9x5`, el mismo que un cofre grande de 5 filas), el cliente no necesita el mod instalado para ver la ventana - solo el servidor sabe que es un intercambio.
 
 ## Tiendas de cartel + cofre
 
@@ -134,8 +135,8 @@ com.sheyito.economicmaster
 ├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
-├── integration/FTBQuestsCompat   detección soft-dependency de FTB Quests
-└── util/                         JSON, dinero, días de juego (GameTime), curva de niveles (LevelCurve)
+├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
+└── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
 
 Nota: el paquete Java (`com.sheyito.economicmaster`) y el nombre de la clase principal (`EconomicMaster.java`) se mantienen sin cambios — son estructura interna invisible para el jugador. Lo que sí cambió es el `mod_id` (`sheyitoscurrency`), que es lo que determina el nombre del jar, la carpeta de configuración, la carpeta de datos por mundo, y el comando de FTB Quests.

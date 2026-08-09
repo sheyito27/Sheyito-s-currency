@@ -1,12 +1,9 @@
 package com.sheyito.economicmaster.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sheyito.economicmaster.trade.TradeManager;
-import com.sheyito.economicmaster.trade.TradeSession;
-import com.sheyito.economicmaster.util.Money;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -15,8 +12,10 @@ import net.minecraft.server.level.ServerPlayer;
 
 /**
  * "/trade <jugador>" sends an invite; the target must explicitly "/trade accept" before any
- * GUI opens, so no one gets an unsolicited trade window. Once inside a trade, "/trade money
- * <monto>" is the only way to offer currency (a vanilla chest-style menu has no text field).
+ * GUI opens, so no one gets an unsolicited trade window. Once inside a trade, currency is
+ * offered by physically depositing ingots/gems into the dedicated slots in the GUI itself
+ * (see {@link com.sheyito.economicmaster.trade.TradeSession#CURRENCY_DENOMINATIONS}) - there
+ * is no money-related sub-command.
  */
 public final class TradeCommand {
 
@@ -28,9 +27,6 @@ public final class TradeCommand {
                 .then(Commands.literal("accept").executes(TradeCommand::accept))
                 .then(Commands.literal("deny").executes(TradeCommand::deny))
                 .then(Commands.literal("cancel").executes(TradeCommand::cancel))
-                .then(Commands.literal("money")
-                        .then(Commands.argument("monto", DoubleArgumentType.doubleArg(0))
-                                .executes(TradeCommand::money)))
                 .then(Commands.argument("jugador", EntityArgument.player())
                         .executes(TradeCommand::invite)));
     }
@@ -79,24 +75,6 @@ public final class TradeCommand {
     private static int cancel(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         TradeManager.get().cancel(player.getUUID(), "cancelado por " + player.getGameProfile().getName());
-        return 1;
-    }
-
-    private static int money(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer player = ctx.getSource().getPlayerOrException();
-        double monto = DoubleArgumentType.getDouble(ctx, "monto");
-
-        TradeSession session = TradeManager.get().getSession(player.getUUID());
-        if (session == null) {
-            ctx.getSource().sendFailure(Component.literal("§cNo estás en ningún intercambio activo."));
-            return 0;
-        }
-        if (!session.setMoneyOffer(player.getUUID(), monto)) {
-            ctx.getSource().sendFailure(Component.literal("§cNo se pudo actualizar el monto - revisa tu saldo, o el intercambio ya está bloqueado esperando confirmación."));
-            return 0;
-        }
-
-        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fAhora ofreces " + Money.format(monto) + " en el intercambio."), false);
         return 1;
     }
 }

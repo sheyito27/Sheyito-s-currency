@@ -15,6 +15,10 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    // Only used for the compileOnly FTB Quests/Architectury soft-dependency below - the mod
+    // never requires either of these to be present at runtime.
+    maven { url = "https://maven.ftb.dev/releases" }
+    maven { url = "https://maven.architectury.dev" }
 }
 
 base {
@@ -57,10 +61,15 @@ configurations {
 }
 
 dependencies {
-    // EconomicMaster is server-side only and has no compile-time dependency on FTB Quests.
-    // Integration with FTB Quests happens purely through the /economicmaster reward command,
-    // which FTB Quests' "Command" reward type can call directly - no shared API needed.
     implementation "net.neoforged:neoforge:${neo_version}"
+
+    // Soft-dependency only (compileOnly, never implementation): lets FtbQuestsIntegration
+    // compile against FTB Quests' ObjectCompletedEvent.QUEST so every finished quest can pay
+    // out automatically, with zero per-quest setup in the pack. Never packaged into our jar
+    // and never required at runtime - gated behind ModList.get().isLoaded("ftbquests") in
+    // FTBQuestsCompat, so the mod works identically with or without FTB Quests installed.
+    compileOnly "dev.ftb.mods:ftb-quests-neoforge:2101.1.30"
+    compileOnly "dev.architectury:architectury-neoforge:13.0.8"
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
