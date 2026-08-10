@@ -23,11 +23,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Fully player-to-player: "/subscribe <jugador> <dinero> <tiempo> [descripcion]" offers that
- * player a recurring payment - you pay <dinero> immediately, then again every <tiempo> in-game
- * days from then on, no separate "offer" step. "/subscribe providers" lists what you're paying
- * (to cancel via "/subscribe cancel <numero>"), "/subscribe clients" lists what others are
- * paying you.
+ * Fully player-to-player: "/subscribe <jugador> <dinero> <tiempo> [descripcion]" registers an
+ * agreement (the <descripcion>) under which <jugador> pays you <dinero> immediately, then again
+ * every <tiempo> in-game days from then on - so to set up "I pay X", X is the one who has to run
+ * this command naming you. "/subscribe providers" lists what you're paying (to cancel via
+ * "/subscribe cancel <numero>"), "/subscribe clients" lists what others are paying you.
  */
 public final class SubscribeCommand {
 
@@ -50,29 +50,29 @@ public final class SubscribeCommand {
     }
 
     private static int subscribe(CommandContext<CommandSourceStack> ctx, String description) throws CommandSyntaxException {
-        ServerPlayer buyer = ctx.getSource().getPlayerOrException();
+        ServerPlayer receiver = ctx.getSource().getPlayerOrException();
         Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
-        GameProfile sellerProfile = profiles.iterator().next();
-        UUID sellerUuid = sellerProfile.getId();
+        GameProfile payerProfile = profiles.iterator().next();
+        UUID payerUuid = payerProfile.getId();
         double price = DoubleArgumentType.getDouble(ctx, "dinero");
         int tiempo = IntegerArgumentType.getInteger(ctx, "tiempo");
 
-        if (sellerUuid.equals(buyer.getUUID())) {
-            ctx.getSource().sendFailure(Component.literal("§cNo puedes pagarte a ti mismo."));
-            TransactionSounds.failure(buyer);
+        if (payerUuid.equals(receiver.getUUID())) {
+            ctx.getSource().sendFailure(Component.literal("§cNo puedes cobrarte a ti mismo."));
+            TransactionSounds.failure(receiver);
             return 0;
         }
 
-        if (!SubscriptionManager.get().subscribe(ctx.getSource().getServer(), buyer, sellerUuid, price, tiempo, description)) {
-            ctx.getSource().sendFailure(Component.literal("§cNo tienes saldo suficiente. Necesitas " + Money.format(price) + "."));
-            TransactionSounds.failure(buyer);
+        if (!SubscriptionManager.get().subscribe(ctx.getSource().getServer(), receiver, payerUuid, price, tiempo, description)) {
+            ctx.getSource().sendFailure(Component.literal("§c" + payerProfile.getName() + " no tiene saldo suficiente. Necesita " + Money.format(price) + "."));
+            TransactionSounds.failure(receiver);
             return 0;
         }
 
-        EconomyManager.get().trackName(sellerUuid, sellerProfile.getName());
+        EconomyManager.get().trackName(payerUuid, payerProfile.getName());
         String suffix = description.isBlank() ? "" : " (" + description + ")";
-        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fLe ofreciste a " + sellerProfile.getName() + " una suscripcion de " + Money.format(price) + " cada " + tiempo + " dias, renovacion automatica desde ahora." + suffix), false);
-        TransactionSounds.success(buyer);
+        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fAcordaste con " + payerProfile.getName() + " que te pague " + Money.format(price) + " cada " + tiempo + " dias, cobro automatico desde ahora." + suffix), false);
+        TransactionSounds.success(receiver);
         return 1;
     }
 
@@ -80,7 +80,7 @@ public final class SubscribeCommand {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
         List<PlayerSubscription> providers = SubscriptionManager.get().providersFor(player.getUUID());
         if (providers.isEmpty()) {
-            ctx.getSource().sendSuccess(() -> Component.literal("§7No le pagas a nadie. Usa /subscribe <jugador> <dinero> para empezar a pagarle a alguien."), false);
+            ctx.getSource().sendSuccess(() -> Component.literal("§7No le pagas a nadie. Para empezar a pagarle a alguien, esa persona debe ejecutar /subscribe <tu nombre> <dinero> <tiempo>."), false);
             return 1;
         }
         ctx.getSource().sendSuccess(() -> Component.literal("§6=== Sheyito's currency: a quien le pagas ==="), false);

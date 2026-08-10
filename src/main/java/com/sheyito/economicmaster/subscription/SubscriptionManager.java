@@ -92,25 +92,26 @@ public class SubscriptionManager {
     }
 
     /**
-     * Offers a new direct pledge from {@code buyer} to {@code seller}, charging the first
-     * period immediately and renewing every {@code intervalGameDays} in-game days from then on.
-     * Returns false only if the buyer can't afford it.
+     * Registers an agreement where {@code payer} pays {@code receiver} (the one running the
+     * command) - charging the first period immediately and renewing every
+     * {@code intervalGameDays} in-game days from then on. Returns false only if the payer can't
+     * afford it (the payer doesn't need to be online for this to work).
      */
-    public boolean subscribe(MinecraftServer server, ServerPlayer buyer, UUID seller, double price, int intervalGameDays, String description) {
+    public boolean subscribe(MinecraftServer server, ServerPlayer receiver, UUID payer, double price, int intervalGameDays, String description) {
         double rounded = Money.round(price);
-        if (!EconomyManager.get().take(buyer.getUUID(), rounded)) {
+        if (!EconomyManager.get().take(payer, rounded)) {
             return false;
         }
-        EconomyManager.get().giveEarned(seller, rounded);
+        EconomyManager.get().giveEarned(receiver.getUUID(), rounded);
 
         int interval = Math.max(1, intervalGameDays);
         long next = GameTime.currentDay(server) + interval;
-        subscriptions.add(new PlayerSubscription(buyer.getUUID().toString(), seller.toString(), rounded, interval, description, next));
+        subscriptions.add(new PlayerSubscription(payer.toString(), receiver.getUUID().toString(), rounded, interval, description, next));
         dirty.set(true);
 
-        ServerPlayer sellerPlayer = server.getPlayerList().getPlayer(seller);
-        if (sellerPlayer != null) {
-            sellerPlayer.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + buyer.getGameProfile().getName() + " te ofrecio una suscripcion de " + Money.format(rounded) + " cada " + interval + " dias."
+        ServerPlayer payerPlayer = server.getPlayerList().getPlayer(payer);
+        if (payerPlayer != null) {
+            payerPlayer.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + receiver.getGameProfile().getName() + " registro un acuerdo: le pagas " + Money.format(rounded) + " cada " + interval + " dias."
                     + (description.isBlank() ? "" : " (" + description + ")")));
         }
         return true;

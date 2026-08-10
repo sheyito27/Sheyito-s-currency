@@ -26,7 +26,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-/** Backs /subscribe <jugador> <dinero> [descripcion] | providers | clients | cancel <numero>. */
+/**
+ * Backs /subscribe <jugador> <dinero> <tiempo> [descripcion] | providers | clients | cancel
+ * <numero>. Running "/subscribe X ..." registers that X (the payer) pays the command's runner
+ * (the receiver) - so {@link SubscriptionManager#subscribe} takes a receiver {@link ServerPlayer}
+ * and a payer {@link UUID}, in that order, and charges the payer, not the receiver.
+ */
 class SubscriptionManagerTest {
 
     @BeforeAll
@@ -77,32 +82,32 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void subscribeFailsWithoutEnoughFunds() throws Exception {
+    void subscribeFailsWhenThePayerCantAfford() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID seller = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            // buyer has 0 balance
+            UUID payer = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            // payer has 0 balance
 
-            assertFalse(subscriptions.subscribe(server, buyer, seller, 100.0, 5, ""));
-            assertTrue(subscriptions.providersFor(buyer.getUUID()).isEmpty());
+            assertFalse(subscriptions.subscribe(server, receiver, payer, 100.0, 5, ""));
+            assertTrue(subscriptions.providersFor(payer).isEmpty());
         });
     }
 
     @Test
     void subscribeChargesFirstPeriodImmediately() throws Exception {
         withSubscriptions(5, 10, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 100.0);
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 100.0);
 
-            assertTrue(subscriptions.subscribe(server, buyer, sellerUuid, 50.0, 5, "renta"));
-            assertEquals(50.0, economy.getBalance(buyer.getUUID()));
-            assertEquals(50.0, economy.getBalance(sellerUuid));
+            assertTrue(subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "renta"));
+            assertEquals(50.0, economy.getBalance(payerUuid));
+            assertEquals(50.0, economy.getBalance(receiver.getUUID()));
 
-            List<PlayerSubscription> providers = subscriptions.providersFor(buyer.getUUID());
+            List<PlayerSubscription> providers = subscriptions.providersFor(payerUuid);
             assertEquals(1, providers.size());
             PlayerSubscription sub = providers.get(0);
-            assertEquals(sellerUuid.toString(), sub.sellerUuid);
+            assertEquals(receiver.getUUID().toString(), sub.sellerUuid);
             assertEquals(50.0, sub.price);
             assertEquals("renta", sub.description);
             assertEquals(15L, sub.nextChargeGameDay, "day 10 + 5 day interval");
@@ -110,28 +115,28 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void subscriptionIncomeCountsAsEarnedForTheSeller() throws Exception {
+    void subscriptionIncomeCountsAsEarnedForTheReceiver() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 100.0);
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 100.0);
 
-            subscriptions.subscribe(server, buyer, sellerUuid, 100.0, 5, "");
+            subscriptions.subscribe(server, receiver, payerUuid, 100.0, 5, "");
 
-            assertEquals(10.0, economy.getXp(sellerUuid), "service income should be earned XP, not a free transfer");
+            assertEquals(10.0, economy.getXp(receiver.getUUID()), "service income should be earned XP, not a free transfer");
         });
     }
 
     @Test
     void cancelByIndexRemovesThatSubscription() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 10.0);
-            subscriptions.subscribe(server, buyer, sellerUuid, 10.0, 5, "");
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 10.0);
+            subscriptions.subscribe(server, receiver, payerUuid, 10.0, 5, "");
 
-            assertTrue(subscriptions.cancelByIndex(buyer.getUUID(), 1));
-            assertTrue(subscriptions.providersFor(buyer.getUUID()).isEmpty());
+            assertTrue(subscriptions.cancelByIndex(payerUuid, 1));
+            assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
         });
     }
 
@@ -143,14 +148,14 @@ class SubscriptionManagerTest {
     @Test
     void cancelByIndexOnlyRemovesThatOneEntry() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 20.0);
-            subscriptions.subscribe(server, buyer, UUID.randomUUID(), 10.0, 5, "primero");
-            subscriptions.subscribe(server, buyer, UUID.randomUUID(), 10.0, 5, "segundo");
+            UUID payerUuid = UUID.randomUUID();
+            economy.give(payerUuid, 20.0);
+            subscriptions.subscribe(server, mockPlayer(UUID.randomUUID(), "ReceiverOne"), payerUuid, 10.0, 5, "primero");
+            subscriptions.subscribe(server, mockPlayer(UUID.randomUUID(), "ReceiverTwo"), payerUuid, 10.0, 5, "segundo");
 
-            assertTrue(subscriptions.cancelByIndex(buyer.getUUID(), 1));
+            assertTrue(subscriptions.cancelByIndex(payerUuid, 1));
 
-            List<PlayerSubscription> remaining = subscriptions.providersFor(buyer.getUUID());
+            List<PlayerSubscription> remaining = subscriptions.providersFor(payerUuid);
             assertEquals(1, remaining.size());
             assertEquals("segundo", remaining.get(0).description);
         });
@@ -159,56 +164,56 @@ class SubscriptionManagerTest {
     @Test
     void processDueChargesRenewsWhenFundsAreAvailable() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 200.0);
-            subscriptions.subscribe(server, buyer, sellerUuid, 50.0, 5, "");
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 200.0);
+            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
 
             // Advance time by mutating the same mocked server's overworld game time in place.
             when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
 
             subscriptions.processDueCharges(server);
 
-            assertEquals(100.0, economy.getBalance(buyer.getUUID()), "200 - 50 initial - 50 renewal");
-            assertEquals(100.0, economy.getBalance(sellerUuid));
-            assertEquals(10L, subscriptions.providersFor(buyer.getUUID()).get(0).nextChargeGameDay);
+            assertEquals(100.0, economy.getBalance(payerUuid), "200 - 50 initial - 50 renewal");
+            assertEquals(100.0, economy.getBalance(receiver.getUUID()));
+            assertEquals(10L, subscriptions.providersFor(payerUuid).get(0).nextChargeGameDay);
         });
     }
 
     @Test
     void processDueChargesCancelsSubscriptionWithoutFunds() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            ServerPlayer buyer = mockPlayer(UUID.randomUUID(), "Buyer");
-            economy.give(buyer.getUUID(), 50.0);
-            subscriptions.subscribe(server, buyer, sellerUuid, 50.0, 5, "");
-            // buyer now has 0 balance, can't afford the renewal
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 50.0);
+            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
+            // payer now has 0 balance, can't afford the renewal
 
             when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
             subscriptions.processDueCharges(server);
 
-            assertTrue(subscriptions.providersFor(buyer.getUUID()).isEmpty());
+            assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
         });
     }
 
     @Test
-    void clientsForOnlyReturnsSubscriptionsPayingThatSeller() throws Exception {
+    void clientsForOnlyReturnsSubscriptionsPayingThatReceiver() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID sellerUuid = UUID.randomUUID();
-            UUID otherSellerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer otherReceiver = mockPlayer(UUID.randomUUID(), "OtherReceiver");
 
-            ServerPlayer buyerA = mockPlayer(UUID.randomUUID(), "A");
-            ServerPlayer buyerB = mockPlayer(UUID.randomUUID(), "B");
-            ServerPlayer buyerC = mockPlayer(UUID.randomUUID(), "C");
-            economy.give(buyerA.getUUID(), 10.0);
-            economy.give(buyerB.getUUID(), 10.0);
-            economy.give(buyerC.getUUID(), 10.0);
+            UUID payerA = UUID.randomUUID();
+            UUID payerB = UUID.randomUUID();
+            UUID payerC = UUID.randomUUID();
+            economy.give(payerA, 10.0);
+            economy.give(payerB, 10.0);
+            economy.give(payerC, 10.0);
 
-            subscriptions.subscribe(server, buyerA, sellerUuid, 10.0, 5, "");
-            subscriptions.subscribe(server, buyerB, sellerUuid, 10.0, 5, "");
-            subscriptions.subscribe(server, buyerC, otherSellerUuid, 10.0, 5, "");
+            subscriptions.subscribe(server, receiver, payerA, 10.0, 5, "");
+            subscriptions.subscribe(server, receiver, payerB, 10.0, 5, "");
+            subscriptions.subscribe(server, otherReceiver, payerC, 10.0, 5, "");
 
-            assertEquals(2, subscriptions.clientsFor(sellerUuid).size());
+            assertEquals(2, subscriptions.clientsFor(receiver.getUUID()).size());
         });
     }
 }
