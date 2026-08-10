@@ -10,11 +10,10 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemLore;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,20 +28,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * network sync anywhere - vanilla's per-tick {@code AbstractContainerMenu#broadcastChanges()}
  * already does that for us as long as both menus' {@code Slot}s point at the same container
  * instances.
+ *
+ * <p>The money side of a trade is fixed at invite time (see {@code /trade <jugador> <dinero>
+ * [mensaje]}), always flowing from {@code uuidA} (the inviter) to {@code uuidB} (whoever
+ * accepted) - there is no in-GUI way to add or change it, only the item-offer rows are
+ * negotiated inside the menu.
  */
 public class TradeSession {
-
-    /** One entry per currency deposit slot, in slot order. */
-    public record Denomination(Item item, long value) {
-    }
-
-    public static final List<Denomination> CURRENCY_DENOMINATIONS = List.of(
-            new Denomination(Items.COPPER_INGOT, 1),
-            new Denomination(Items.IRON_INGOT, 10),
-            new Denomination(Items.GOLD_INGOT, 100),
-            new Denomination(Items.DIAMOND, 1000),
-            new Denomination(Items.NETHERITE_INGOT, 10_000)
-    );
 
     private static final int PANEL_COUNT = 9;
     private static final int TICKS_PER_PANEL = 6;
@@ -52,18 +44,14 @@ public class TradeSession {
 
     private final UUID uuidA;
     private final UUID uuidB;
+    private final double moneyPledged;
+    private final String message;
 
     private final SimpleContainer offerA = new SimpleContainer(9);
     private final SimpleContainer offerB = new SimpleContainer(9);
     private final SimpleContainer progress = new SimpleContainer(PANEL_COUNT);
-    // Money is not a typed field: it is whatever sits in these slots, valued per
-    // CURRENCY_DENOMINATIONS. Depositing an ingot raises the offer, taking it back out
-    // (normal drag-and-drop, exactly like the item offer row) lowers it again - there is no
-    // separate "remove" control because a container slot is already bidirectional.
-    private final SimpleContainer moneyItemsA = new SimpleContainer(CURRENCY_DENOMINATIONS.size());
-    private final SimpleContainer moneyItemsB = new SimpleContainer(CURRENCY_DENOMINATIONS.size());
-    private final SimpleContainer moneyDisplayA = new SimpleContainer(1);
-    private final SimpleContainer moneyDisplayB = new SimpleContainer(1);
+    private final SimpleContainer moneyDisplay = new SimpleContainer(1);
+    private final SimpleContainer messageDisplay = new SimpleContainer(1);
     private final SimpleContainer confirmDisplayA = new SimpleContainer(1);
     private final SimpleContainer confirmDisplayB = new SimpleContainer(1);
 
@@ -76,18 +64,18 @@ public class TradeSession {
 
     private final AtomicBoolean finished = new AtomicBoolean(false);
 
-    public TradeSession(UUID uuidA, UUID uuidB) {
+    public TradeSession(UUID uuidA, UUID uuidB, double moneyPledged, String message) {
         this.uuidA = uuidA;
         this.uuidB = uuidB;
+        this.moneyPledged = Math.max(0, Money.round(moneyPledged));
+        this.message = message == null ? "" : message;
         offerA.addListener(container -> onOfferMutated());
         offerB.addListener(container -> onOfferMutated());
-        moneyItemsA.addListener(container -> onMoneyMutated(this.uuidA));
-        moneyItemsB.addListener(container -> onMoneyMutated(this.uuidB));
         refreshProgressDisplay();
-        refreshMoneyDisplay(uuidA);
-        refreshMoneyDisplay(uuidB);
         refreshConfirmDisplay(uuidA);
         refreshConfirmDisplay(uuidB);
+        refreshMoneyDisplay();
+        refreshMessageDisplay();
     }
 
     public UUID uuidA() {
@@ -115,6 +103,15 @@ public class TradeSession {
         return confirmedA && confirmedB;
     }
 
+    /** Fixed at invite time; always flows from {@link #uuidA()} to {@link #uuidB()}. */
+    public double moneyPledged() {
+        return moneyPledged;
+    }
+
+    public String message() {
+        return message;
+    }
+
     void attachMenu(UUID viewer, TradeMenu menu) {
         if (viewer.equals(uuidA)) {
             menuA = menu;
@@ -127,36 +124,20 @@ public class TradeSession {
         return uuid.equals(uuidA) ? offerA : offerB;
     }
 
-    public SimpleContainer moneyItemsFor(UUID uuid) {
-        return uuid.equals(uuidA) ? moneyItemsA : moneyItemsB;
-    }
-
     public SimpleContainer progressContainer() {
         return progress;
     }
 
-    public SimpleContainer moneyDisplayFor(UUID uuid) {
-        return uuid.equals(uuidA) ? moneyDisplayA : moneyDisplayB;
+    public SimpleContainer moneyDisplayContainer() {
+        return moneyDisplay;
+    }
+
+    public SimpleContainer messageDisplayContainer() {
+        return messageDisplay;
     }
 
     public SimpleContainer confirmDisplayFor(UUID uuid) {
         return uuid.equals(uuidA) ? confirmDisplayA : confirmDisplayB;
-    }
-
-    /** Sum of every deposited currency item's value - this *is* the money offered, not a separate field. */
-    public long moneyOffered(UUID uuid) {
-        return valueOf(moneyItemsFor(uuid));
-    }
-
-    private static long valueOf(Container moneyItems) {
-        long total = 0;
-        for (int i = 0; i < CURRENCY_DENOMINATIONS.size() && i < moneyItems.getContainerSize(); i++) {
-            ItemStack stack = moneyItems.getItem(i);
-            if (!stack.isEmpty()) {
-                total += (long) stack.getCount() * CURRENCY_DENOMINATIONS.get(i).value();
-            }
-        }
-        return total;
     }
 
     public void toggleConfirm(UUID uuid) {
@@ -178,15 +159,6 @@ public class TradeSession {
 
     /** Any item-offer change while not yet both-confirmed resets confirmation and the bar. */
     private void onOfferMutated() {
-        resetConfirmationOnMutation();
-    }
-
-    private void onMoneyMutated(UUID uuid) {
-        refreshMoneyDisplay(uuid);
-        resetConfirmationOnMutation();
-    }
-
-    private void resetConfirmationOnMutation() {
         if (finished.get()) {
             return;
         }
@@ -218,32 +190,31 @@ public class TradeSession {
     }
 
     /**
-     * Unlike the old currency-balance design, there is no "insufficient funds" failure mode
-     * here anymore: the money is already physically sitting in {@link #moneyItemsA}/{@link
-     * #moneyItemsB} as real items, so whatever is there at lock time is guaranteed to still be
-     * there at completion time (nothing external can spend it out from under the trade).
+     * Unlike items (which sit physically in the offer slots the whole time), the pledged money
+     * is only a promise until this exact moment - the inviter's balance could have changed
+     * since the invite - so this is the one place a trade can still fail after both sides
+     * locked in: if {@code uuidA} can no longer afford {@link #moneyPledged}, the whole trade
+     * aborts (items returned to their original owners) instead of completing partially.
      */
     private void complete(MinecraftServer server) {
         if (finished.get()) {
             return;
         }
+        if (moneyPledged > 0 && !EconomyManager.get().take(uuidA, moneyPledged)) {
+            abort(server, EconomyManager.get().getName(uuidA) + " ya no tiene saldo suficiente para pagar los " + Money.format(moneyPledged) + " prometidos.");
+            return;
+        }
         finished.set(true);
 
-        long moneyFromA = valueOf(moneyItemsA);
-        long moneyFromB = valueOf(moneyItemsB);
-        clearContainer(moneyItemsA);
-        clearContainer(moneyItemsB);
-        if (moneyFromA > 0) {
-            EconomyManager.get().give(uuidB, moneyFromA);
-        }
-        if (moneyFromB > 0) {
-            EconomyManager.get().give(uuidA, moneyFromB);
+        if (moneyPledged > 0) {
+            EconomyManager.get().give(uuidB, moneyPledged);
         }
 
         returnItems(server, offerA, uuidB);
         returnItems(server, offerB, uuidA);
 
-        notifyBoth(server, "§a[Sheyito's currency] §fIntercambio completado.");
+        String moneyPart = moneyPledged > 0 ? " (" + Money.format(moneyPledged) + " incluidos)" : "";
+        notifyBoth(server, "§a[Sheyito's currency] §fIntercambio completado" + moneyPart + ".");
         playTransactionSoundToBoth(server, true);
         closeBothMenus(server);
     }
@@ -254,17 +225,9 @@ public class TradeSession {
         }
         returnItems(server, offerA, uuidA);
         returnItems(server, offerB, uuidB);
-        returnItems(server, moneyItemsA, uuidA);
-        returnItems(server, moneyItemsB, uuidB);
         notifyBoth(server, "§c[Sheyito's currency] §fIntercambio cancelado: " + reason);
         playTransactionSoundToBoth(server, false);
         closeBothMenus(server);
-    }
-
-    private static void clearContainer(SimpleContainer container) {
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            container.setItem(i, ItemStack.EMPTY);
-        }
     }
 
     private void returnItems(MinecraftServer server, SimpleContainer source, UUID recipientUuid) {
@@ -344,19 +307,28 @@ public class TradeSession {
         }
     }
 
-    private void refreshMoneyDisplay(UUID uuid) {
-        SimpleContainer container = moneyDisplayFor(uuid);
-        long amount = moneyOffered(uuid);
-        ItemStack stack = new ItemStack(Items.GOLD_INGOT, (int) Math.max(1, Math.min(64, 1 + amount / 100)));
-        stack.set(DataComponents.CUSTOM_NAME, Component.literal("§6Dinero ofrecido: §e" + Money.format(amount)));
-        container.setItem(0, stack);
-    }
-
     private void refreshConfirmDisplay(UUID uuid) {
         SimpleContainer container = confirmDisplayFor(uuid);
         boolean confirmed = uuid.equals(uuidA) ? confirmedA : confirmedB;
         ItemStack stack = new ItemStack(confirmed ? Items.LIME_DYE : Items.GRAY_DYE);
         stack.set(DataComponents.CUSTOM_NAME, Component.literal(confirmed ? "§aConfirmado" : "§7Click para confirmar"));
         container.setItem(0, stack);
+    }
+
+    private void refreshMoneyDisplay() {
+        ItemStack stack = new ItemStack(Items.GOLD_INGOT, (int) Math.max(1, Math.min(64, 1 + moneyPledged / 100)));
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(moneyPledged > 0
+                ? "§6Dinero ofrecido: §e" + Money.format(moneyPledged)
+                : "§7Sin dinero ofrecido"));
+        moneyDisplay.setItem(0, stack);
+    }
+
+    private void refreshMessageDisplay() {
+        ItemStack stack = new ItemStack(Items.PAPER);
+        stack.set(DataComponents.CUSTOM_NAME, Component.literal(message.isBlank() ? "§7Sin mensaje" : "§eMensaje"));
+        if (!message.isBlank()) {
+            stack.set(DataComponents.LORE, new ItemLore(List.of(Component.literal("§f" + message))));
+        }
+        messageDisplay.setItem(0, stack);
     }
 }

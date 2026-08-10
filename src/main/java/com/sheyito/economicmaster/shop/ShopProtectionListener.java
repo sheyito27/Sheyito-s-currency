@@ -4,12 +4,43 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 import java.util.UUID;
 
 public class ShopProtectionListener {
+
+    /**
+     * A shop's chest must only be openable by its owner (to restock/collect) or an admin -
+     * everyone else has to go through the sign's buy/sell interaction, otherwise the sign is
+     * pointless decoration and anyone can just loot the stock and any deposited earnings
+     * directly.
+     */
+    @SubscribeEvent
+    public void onRightClickChest(PlayerInteractEvent.RightClickBlock event) {
+        LevelAccessor levelAccessor = event.getLevel();
+        if (!(levelAccessor instanceof Level level) || level.isClientSide()) {
+            return;
+        }
+        ResourceKey<Level> dimension = level.dimension();
+        ShopManager manager = ShopManager.get();
+        if (!manager.isProtectedChest(dimension, event.getPos())) {
+            return;
+        }
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        UUID owner = manager.chestOwner(dimension, event.getPos()).orElse(null);
+        boolean isOwner = player.getUUID().equals(owner);
+        boolean isAdmin = player.hasPermissions(2);
+        if (!isOwner && !isAdmin) {
+            event.setCanceled(true);
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo puedes abrir este cofre, usa el cartel para comprar o vender."));
+        }
+    }
 
     @SubscribeEvent
     public void onBreak(BlockEvent.BreakEvent event) {

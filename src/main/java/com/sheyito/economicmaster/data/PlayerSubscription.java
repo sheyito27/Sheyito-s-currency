@@ -1,22 +1,29 @@
 package com.sheyito.economicmaster.data;
 
 /**
- * One buyer's active subscription to a seller's offer. {@code price} is locked in at the
- * moment the buyer subscribed, so a seller changing their offer price later only affects
- * new subscribers, not existing ones.
+ * A direct player-to-player recurring payment: {@code buyerUuid} pays {@code price} to
+ * {@code sellerUuid} every intervalGameDays (subscriptions.json), starting immediately when
+ * created. {@code description} is a free-text note set by the buyer (e.g. "renta del terreno"),
+ * purely informational. A player can hold any number of these, both as payer and as recipient.
  */
 public class PlayerSubscription {
+    public String buyerUuid;
     public String sellerUuid;
     public double price;
+    public int intervalGameDays;
+    public String description = "";
     public long nextChargeGameDay;
     public boolean active = true;
 
     public PlayerSubscription() {
     }
 
-    public PlayerSubscription(String sellerUuid, double price, long nextChargeGameDay) {
+    public PlayerSubscription(String buyerUuid, String sellerUuid, double price, int intervalGameDays, String description, long nextChargeGameDay) {
+        this.buyerUuid = buyerUuid;
         this.sellerUuid = sellerUuid;
         this.price = price;
+        this.intervalGameDays = intervalGameDays;
+        this.description = description;
         this.nextChargeGameDay = nextChargeGameDay;
     }
 }

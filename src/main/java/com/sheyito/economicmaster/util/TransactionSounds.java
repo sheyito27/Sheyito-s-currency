@@ -17,4 +17,8 @@ public final class TransactionSounds {
     public static void failure(ServerPlayer player) {
         player.playNotifySound(SoundEvents.ANVIL_LAND, SoundSource.MASTER, 0.6f, 1.0f);
     }
+
+    public static void shopCreated(ServerPlayer player) {
+        player.playNotifySound(SoundEvents.NOTE_BLOCK_BELL.value(), SoundSource.MASTER, 1.0f, 1.0f);
+    }
 }
