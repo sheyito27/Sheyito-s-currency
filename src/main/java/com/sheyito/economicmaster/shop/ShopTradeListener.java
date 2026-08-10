@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.shop;
 
+import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,11 @@ public class ShopTradeListener {
         }
 
         ShopManager.get().getShop(level.dimension(), pos).ifPresent(shop -> {
+            if (shop.ownerUuid().equals(player.getUUID())) {
+                // The owner re-editing their own shop sign: let vanilla's sign editor open
+                // normally instead of treating the click as a trade attempt.
+                return;
+            }
             event.setCanceled(true);
             if (!sign.isFacingFrontText(player)) {
                 return;
@@ -45,7 +51,7 @@ public class ShopTradeListener {
         switch (result) {
             case OK -> {
                 String verb = shop.action() == ShopAction.SELL ? "Compraste" : "Vendiste";
-                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + verb + " " + shop.quantity() + "x " + shop.item().getDescription().getString() + "."));
+                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + verb + " " + shop.quantity() + "x " + shop.item().getDescription().getString() + " por " + Money.format(shop.price()) + "."));
                 TransactionSounds.success(player);
                 refreshStatusLine(sign, shop, level);
             }

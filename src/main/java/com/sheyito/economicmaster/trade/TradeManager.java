@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.trade;
 
+import com.sheyito.economicmaster.util.Money;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -28,7 +29,7 @@ public class TradeManager {
     private final Map<UUID, TradeSession> sessionsByPlayer = new ConcurrentHashMap<>();
     private final Map<UUID, TradeInvite> pendingInvites = new ConcurrentHashMap<>();
 
-    private record TradeInvite(UUID fromUuid, long expiresAtTick) {
+    private record TradeInvite(UUID fromUuid, double money, String message, long expiresAtTick) {
     }
 
     private TradeManager(MinecraftServer server) {
@@ -70,15 +71,18 @@ public class TradeManager {
         return sessionsByPlayer.get(uuid);
     }
 
-    public void invite(ServerPlayer from, ServerPlayer to) {
-        pendingInvites.put(to.getUUID(), new TradeInvite(from.getUUID(), server.getTickCount() + INVITE_TIMEOUT_TICKS));
+    public void invite(ServerPlayer from, ServerPlayer to, double money, String message) {
+        pendingInvites.put(to.getUUID(), new TradeInvite(from.getUUID(), money, message, server.getTickCount() + INVITE_TIMEOUT_TICKS));
 
-        from.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fInvitacion de intercambio enviada a " + to.getGameProfile().getName() + "."));
+        String moneyPart = money > 0 ? " Ofreces " + Money.format(money) + "." : "";
+        from.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fInvitacion de intercambio enviada a " + to.getGameProfile().getName() + "." + moneyPart));
 
         Component acceptButton = Component.literal("[Aceptar]")
                 .withStyle(style -> style.withColor(ChatFormatting.GREEN)
                         .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/trade accept")));
-        to.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + from.getGameProfile().getName() + " te invito a intercambiar. ").append(acceptButton));
+        String toMoneyPart = money > 0 ? " Te ofrece " + Money.format(money) + "." : "";
+        String messagePart = message == null || message.isBlank() ? "" : " Mensaje: \"" + message + "\".";
+        to.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + from.getGameProfile().getName() + " te invito a intercambiar." + toMoneyPart + messagePart + " ").append(acceptButton));
     }
 
     public boolean accept(ServerPlayer accepter) {
@@ -96,7 +100,7 @@ public class TradeManager {
             return false;
         }
 
-        TradeSession session = new TradeSession(inviter.getUUID(), accepter.getUUID());
+        TradeSession session = new TradeSession(inviter.getUUID(), accepter.getUUID(), invite.money(), invite.message());
         sessionsByPlayer.put(inviter.getUUID(), session);
         sessionsByPlayer.put(accepter.getUUID(), session);
 

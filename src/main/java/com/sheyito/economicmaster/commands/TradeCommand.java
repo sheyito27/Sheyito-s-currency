@@ -1,9 +1,13 @@
 package com.sheyito.economicmaster.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.trade.TradeManager;
+import com.sheyito.economicmaster.util.Money;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -11,11 +15,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * "/trade <jugador>" sends an invite; the target must explicitly "/trade accept" before any
- * GUI opens, so no one gets an unsolicited trade window. Once inside a trade, currency is
- * offered by physically depositing ingots/gems into the dedicated slots in the GUI itself
- * (see {@link com.sheyito.economicmaster.trade.TradeSession#CURRENCY_DENOMINATIONS}) - there
- * is no money-related sub-command.
+ * "/trade <jugador> [dinero] [mensaje]" sends an invite; the target must explicitly
+ * "/trade accept" before any GUI opens, so no one gets an unsolicited trade window. Any money
+ * offered is fixed right here at invite time (shown to the target before they accept) and flows
+ * automatically from the inviter to whoever accepts once the trade completes - it is not
+ * negotiable inside the GUI, only the item-offer rows are.
  */
 public final class TradeCommand {
 
@@ -28,10 +32,14 @@ public final class TradeCommand {
                 .then(Commands.literal("deny").executes(TradeCommand::deny))
                 .then(Commands.literal("cancel").executes(TradeCommand::cancel))
                 .then(Commands.argument("jugador", EntityArgument.player())
-                        .executes(TradeCommand::invite)));
+                        .executes(ctx -> invite(ctx, 0, ""))
+                        .then(Commands.argument("dinero", DoubleArgumentType.doubleArg(0))
+                                .executes(ctx -> invite(ctx, DoubleArgumentType.getDouble(ctx, "dinero"), ""))
+                                .then(Commands.argument("mensaje", StringArgumentType.greedyString())
+                                        .executes(ctx -> invite(ctx, DoubleArgumentType.getDouble(ctx, "dinero"), StringArgumentType.getString(ctx, "mensaje")))))));
     }
 
-    private static int invite(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int invite(CommandContext<CommandSourceStack> ctx, double money, String message) throws CommandSyntaxException {
         ServerPlayer sender = ctx.getSource().getPlayerOrException();
         ServerPlayer target = EntityArgument.getPlayer(ctx, "jugador");
         TradeManager manager = TradeManager.get();
@@ -48,8 +56,12 @@ public final class TradeCommand {
             ctx.getSource().sendFailure(Component.literal("§c" + target.getGameProfile().getName() + " ya está ocupado con otro intercambio."));
             return 0;
         }
+        if (money > 0 && EconomyManager.get().getBalance(sender.getUUID()) < money) {
+            ctx.getSource().sendFailure(Component.literal("§cNo tienes saldo suficiente para ofrecer " + Money.format(money) + "."));
+            return 0;
+        }
 
-        manager.invite(sender, target);
+        manager.invite(sender, target, money, message);
         return 1;
     }
 

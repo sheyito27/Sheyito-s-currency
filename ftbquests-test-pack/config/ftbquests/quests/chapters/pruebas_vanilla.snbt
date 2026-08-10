@@ -1,0 +1,60 @@
+{
+	default_hide_dependency_lines: false
+	default_quest_shape: ""
+	filename: "pruebas_vanilla"
+	group: ""
+	icon: "minecraft:grass_block"
+	id: "7F43179696DFEBE2"
+	order_index: 0
+	quest_links: []
+	quests: [
+		{
+			id: "D1BA9C43B4D53E56"
+			tasks: [{
+				id: "7D4A61009D3905FA"
+				item: "minecraft:dirt"
+				type: "item"
+			}]
+			title: "Consigue tierra"
+			x: 0.0d
+			y: 0.0d
+		}
+		{
+			dependencies: ["D1BA9C43B4D53E56"]
+			id: "335E27F23B84AEDE"
+			tasks: [{
+				id: "D398752D8F7B53B1"
+				item: "minecraft:iron_ingot"
+				type: "item"
+			}]
+			title: "Consigue un lingote de hierro"
+			x: 1.0d
+			y: 0.0d
+		}
+		{
+			dependencies: ["335E27F23B84AEDE"]
+			id: "D85F4E412CD3FDFA"
+			tasks: [{
+				id: "81B5BFBDD35519F1"
+				item: "minecraft:diamond"
+				type: "item"
+			}]
+			title: "Consigue un diamante"
+			x: 2.0d
+			y: 0.0d
+		}
+		{
+			dependencies: ["D85F4E412CD3FDFA"]
+			id: "15A45DBBBFA5B6A3"
+			tasks: [{
+				id: "EA5B414F623E52F7"
+				item: "minecraft:netherite_ingot"
+				type: "item"
+			}]
+			title: "Consigue un lingote de netherita"
+			x: 3.0d
+			y: 0.0d
+		}
+	]
+	title: "Pruebas vanilla"
+}

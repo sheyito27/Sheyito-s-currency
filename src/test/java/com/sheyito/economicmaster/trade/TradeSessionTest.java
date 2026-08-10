@@ -27,10 +27,9 @@ import static org.mockito.Mockito.when;
 
 /**
  * Backs /trade, /trade accept and /trade cancel - and is the highest-stakes class in the mod
- * (item/money duplication risk), so this is the deepest test coverage here. Money is not a
- * balance field: it is whatever currency items (copper/iron/gold/diamond/netherite) sit in
- * each player's dedicated deposit slots, so most money tests here work directly against
- * {@link TradeSession#moneyItemsFor}.
+ * (item/money duplication risk), so this is the deepest test coverage here. Money is fixed at
+ * invite time ({@link TradeSession#moneyPledged()}), always flowing from uuidA (the inviter) to
+ * uuidB on completion - there is no way to change it from inside the session/GUI.
  */
 class TradeSessionTest {
 
@@ -44,6 +43,10 @@ class TradeSessionTest {
     }
 
     private void withSession(WithSession test) throws Exception {
+        withSession(0, "", test);
+    }
+
+    private void withSession(double money, String message, WithSession test) throws Exception {
         GeneralConfig general = new GeneralConfig();
         general.decimals = 2;
         SalaryConfig salary = new SalaryConfig();
@@ -63,14 +66,11 @@ class TradeSessionTest {
         try (MockedStatic<ConfigManager> mocked = mockStatic(ConfigManager.class)) {
             mocked.when(ConfigManager::general).thenReturn(general);
             mocked.when(ConfigManager::salary).thenReturn(salary);
-            test.run(new TradeSession(uuidA, uuidB), economy, server, uuidA, uuidB);
+            test.run(new TradeSession(uuidA, uuidB, money, message), economy, server, uuidA, uuidB);
         } finally {
             EconomyManager.installForTesting(null);
         }
     }
-
-    /** Slot 2 of the currency container is gold ingot ($100 each) per CURRENCY_DENOMINATIONS. */
-    private static final int GOLD_SLOT = 2;
 
     @Test
     void otherResolvesTheCounterpart() throws Exception {
@@ -90,35 +90,15 @@ class TradeSessionTest {
     }
 
     @Test
-    void moneyOfferedStartsAtZero() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> assertEquals(0L, session.moneyOffered(uuidA)));
+    void moneyPledgedDefaultsToZero() throws Exception {
+        withSession((session, economy, server, uuidA, uuidB) -> assertEquals(0.0, session.moneyPledged()));
     }
 
     @Test
-    void depositingCurrencyItemsRaisesMoneyOffered() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> {
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, new ItemStack(Items.GOLD_INGOT, 2));
-            assertEquals(200L, session.moneyOffered(uuidA), "2 gold ingots at $100 each");
-        });
-    }
-
-    @Test
-    void takingCurrencyItemsBackLowersMoneyOffered() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> {
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, new ItemStack(Items.GOLD_INGOT, 2));
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, ItemStack.EMPTY);
-            assertEquals(0L, session.moneyOffered(uuidA));
-        });
-    }
-
-    @Test
-    void moneyOfferedSumsAcrossDifferentDenominations() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> {
-            var deposits = session.moneyItemsFor(uuidA);
-            deposits.setItem(0, new ItemStack(Items.COPPER_INGOT, 5)); // 5
-            deposits.setItem(1, new ItemStack(Items.IRON_INGOT, 1)); // 10
-            deposits.setItem(3, new ItemStack(Items.DIAMOND, 1)); // 1000
-            assertEquals(1015L, session.moneyOffered(uuidA));
+    void moneyPledgedAndMessageAreFixedAtConstruction() throws Exception {
+        withSession(150.0, "pago por diamantes", (session, economy, server, uuidA, uuidB) -> {
+            assertEquals(150.0, session.moneyPledged());
+            assertEquals("pago por diamantes", session.message());
         });
     }
 
@@ -159,19 +139,6 @@ class TradeSessionTest {
     }
 
     @Test
-    void mutatingMoneyDepositAfterBothConfirmedResetsConfirmation() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> {
-            session.toggleConfirm(uuidA);
-            session.toggleConfirm(uuidB);
-            assertTrue(session.isLocked());
-
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, new ItemStack(Items.GOLD_INGOT, 1));
-
-            assertFalse(session.isLocked(), "changing a money deposit must force both sides to re-confirm, same as items");
-        });
-    }
-
-    @Test
     void tickDoesNothingUntilBothConfirm() throws Exception {
         withSession((session, economy, server, uuidA, uuidB) -> {
             for (int i = 0; i < TradeSession.TOTAL_TICKS + 10; i++) {
@@ -186,7 +153,6 @@ class TradeSessionTest {
         withSession((session, economy, server, uuidA, uuidB) -> {
             ItemStack offeredByA = new ItemStack(Items.DIAMOND, 5);
             session.offerContainerFor(uuidA).setItem(0, offeredByA);
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, new ItemStack(Items.GOLD_INGOT, 3)); // $300
 
             ServerPlayer playerA = mock(ServerPlayer.class);
             ServerPlayer playerB = mock(ServerPlayer.class);
@@ -202,10 +168,56 @@ class TradeSessionTest {
             }
 
             assertTrue(session.isFinished());
-            assertEquals(300.0, economy.getBalance(uuidB), "the 3 deposited gold ingots convert into currency for B");
-            assertEquals(0.0, economy.getBalance(uuidA), "A never had a balance to begin with - the money came from items, not a deduction");
-            assertEquals(0L, session.moneyOffered(uuidA), "deposited currency items are consumed on completion");
             verify(inventoryB).placeItemBackInInventory(offeredByA);
+        });
+    }
+
+    @Test
+    void pledgedMoneyTransfersFromInviterToAccepterOnCompletion() throws Exception {
+        withSession(300.0, "", (session, economy, server, uuidA, uuidB) -> {
+            economy.give(uuidA, 300.0);
+
+            ServerPlayer playerA = mock(ServerPlayer.class);
+            ServerPlayer playerB = mock(ServerPlayer.class);
+            when(playerB.getInventory()).thenReturn(mock(Inventory.class));
+            when(server.getPlayerList().getPlayer(uuidA)).thenReturn(playerA);
+            when(server.getPlayerList().getPlayer(uuidB)).thenReturn(playerB);
+
+            session.toggleConfirm(uuidA);
+            session.toggleConfirm(uuidB);
+            for (int i = 0; i < TradeSession.TOTAL_TICKS; i++) {
+                session.tick(server);
+            }
+
+            assertTrue(session.isFinished());
+            assertEquals(0.0, economy.getBalance(uuidA));
+            assertEquals(300.0, economy.getBalance(uuidB));
+        });
+    }
+
+    @Test
+    void tradeAbortsInsteadOfCompletingWhenInviterCanNoLongerAffordThePledge() throws Exception {
+        withSession(300.0, "", (session, economy, server, uuidA, uuidB) -> {
+            // uuidA never received the 300 they pledged - balance changed since the invite.
+            ItemStack offeredByA = new ItemStack(Items.DIAMOND, 5);
+            session.offerContainerFor(uuidA).setItem(0, offeredByA);
+
+            ServerPlayer playerA = mock(ServerPlayer.class);
+            Inventory inventoryA = mock(Inventory.class);
+            when(playerA.getInventory()).thenReturn(inventoryA);
+            ServerPlayer playerB = mock(ServerPlayer.class);
+            when(server.getPlayerList().getPlayer(uuidA)).thenReturn(playerA);
+            when(server.getPlayerList().getPlayer(uuidB)).thenReturn(playerB);
+
+            session.toggleConfirm(uuidA);
+            session.toggleConfirm(uuidB);
+            for (int i = 0; i < TradeSession.TOTAL_TICKS; i++) {
+                session.tick(server);
+            }
+
+            assertTrue(session.isFinished(), "an aborted trade still counts as finished");
+            assertEquals(0.0, economy.getBalance(uuidB), "money must never transfer if the pledge can't be honored");
+            verify(inventoryA).placeItemBackInInventory(offeredByA);
         });
     }
 
@@ -228,19 +240,13 @@ class TradeSessionTest {
     }
 
     @Test
-    void abortReturnsDepositedCurrencyAsItemsNotMoney() throws Exception {
-        withSession((session, economy, server, uuidA, uuidB) -> {
-            ItemStack depositedGold = new ItemStack(Items.GOLD_INGOT, 2);
-            session.moneyItemsFor(uuidA).setItem(GOLD_SLOT, depositedGold);
-
-            ServerPlayer playerA = mock(ServerPlayer.class);
-            Inventory inventoryA = mock(Inventory.class);
-            when(playerA.getInventory()).thenReturn(inventoryA);
-            when(server.getPlayerList().getPlayer(uuidA)).thenReturn(playerA);
+    void abortNeverTransfersThePledgedMoney() throws Exception {
+        withSession(50.0, "", (session, economy, server, uuidA, uuidB) -> {
+            economy.give(uuidA, 50.0);
 
             session.abort(server, "changed my mind");
 
-            verify(inventoryA).placeItemBackInInventory(depositedGold);
+            assertEquals(50.0, economy.getBalance(uuidA), "aborting must never take the pledge from the inviter");
             assertEquals(0.0, economy.getBalance(uuidB), "aborting must never grant currency to the other side");
         });
     }
