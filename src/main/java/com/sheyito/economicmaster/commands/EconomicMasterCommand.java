@@ -48,7 +48,7 @@ public final class EconomicMasterCommand {
         EconomyManager.get().trackName(player.getUUID(), player.getGameProfile().getName());
 
         ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fRecompensa de mision aplicada a " + player.getGameProfile().getName() + ": " + Money.format(amount) + "."), true);
-        player.sendSystemMessage(Component.literal("§6✦ §a[Recompensa de Mision] §f+" + Money.format(amount) + " §7añadido a tu saldo."));
+        player.sendSystemMessage(Component.literal("§6✦ §a[Recompensa de Mision] §f+" + Money.format(amount) + " §7añadidas a tu saldo."));
         return 1;
     }
 }
