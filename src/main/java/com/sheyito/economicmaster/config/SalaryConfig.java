@@ -12,8 +12,8 @@ public class SalaryConfig {
     public boolean enabled = true;
     public int intervalGameDays = 1;
     public double baseSalary = 10.0;
-    public double maxSalary = 500.0;
-    public int maxLevel = 20;
+    public double maxSalary = 100.0;
+    public int maxLevel = 50;
     public double xpPerCoin = 0.1;
     public double levelCurveBaseXp = 20.0;
 
