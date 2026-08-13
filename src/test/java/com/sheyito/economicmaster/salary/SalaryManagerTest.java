@@ -66,8 +66,8 @@ class SalaryManagerTest {
         config.enabled = true;
         config.intervalGameDays = 1;
         config.baseSalary = 10.0;
-        config.maxSalary = 500.0;
-        config.maxLevel = 20;
+        config.maxSalary = 100.0;
+        config.maxLevel = 50;
         config.xpPerCoin = 0.1;
         config.levelCurveBaseXp = 20.0;
         return config;
@@ -142,7 +142,7 @@ class SalaryManagerTest {
             salaryManager.tick(server);
 
             double payout = economy.getBalance(player) - balanceAfterSetup;
-            assertEquals(255.0, payout, "level 10 of 20 halfway between base 10 and max 500");
+            assertEquals(28.0, payout, "level 10 of 50 (20% progress) between base 10 and max 100");
         });
     }
 }

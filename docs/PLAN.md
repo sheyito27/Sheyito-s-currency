@@ -1,0 +1,18 @@
+- Salario fijo estático: Todos cobran la misma cantidad diaria sin escalar por nivel.
+- Insolvencia por deudas: Venta automática de objetos del inventario si el saldo llega a cero.
+- Patentes y regalías: Cobro de tarifas automáticas al usar elementos de mods ajenos.
+- Impuesto por inmovilidad: Mantenimiento periódico para penalizar el dinero estancado sin mover.
+- IVA en transacciones: Tasa global aplicada al comercio entre jugadores y comandos de trueque.
+- Gacha: Terminal aleatoria para conseguir libros de nibel máximi y reliquias caras y cofres de estructuras aleatorias.
+- Compra directa de XP: Interfaz simple para canjear Sheyicoins por niveles de experiencia pura.
+- Deuda con plazo estricto: Margen de tiempo fijo para pagar antes de activar la insolvencia.
+- Visados dimensionales: Peaje cobrado automáticamente al cruzar por primera vez a otra dimensión.
+- Confiscación por muerte: Robo de ítems del inventario si el jugador muere sin liquidez.
+- Alquiler de vuelo: Suscripción temporal al comando de vuelo que se apaga al expirar.
+- Buffs corporativos pasivos: Efectos de poción permanentes pagados mediante una cuota diaria obligatoria.
+- Préstamos rápidos: Créditos inmediatos de liquidez con fecha límite fija de devolución.
+- Póliza de exención temporal: Certificados caros de paraíso fiscal para evadir impuestos transitoriamente.
+- Alquiler de chunks: Tasas periódicas obligatorias para mantener activas las áreas reclamadas.
+- Tarifas de waystones: Peaje en Sheyicoins cobrado al utilizar piedras de teletrasporte guardadas.
+- Peaje de teletransporte: Coste monetario obligatorio al usar comandos de retorno como /home o /back.
+- Comando /health: Un comando de emergencia para curarte la vida al instante pagando.
