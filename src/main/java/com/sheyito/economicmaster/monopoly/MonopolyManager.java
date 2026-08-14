@@ -17,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +42,9 @@ public class MonopolyManager {
     private static final long TICKS_PER_DAY = 24000L;
     private static final int COINFLIP_INVITE_TIMEOUT_TICKS = 20 * 60;
 
+    /** Ventana (en ticks) en la que un jugador cuenta como contribuidor de daño de un mob buscado. */
+    private static final int CONTRIBUTOR_TTL_TICKS = 20 * 60;
+
     private static volatile MonopolyManager instance;
 
     /** Invitación pendiente de cara o cruz P2P, keyed por el UUID de a quién toca aceptar. */
@@ -50,6 +54,12 @@ public class MonopolyManager {
     private final Path file;
     private final Map<String, CoinflipInvite> pendingCoinflipInvites = new ConcurrentHashMap<>();
     private final AtomicBoolean dirty = new AtomicBoolean(false);
+
+    /** Quién dañó a cada mob buscado vivo: UUID del mob -> {jugadores (UUID -> nombre), último tick de daño}. */
+    private record BountyTarget(Map<UUID, String> players, long lastHurtTick) {
+    }
+
+    private final Map<UUID, BountyTarget> damageContributors = new ConcurrentHashMap<>();
 
     private long lastPeriodIndex = -1;
     private String currentEventId = null;
@@ -185,6 +195,52 @@ public class MonopolyManager {
         return entry == null ? 0.0 : entry.bounty;
     }
 
+    // ------------------------------------------------------------------
+    // Contribuidores de daño del mob buscado (reparto del bounty)
+    // ------------------------------------------------------------------
+
+    /**
+     * Registra que {@code playerId} dañó al mob {@code victimId}. El nombre se guarda para poder
+     * mostrar el mensaje aunque el jugador se vaya antes de que el mob muera. Los objetivos que
+     * llevan más de {@link #CONTRIBUTOR_TTL_TICKS} ticks sin recibir daño se olvidan (mobs que se
+     * despawnean o vagan sin morir nunca).
+     */
+    public void recordDamage(UUID victimId, UUID playerId, String playerName, long tick) {
+        pruneStaleContributors(tick);
+        damageContributors.compute(victimId, (key, target) -> {
+            BountyTarget current = target == null ? new BountyTarget(new HashMap<>(), tick) : target;
+            current.players().put(playerId, playerName);
+            return new BountyTarget(current.players(), tick);
+        });
+    }
+
+    /** Copia inmutable de {UUID del contribuidor -> nombre} de los jugadores que dañaron a {@code victimId}. */
+    public Map<UUID, String> contributorNames(UUID victimId) {
+        BountyTarget target = damageContributors.get(victimId);
+        return target == null ? Map.of() : Map.copyOf(target.players());
+    }
+
+    /** Olvida a los contribuidores de un mob (se llama al morir o al terminar el evento). */
+    public void forgetContributors(UUID victimId) {
+        damageContributors.remove(victimId);
+    }
+
+    /** Elimina objetivos que llevan más de {@link #CONTRIBUTOR_TTL_TICKS} ticks sin recibir daño. */
+    public void pruneStaleContributors(long currentTick) {
+        damageContributors.entrySet().removeIf(entry -> currentTick - entry.getValue().lastHurtTick() > CONTRIBUTOR_TTL_TICKS);
+    }
+
+    /**
+     * Parte equitativa de {@code bounty} entre {@code contributors} jugadores. El resto que no
+     * divida exacto al redondear a céntimos no se acuña (sink), así nunca se acuña de más.
+     */
+    public static double bountyShare(double bounty, int contributors) {
+        if (contributors <= 0) {
+            return 0.0;
+        }
+        return Money.round(bounty / contributors);
+    }
+
     /** true si el evento activo habilita el cara o cruz contra La Casa. */
     public boolean isCoinflipActive() {
         return eventType() == EventType.HOUSE_COINFLIP;
@@ -218,6 +274,7 @@ public class MonopolyManager {
     /** Llamado por el scheduler cada ~30s: sortea en cada frontera de periodo. */
     public void tick(MinecraftServer server) {
         expireCoinflipInvites(server);
+        pruneStaleContributors(server.overworld().getGameTime());
 
         MonopolyConfig config = ConfigManager.monopoly();
         if (!config.enabled) {
@@ -299,11 +356,13 @@ public class MonopolyManager {
 
     private void clearEvent() {
         if (currentEventId == null && currentMultiplier == null && currentMob == null) {
+            damageContributors.clear();
             return;
         }
         currentEventId = null;
         currentMultiplier = null;
         currentMob = null;
+        damageContributors.clear();
         dirty.set(true);
     }
 
