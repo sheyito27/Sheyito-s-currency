@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Fully player-to-player: "/subscribe <jugador> <dinero> <tiempo> [descripcion]" registers an
- * agreement (the <descripcion>) under which <jugador> pays you <dinero> immediately, then again
- * every <tiempo> in-game days from then on - so to set up "I pay X", X is the one who has to run
- * this command naming you. "/subscribe providers" lists what you're paying (to cancel via
+ * Fully player-to-player: "/subscribe <jugador> <dinero> <tiempo> [descripcion]" sends
+ * <jugador> a proposal to pay you <dinero> every <tiempo> in-game days - exactly like
+ * {@code /trade}, nothing is charged until they run "/subscribe accept" (or "/subscribe deny"
+ * to decline). "/subscribe providers" lists what you're paying (to cancel via
  * "/subscribe cancel <numero>"), "/subscribe clients" lists what others are paying you.
  */
 public final class SubscribeCommand {
@@ -36,6 +36,8 @@ public final class SubscribeCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("subscribe")
+                .then(Commands.literal("accept").executes(SubscribeCommand::accept))
+                .then(Commands.literal("deny").executes(SubscribeCommand::deny))
                 .then(Commands.literal("providers").executes(SubscribeCommand::providers))
                 .then(Commands.literal("clients").executes(SubscribeCommand::clients))
                 .then(Commands.literal("cancel")
@@ -44,12 +46,12 @@ public final class SubscribeCommand {
                 .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
                         .then(Commands.argument("dinero", DoubleArgumentType.doubleArg(0.01))
                                 .then(Commands.argument("tiempo", IntegerArgumentType.integer(1))
-                                        .executes(ctx -> subscribe(ctx, ""))
+                                        .executes(ctx -> invite(ctx, ""))
                                         .then(Commands.argument("descripcion", StringArgumentType.greedyString())
-                                                .executes(ctx -> subscribe(ctx, StringArgumentType.getString(ctx, "descripcion"))))))));
+                                                .executes(ctx -> invite(ctx, StringArgumentType.getString(ctx, "descripcion"))))))));
     }
 
-    private static int subscribe(CommandContext<CommandSourceStack> ctx, String description) throws CommandSyntaxException {
+    private static int invite(CommandContext<CommandSourceStack> ctx, String description) throws CommandSyntaxException {
         ServerPlayer receiver = ctx.getSource().getPlayerOrException();
         Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
         GameProfile payerProfile = profiles.iterator().next();
@@ -63,16 +65,29 @@ public final class SubscribeCommand {
             return 0;
         }
 
-        if (!SubscriptionManager.get().subscribe(ctx.getSource().getServer(), receiver, payerUuid, price, tiempo, description)) {
-            ctx.getSource().sendFailure(Component.literal("§c" + payerProfile.getName() + " no tiene saldo suficiente. Necesita " + Money.format(price) + "."));
-            TransactionSounds.failure(receiver);
+        EconomyManager.get().trackName(payerUuid, payerProfile.getName());
+        SubscriptionManager.get().invite(ctx.getSource().getServer(), receiver, payerUuid, price, tiempo, description);
+        return 1;
+    }
+
+    private static int accept(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer payer = ctx.getSource().getPlayerOrException();
+        if (!SubscriptionManager.get().acceptInvite(ctx.getSource().getServer(), payer)) {
+            ctx.getSource().sendFailure(Component.literal("§cNo tienes ninguna propuesta de suscripcion pendiente, o no tienes saldo suficiente."));
+            TransactionSounds.failure(payer);
             return 0;
         }
+        TransactionSounds.success(payer);
+        return 1;
+    }
 
-        EconomyManager.get().trackName(payerUuid, payerProfile.getName());
-        String suffix = description.isBlank() ? "" : " (" + description + ")";
-        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fAcordaste con " + payerProfile.getName() + " que te pague " + Money.format(price) + " cada " + tiempo + " dias, cobro automatico desde ahora." + suffix), false);
-        TransactionSounds.success(receiver);
+    private static int deny(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer payer = ctx.getSource().getPlayerOrException();
+        if (!SubscriptionManager.get().denyInvite(ctx.getSource().getServer(), payer)) {
+            ctx.getSource().sendFailure(Component.literal("§cNo tienes ninguna propuesta de suscripcion pendiente."));
+            return 0;
+        }
+        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fPropuesta rechazada."), false);
         return 1;
     }
 
