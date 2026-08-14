@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -89,6 +90,10 @@ class MonopolyManagerTest {
 
     private static MonopolyEventEntry coinflipEvent() {
         return new MonopolyEventEntry("cara_o_cruz", "HOUSE_COINFLIP", true, 5, List.of(), List.of(), 0.0, 0.05, 0.5, "");
+    }
+
+    private static MonopolyEventEntry mobEvent(String id, List<String> mobs, double bounty) {
+        return new MonopolyEventEntry(id, "MOB_WANTED", true, 10, List.of(), mobs, bounty, 0.05, 0.5, "");
     }
 
     @Test
@@ -304,6 +309,82 @@ class MonopolyManagerTest {
 
             assertEquals(500.0, economy.getBalance(challengerId), "nadie paga si se rechaza");
             assertEquals(500.0, economy.getBalance(acceptorId));
+        });
+    }
+
+    @Test
+    void damageContributorsAreTrackedPerMobAndDeduplicated() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            UUID mob = UUID.randomUUID();
+            UUID ana = UUID.randomUUID();
+            UUID beto = UUID.randomUUID();
+
+            monopoly.recordDamage(mob, ana, "Ana", 100);
+            monopoly.recordDamage(mob, ana, "Ana", 150);
+            monopoly.recordDamage(mob, beto, "Beto", 160);
+
+            Map<UUID, String> contributors = monopoly.contributorNames(mob);
+            assertEquals(2, contributors.size(), "el mismo jugador solo cuenta una vez");
+            assertEquals("Ana", contributors.get(ana));
+            assertEquals("Beto", contributors.get(beto));
+            assertTrue(monopoly.contributorNames(UUID.randomUUID()).isEmpty(), "mobs sin daño no tienen contribuidores");
+        });
+    }
+
+    @Test
+    void staleContributorsArePrunedAfterTtl() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            UUID mob = UUID.randomUUID();
+            UUID ana = UUID.randomUUID();
+            monopoly.recordDamage(mob, ana, "Ana", 100);
+
+            monopoly.pruneStaleContributors(100 + 20 * 60);
+            assertEquals(1, monopoly.contributorNames(mob).size(), "dentro de la ventana TTL se conserva");
+
+            monopoly.pruneStaleContributors(100 + 20 * 60 + 1);
+            assertTrue(monopoly.contributorNames(mob).isEmpty(), "pasada la ventana TTL se olvida");
+        });
+    }
+
+    @Test
+    void forgettingContributorsClearsTheRecord() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            UUID mob = UUID.randomUUID();
+            monopoly.recordDamage(mob, UUID.randomUUID(), "Ana", 100);
+            assertFalse(monopoly.contributorNames(mob).isEmpty());
+
+            monopoly.forgetContributors(mob);
+            assertTrue(monopoly.contributorNames(mob).isEmpty());
+        });
+    }
+
+    @Test
+    void bountyShareSplitsEquallyAmongContributors() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            assertEquals(33.33, MonopolyManager.bountyShare(100.0, 3), 0.001, "resto de céntimos no se acuña");
+            assertEquals(50.0, MonopolyManager.bountyShare(100.0, 2), 0.001);
+            assertEquals(100.0, MonopolyManager.bountyShare(100.0, 1), 0.001);
+            assertEquals(0.0, MonopolyManager.bountyShare(100.0, 0), 0.001);
+        });
+    }
+
+    @Test
+    void endingTheEventClearsTrackedContributors() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "se_busca");
+
+            UUID mob = UUID.randomUUID();
+            monopoly.recordDamage(mob, UUID.randomUUID(), "Ana", 100);
+            assertFalse(monopoly.contributorNames(mob).isEmpty());
+
+            monopoly.endNow(server);
+            assertTrue(monopoly.contributorNames(mob).isEmpty(), "al terminar el evento no quedan contribuidores huérfanos");
         });
     }
 }
