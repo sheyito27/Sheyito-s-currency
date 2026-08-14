@@ -16,8 +16,17 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [tiendas](docs/features/tiendasAutomaticas.md),
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
-[compra de XP](docs/features/compraXP.md). El roadmap de features
-pendientes vive en [`docs/proposals.md`](docs/proposals.md) y [`docs/DESIGN.md`](docs/DESIGN.md).
+[compra de XP](docs/features/compraXP.md).
+
+Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
+vez en su propia ficha en vez de repetido en cada feature que lo usa:
+[config autogenerada](docs/features/patronConfig.md),
+[comandos con Brigadier](docs/features/patronComandos.md),
+[manager con ciclo de vida](docs/features/patronManager.md),
+[invitación pendiente](docs/features/patronInvitacionPendiente.md),
+[validar luego mutar](docs/features/patronValidarLuegoMutar.md).
+
+El roadmap de features pendientes vive en [`docs/proposals.md`](docs/proposals.md).
 
 ## Requisitos de compilación
 
