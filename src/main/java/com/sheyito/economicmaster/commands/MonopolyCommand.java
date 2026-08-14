@@ -80,7 +80,10 @@ public final class MonopolyCommand {
         return switch (type) {
             case SALARY_MULTIPLIER -> "salarios " + String.format(Locale.US, "x%.2f", monopoly.salaryMultiplier());
             case QUEST_REWARD_MULTIPLIER -> "misiones " + String.format(Locale.US, "x%.2f", monopoly.questRewardMultiplier());
-            case MOB_WANTED -> "mob buscado: " + monopoly.wantedMob() + " (" + Money.format(monopoly.wantedBounty()) + ")";
+            case MOB_WANTED -> "mob buscado: " + monopoly.wantedMob() + " (" + Money.format(monopoly.wantedBounty())
+                    + (monopoly.mobWantedMaxKills() > 0
+                        ? ", " + monopoly.currentMobKills() + "/" + monopoly.mobWantedMaxKills() + " muertes" : "")
+                    + ")" + (monopoly.mobBountyExhausted() ? " — recompensa agotada" : "");
             case HOUSE_COINFLIP -> "cara o cruz, comision " + String.format(Locale.US, "%.1f", monopoly.houseCommission() * 100) + "%";
             case null -> "desconocido";
         };
