@@ -14,5 +14,6 @@ public class CommandRegistrar {
         EcoCommand.register(event.getDispatcher());
         EconomicMasterCommand.register(event.getDispatcher());
         TradeCommand.register(event.getDispatcher());
+        BuyCommand.register(event.getDispatcher());
     }
 }
