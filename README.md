@@ -4,6 +4,20 @@ Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyic
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
+## Documentación técnica
+
+Cada feature tiene su propia ficha explicando su diseño en lenguaje natural (qué es, por qué se
+hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
+[saldo y ranking](docs/features/saldoYRanking.md),
+[salario diario](docs/features/salarioDiario.md),
+[`/pay`](docs/features/pagosP2P.md),
+[`/trade`](docs/features/tradeSeguro.md),
+[suscripciones](docs/features/suscripcionesP2P.md),
+[tiendas](docs/features/tiendasAutomaticas.md),
+[caza de mobs](docs/features/cazaDeMobs.md),
+[integración FTB Quests](docs/features/integracionFtbQuests.md). El roadmap de features
+pendientes vive en [`docs/proposals.md`](docs/proposals.md) y [`docs/DESIGN.md`](docs/DESIGN.md).
+
 ## Requisitos de compilación
 
 - JDK 21
