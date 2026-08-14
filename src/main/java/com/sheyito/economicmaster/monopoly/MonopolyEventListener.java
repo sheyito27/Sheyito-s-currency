@@ -31,7 +31,7 @@ public class MonopolyEventListener {
             return;
         }
         MonopolyManager monopoly = MonopolyManager.get();
-        if (EconomyManager.get() == null || monopoly == null || !monopoly.isMobWanted()) {
+        if (EconomyManager.get() == null || monopoly == null || !monopoly.mobWantedPayoutActive()) {
             return;
         }
         if (event.getNewDamage() <= 0f) {
@@ -54,7 +54,7 @@ public class MonopolyEventListener {
             return;
         }
         MonopolyManager monopoly = MonopolyManager.get();
-        if (EconomyManager.get() == null || monopoly == null || !monopoly.isMobWanted()) {
+        if (EconomyManager.get() == null || monopoly == null || !monopoly.mobWantedPayoutActive()) {
             return;
         }
         String entityId = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString();
@@ -86,5 +86,6 @@ public class MonopolyEventListener {
                 TransactionSounds.success(target);
             }
         }
+        monopoly.onMobWantedKilled(level.getServer());
     }
 }
