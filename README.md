@@ -15,7 +15,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [suscripciones](docs/features/suscripcionesP2P.md),
 [tiendas](docs/features/tiendasAutomaticas.md),
 [caza de mobs](docs/features/cazaDeMobs.md),
-[integración FTB Quests](docs/features/integracionFtbQuests.md). El roadmap de features
+[integración FTB Quests](docs/features/integracionFtbQuests.md),
+[compra de XP](docs/features/compraXP.md). El roadmap de features
 pendientes vive en [`docs/proposals.md`](docs/proposals.md) y [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Requisitos de compilación
@@ -38,6 +39,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `quests_rewards.json` — un único importe fijo (`amount`, 10 por defecto) que paga toda misión de FTB Quests, automáticamente.
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
+  - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -48,6 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/bal level [jugador]` — muestra nivel, XP actual/necesaria para el siguiente nivel y tu salario diario actual (el tuyo o el de otro jugador).
 - `/baltop [pagina]` — ranking de saldos con el dinero de cada uno, top 10 por página.
 - `/pay <jugador> <cantidad>` — transfiere saldo a otro jugador.
+- `/buy xp <cantidad>` — compra puntos de experiencia vanilla de Minecraft con Sheyicoins (no tiene relación con el nivel de salario).
 - `/subscribe offer <precio>` — te conviertes en vendedor: ofreces un servicio de suscripción a tu propio precio.
 - `/subscribe <jugador>` — te suscribes al servicio de ese jugador (te cobra el primer periodo al instante).
 - `/subscribe` — muestra tu suscripción activa (si le pagas a alguien) y tu oferta (si vendes algo, con el número de suscriptores).

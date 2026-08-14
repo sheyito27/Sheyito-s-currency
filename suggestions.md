@@ -28,7 +28,7 @@ Al completar e implementar y validar un punto, se marca `[X]` aquí (y también 
 - [ ] Ofertas flash: Descuentos temporales con temporizador en gacha, XP y conveniencias.
 - [ ] Subastas de embargo y remates: Bienes embargados y exclusivos subastados a la comunidad.
 - [ ] Apuestas P2P: Retar a otro jugador a un coinflip con comisión del 3% para el banco.
-- [ ] Compra de XP: Intercambio directo de Sheyicoins por niveles de experiencia pura.
+- [X] Compra de XP: Intercambio directo de Sheyicoins por experiencia vanilla (`/buy xp`), 1:1 a propósito como sink.
 
 ## Salario
 

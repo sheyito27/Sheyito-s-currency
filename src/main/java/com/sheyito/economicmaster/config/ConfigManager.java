@@ -18,6 +18,7 @@ public final class ConfigManager {
     private static volatile QuestRewardsConfig questRewards;
     private static volatile SubscriptionsConfig subscriptions;
     private static volatile ShopConfig shop;
+    private static volatile XpShopConfig xpShop;
 
     private ConfigManager() {
     }
@@ -38,6 +39,7 @@ public final class ConfigManager {
         questRewards = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("quests_rewards.json"), QuestRewardsConfig.class, QuestRewardsConfig::defaults);
         subscriptions = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("subscriptions.json"), SubscriptionsConfig.class, SubscriptionsConfig::defaults);
         shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
+        xpShop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("xp_shop.json"), XpShopConfig.class, XpShopConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -63,5 +65,9 @@ public final class ConfigManager {
 
     public static ShopConfig shop() {
         return shop;
+    }
+
+    public static XpShopConfig xpShop() {
+        return xpShop;
     }
 }
