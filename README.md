@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, deuda por muerte, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -16,7 +16,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [tiendas](docs/features/tiendasAutomaticas.md),
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
-[compra de XP](docs/features/compraXP.md).
+[compra de XP](docs/features/compraXP.md),
+[deuda por muerte](docs/features/deudaPorMuerte.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -49,6 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
+  - `debt.json` — penalización por muerte y plazo de la deuda (ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -69,9 +71,12 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
+- `/debt` — muestra tu deuda actual (importe, plazo, si está vencida).
+- `/debt player <jugador>` — consulta la deuda de cualquier otro jugador.
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
+- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo (deuda). Pensado para probar/forzar el mecanismo de deuda por muerte manualmente.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 
@@ -94,6 +99,20 @@ sheyitoscurrency reward @p 200
 ## Caza de mobs
 
 **Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si querés que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
+
+## Deuda por muerte
+
+Morir tiene un coste económico, con dos ramas según tu saldo en ese momento (`debt.json`,
+`balanceThreshold`, 500 SC por defecto):
+
+- **Saldo ≤ umbral:** penalización fija (`penaltyAmount`, 500 SC por defecto) que puede dejarte
+  en negativo — eso es la deuda, con un plazo estricto (`deadlineGameDays`, 1 día de juego por
+  defecto) para volver a saldo ≥ 0.
+- **Saldo > umbral:** se te cobra un porcentaje de tu patrimonio (`penaltyPercent`, 30% por
+  defecto) — nunca te deja en negativo.
+
+Consulta tu deuda con `/debt` (o `/debt player <jugador>` la de otro). Qué pasa si el plazo vence
+sin pagar está fuera de esta feature (es la futura feature de embargo del roadmap).
 
 ## Salario diario y niveles
 
@@ -153,12 +172,13 @@ com.sheyito.economicmaster
 ├── EconomicMaster.java           punto de entrada del mod (MODID = "sheyitoscurrency")
 ├── config/                       esquemas + carga/recarga de config/sheyitoscurrency/*.json
 ├── data/                         esquemas de los JSON de datos por-mundo
-├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned
+├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned/charge (sobregiro)
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
+├── debt/DebtManager              plazo de la deuda por muerte (días de juego)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
-├── events/                       LivingDeathEvent (caza), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
+├── events/                       LivingDeathEvent (caza, deuda por muerte), ciclo de vida del servidor
+├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /debt
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
