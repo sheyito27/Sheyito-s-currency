@@ -5,6 +5,7 @@ import com.sheyito.economicmaster.config.SalaryConfig;
 import com.sheyito.economicmaster.data.DataPaths;
 import com.sheyito.economicmaster.data.SalaryData;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.monopoly.MonopolyManager;
 import com.sheyito.economicmaster.util.GameTime;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.LevelCurve;
@@ -14,6 +15,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -95,12 +97,15 @@ public class SalaryManager {
                 EconomyManager economy = EconomyManager.get();
                 int level = economy.getLevel(uuid);
                 double amount = LevelCurve.salaryForLevel(level, config.baseSalary, config.maxSalary, config.maxLevel);
+                double multiplier = MonopolyManager.get() == null ? 1.0 : MonopolyManager.get().salaryMultiplier();
+                amount = Money.round(amount * multiplier);
 
                 economy.giveEarned(uuid, amount);
                 lastPayoutDay.put(uuid, currentDay);
                 dirty.set(true);
 
-                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fCobraste tu salario del dia " + currentDay + ": §e" + Money.format(amount) + " §f(nivel " + level + ")."));
+                String eventNote = multiplier != 1.0 ? " §6(x" + String.format(Locale.US, "%.2f", multiplier) + " por evento)" : "";
+                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fCobraste tu salario del dia " + currentDay + ": §e" + Money.format(amount) + " §f(nivel " + level + ")." + eventNote));
             }
         }
     }
