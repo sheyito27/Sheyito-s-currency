@@ -41,6 +41,7 @@ devuelven valores neutros si no hay evento activo del tipo correspondiente:
   registrar quién daña al mob buscado, y `LivingDeathEvent` para repartir el `bounty` extra por igual
   entre esos contribuidores (`giveEarned`, cuenta como XP ganada). Es independiente de la caza de
   `mobs.json`: el bounty se paga aunque la caza esté apagada y se suma a cualquier recompensa normal.
+  Una vez agotado el cupo de muertes (ver más abajo), deja de registrar daño y de pagar.
 
 ## Tipos de evento
 
@@ -48,7 +49,7 @@ devuelven valores neutros si no hay evento activo del tipo correspondiente:
 |---|---|---|
 | `SALARY_MULTIPLIER` | `multipliers` | El salario diario se multiplica por un valor de la lista. |
 | `QUEST_REWARD_MULTIPLIER` | `multipliers` | Las recompensas de misiones se multiplican por un valor de la lista. |
-| `MOB_WANTED` | `mobs`, `bounty` | Se elige un mob de la lista; al morir, el `bounty` se reparte por igual entre todos los que lo dañaron. |
+| `MOB_WANTED` | `mobs`, `bounty`, `maxKills` | Se elige un mob de la lista; al morir, el `bounty` se reparte por igual entre todos los que lo dañaron, hasta un máximo de `maxKills` muertes pagadas por evento (0 = sin límite). |
 | `HOUSE_COINFLIP` | `commission`, `winChance` | Habilita `/monopoly coinflip`. |
 
 Un evento es "válido" para el sorteo solo si su `type` existe y tiene los campos que necesita
@@ -76,6 +77,18 @@ reparte por igual entre todos los jugadores que dañaron al mob.
   vagan sin morir), y al terminar el evento se limpia el registro completo.
 - Consecuencia: si un mob muere por el entorno (lava, caída) tras haber recibido daño de jugadores,
   sus contribuidores **sí** cobran el reparto; si nadie lo dañó, nadie cobra.
+
+**Cupo de muertes (`maxKills`).** Cada evento `MOB_WANTED` puede limitar cuántas muertes del mob
+pagadas admite: el campo `maxKills` (0 = sin límite, comportamiento original). Solo cuentan las
+muertes que de verdad pagaron (un mob que muere por el entorno sin contribuidores no gasta cupo).
+
+- El contador se lleva en `MonopolyManager.mobWantedKills`, se **persiste** en `monopoly_data.json`
+  (un reinicio no reabre el cupo ni re-sortea) y se reinicia con cada sorteo nuevo.
+- Al alcanzar el tope, `mobBountyExhausted()` pasa a `true` y se anuncia en el chat
+  ("La recompensa por X se ha agotado"). El evento **no termina**: sigue activo hasta el siguiente
+  sorteo, pero ya no paga ni registra daño.
+- `/monopoly status` muestra el cupo consumido: `mob buscado: minecraft:zombie (25.00 Sheyicoins,
+  3/5 muertes)` y añade "recompensa agotada" cuando toca. Sin `maxKills` no se muestra ningún contador.
 
 ## Cara o cruz contra La Casa
 
