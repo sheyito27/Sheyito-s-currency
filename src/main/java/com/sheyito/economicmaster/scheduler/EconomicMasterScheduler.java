@@ -1,6 +1,7 @@
 package com.sheyito.economicmaster.scheduler;
 
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.monopoly.MonopolyManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
 import com.sheyito.economicmaster.shop.ShopManager;
 import com.sheyito.economicmaster.subscription.SubscriptionManager;
@@ -34,9 +35,16 @@ public class EconomicMasterScheduler {
         SubscriptionManager.get().processDueCharges(event.getServer());
         SubscriptionManager.get().expireInvites(event.getServer());
 
+        if (MonopolyManager.get() != null) {
+            MonopolyManager.get().tick(event.getServer());
+        }
+
         EconomyManager.get().saveIfDirty();
         SalaryManager.get().saveIfDirty();
         SubscriptionManager.get().saveIfDirty();
         ShopManager.get().saveIfDirty();
+        if (MonopolyManager.get() != null) {
+            MonopolyManager.get().saveIfDirty();
+        }
     }
 }
