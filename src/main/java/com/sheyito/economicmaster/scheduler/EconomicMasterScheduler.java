@@ -32,6 +32,7 @@ public class EconomicMasterScheduler {
 
         SalaryManager.get().tick(event.getServer());
         SubscriptionManager.get().processDueCharges(event.getServer());
+        SubscriptionManager.get().expireInvites(event.getServer());
 
         EconomyManager.get().saveIfDirty();
         SalaryManager.get().saveIfDirty();
