@@ -8,30 +8,44 @@ import com.sheyito.economicmaster.util.GameTime;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
- * Fully player-to-player, direct-pledge subscriptions: any player can start paying another
- * player a chosen amount every intervalGameDays (subscriptions.json) via {@link #subscribe},
- * no advance "offer" step required. A player can hold any number of these simultaneously, both
- * as payer ({@link #providersFor}) and as recipient ({@link #clientsFor}). Billing runs off
- * in-game days via {@link GameTime}, so offline server time never counts.
+ * Fully player-to-player, direct-pledge subscriptions - but never charged unilaterally: running
+ * "/subscribe <jugador> <dinero> <tiempo> [descripcion]" only sends a proposal (see
+ * {@link #invite}), exactly like {@code /trade}. Nothing is charged and no recurring payment is
+ * created until the target player explicitly runs "/subscribe accept" ({@link #acceptInvite}),
+ * which is what actually calls {@link #subscribe}. A player can hold any number of active
+ * subscriptions simultaneously, both as payer ({@link #providersFor}) and as recipient
+ * ({@link #clientsFor}). Billing runs off in-game days via {@link GameTime}, so offline server
+ * time never counts.
  */
 public class SubscriptionManager {
 
+    private static final int INVITE_TIMEOUT_TICKS = 20 * 60;
+
     private static volatile SubscriptionManager instance;
+
+    /** A not-yet-accepted proposal, keyed by the UUID of whoever would pay. */
+    private record SubscriptionInvite(UUID receiverUuid, double price, int intervalGameDays, String description, long expiresAtTick) {
+    }
 
     private final Path file;
     private final List<PlayerSubscription> subscriptions = new CopyOnWriteArrayList<>();
+    private final Map<UUID, SubscriptionInvite> pendingInvites = new ConcurrentHashMap<>();
     private final AtomicBoolean dirty = new AtomicBoolean(false);
 
     private SubscriptionManager(Path file) {
@@ -92,10 +106,75 @@ public class SubscriptionManager {
     }
 
     /**
-     * Registers an agreement where {@code payer} pays {@code receiver} (the one running the
-     * command) - charging the first period immediately and renewing every
-     * {@code intervalGameDays} in-game days from then on. Returns false only if the payer can't
-     * afford it (the payer doesn't need to be online for this to work).
+     * Sends {@code payerUuid} a proposal to pay {@code receiver} - nothing is charged and no
+     * subscription exists until they run "/subscribe accept". A new invite to the same payer
+     * overwrites whatever was pending before, same as {@code TradeManager}.
+     */
+    public void invite(MinecraftServer server, ServerPlayer receiver, UUID payerUuid, double price, int intervalGameDays, String description) {
+        pendingInvites.put(payerUuid, new SubscriptionInvite(receiver.getUUID(), price, intervalGameDays, description, server.getTickCount() + INVITE_TIMEOUT_TICKS));
+
+        receiver.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fPropuesta de suscripcion enviada."));
+
+        ServerPlayer payerPlayer = server.getPlayerList().getPlayer(payerUuid);
+        if (payerPlayer != null) {
+            Component acceptButton = Component.literal("[Aceptar]")
+                    .withStyle(style -> style.withColor(ChatFormatting.GREEN)
+                            .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/subscribe accept")));
+            String suffix = description.isBlank() ? "" : " (" + description + ")";
+            payerPlayer.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + receiver.getGameProfile().getName() + " te propone que le pagues " + Money.format(price) + " cada " + Math.max(1, intervalGameDays) + " dias." + suffix + " ").append(acceptButton));
+        }
+    }
+
+    /**
+     * {@code payer} accepts their pending proposal - this is the only place {@link #subscribe}
+     * actually gets called from. Returns false if there was no pending invite, if the payer
+     * can't afford it, or if whoever sent the invite is no longer online. Only a successful
+     * accept consumes the invite - if it fails for insufficient funds, it stays pending so the
+     * payer can top up and retry instead of having to be re-invited.
+     */
+    public boolean acceptInvite(MinecraftServer server, ServerPlayer payer) {
+        SubscriptionInvite invite = pendingInvites.get(payer.getUUID());
+        if (invite == null) {
+            return false;
+        }
+        ServerPlayer receiver = server.getPlayerList().getPlayer(invite.receiverUuid());
+        if (receiver == null) {
+            payer.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fEse jugador ya no esta conectado."));
+            return false;
+        }
+
+        boolean success = subscribe(server, receiver, payer.getUUID(), invite.price(), invite.intervalGameDays(), invite.description());
+        if (success) {
+            pendingInvites.remove(payer.getUUID());
+            receiver.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + payer.getGameProfile().getName() + " acepto tu propuesta: te paga " + Money.format(Money.round(invite.price())) + " cada " + Math.max(1, invite.intervalGameDays()) + " dias."));
+        }
+        return success;
+    }
+
+    /** {@code payer} declines their pending proposal. Returns false if there was none. */
+    public boolean denyInvite(MinecraftServer server, ServerPlayer payer) {
+        SubscriptionInvite invite = pendingInvites.remove(payer.getUUID());
+        if (invite == null) {
+            return false;
+        }
+        ServerPlayer receiver = server.getPlayerList().getPlayer(invite.receiverUuid());
+        if (receiver != null) {
+            receiver.sendSystemMessage(Component.literal("§c[Sheyito's currency] §f" + payer.getGameProfile().getName() + " rechazo tu propuesta de suscripcion."));
+        }
+        return true;
+    }
+
+    /** Called periodically by the scheduler alongside {@link #processDueCharges}. */
+    public void expireInvites(MinecraftServer server) {
+        long now = server.getTickCount();
+        pendingInvites.entrySet().removeIf(entry -> entry.getValue().expiresAtTick() <= now);
+    }
+
+    /**
+     * Actually charges the first period and creates the recurring record. Only ever called from
+     * {@link #acceptInvite} - never directly from a command, so a payer's money can't move
+     * without them explicitly accepting. Returns false only if the payer can't afford it (the
+     * payer doesn't need to be online for this to work, e.g. when called mid-{@code accept}).
      */
     public boolean subscribe(MinecraftServer server, ServerPlayer receiver, UUID payer, double price, int intervalGameDays, String description) {
         double rounded = Money.round(price);
