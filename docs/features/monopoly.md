@@ -37,10 +37,10 @@ devuelven valores neutros si no hay evento activo del tipo correspondiente:
 - `SalaryManager.tick` multiplica el salario por `MonopolyManager.salaryMultiplier()` (1.0 si no
   aplica) y lo redondea con `Money.round`.
 - `FtbQuestsIntegration` multiplica la recompensa de misión por `questRewardMultiplier()`.
-- `MonopolyEventListener` (registrado en el bus de NeoForge) escucha `LivingDeathEvent`: si el evento
-  activo es `MOB_WANTED` y el mob muerto coincide con el sorteado, paga `bounty` extra
-  (`giveEarned`, cuenta como XP ganada). Es independiente de la caza de `mobs.json`: el bounty se
-  paga aunque la caza esté apagada y se suma a cualquier recompensa normal.
+- `MonopolyEventListener` (registrado en el bus de NeoForge) escucha `LivingDamageEvent.Pre` para
+  registrar quién daña al mob buscado, y `LivingDeathEvent` para repartir el `bounty` extra por igual
+  entre esos contribuidores (`giveEarned`, cuenta como XP ganada). Es independiente de la caza de
+  `mobs.json`: el bounty se paga aunque la caza esté apagada y se suma a cualquier recompensa normal.
 
 ## Tipos de evento
 
@@ -48,7 +48,7 @@ devuelven valores neutros si no hay evento activo del tipo correspondiente:
 |---|---|---|
 | `SALARY_MULTIPLIER` | `multipliers` | El salario diario se multiplica por un valor de la lista. |
 | `QUEST_REWARD_MULTIPLIER` | `multipliers` | Las recompensas de misiones se multiplican por un valor de la lista. |
-| `MOB_WANTED` | `mobs`, `bounty` | Se elige un mob de la lista; matarlo paga `bounty` extra por cada uno. |
+| `MOB_WANTED` | `mobs`, `bounty` | Se elige un mob de la lista; al morir, el `bounty` se reparte por igual entre todos los que lo dañaron. |
 | `HOUSE_COINFLIP` | `commission`, `winChance` | Habilita `/monopoly coinflip`. |
 
 Un evento es "válido" para el sorteo solo si su `type` existe y tiene los campos que necesita
@@ -56,6 +56,26 @@ Un evento es "válido" para el sorteo solo si su `type` existe y tiene los campo
 
 > **WINDFALL** (lluvia de dinero a todos los jugadores conectados) está **planeado pero no
 > implementado**: queda documentado como comentario en `EventType.java` y `MonopolyConfig.java`.
+
+## Reparto del bounty del mob buscado
+
+Durante un evento `MOB_WANTED`, el bounty **no** lo cobra solo quien da la última estocada: se
+reparte por igual entre todos los jugadores que dañaron al mob.
+
+- Cada golpe válido se registra en `LivingDamageEvent.Pre` (el daño ya pasó armadura y reducciones,
+  así que un golpe bloqueado a 0 no cuenta). Da igual si es melé o a distancia: el atacante se obtiene
+  de `DamageSource.getEntity()`, que para proyectiles devuelve al jugador que disparó.
+- El registro es **por instancia de mob** (UUID de la entidad) y recuerda también el nombre de cada
+  contribuidor, así el cobro y el mensaje llegan aunque el jugador se haya ido antes de que el mob
+  muera.
+- Al morir el mob, cada contribuidor recibe `Money.round(bounty / nº de contribuidores)`. El resto de
+  céntimos que no divida exacto **no se acuña** (se quema), igual que el redondeo del resto del mod:
+  el dinero nunca se crea de más. Ejemplo: bounty 100 con 3 jugadores → 33.33 cada uno (99.99; el
+  0.01 restante no se crea).
+- La memoria se autolimpia: un mob que lleva 60s sin recibir daño se olvida (mobs que se despawnean o
+  vagan sin morir), y al terminar el evento se limpia el registro completo.
+- Consecuencia: si un mob muere por el entorno (lava, caída) tras haber recibido daño de jugadores,
+  sus contribuidores **sí** cobran el reparto; si nadie lo dañó, nadie cobra.
 
 ## Cara o cruz contra La Casa
 
