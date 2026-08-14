@@ -60,6 +60,7 @@ public class MonopolyConfig {
                 List.of(), List.of("minecraft:zombie", "minecraft:skeleton", "minecraft:creeper",
                         "minecraft:enderman", "minecraft:wither_skeleton", "minecraft:blaze"), 25.0, 0.05, 0.5,
                 "Se busca: %mob%. Matarlo otorga %bounty% extra por cada uno."));
+        list.get(list.size() - 1).maxKills = 5;
 
         list.add(new MonopolyEventEntry(
                 "cara_o_cruz", "HOUSE_COINFLIP", true, 5,
