@@ -1,6 +1,7 @@
 package com.sheyito.economicmaster.events;
 
 import com.sheyito.economicmaster.config.ConfigManager;
+import com.sheyito.economicmaster.debt.DebtManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
 import com.sheyito.economicmaster.shop.ShopManager;
@@ -21,6 +22,7 @@ public class ServerLifecycleHandler {
         SubscriptionManager.init(event.getServer());
         TradeManager.init(event.getServer());
         ShopManager.init(event.getServer());
+        DebtManager.init(event.getServer());
     }
 
     @SubscribeEvent
@@ -30,6 +32,7 @@ public class ServerLifecycleHandler {
         EconomyManager.shutdown();
         SalaryManager.shutdown();
         SubscriptionManager.shutdown();
+        DebtManager.shutdown();
     }
 
     @SubscribeEvent
