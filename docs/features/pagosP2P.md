@@ -2,35 +2,29 @@
 
 **Estado:** implementado.
 **Código relacionado:** `PayCommand.java`, `EconomyManager.pay()`.
+**Patrones:** [comandos](patronComandos.md), [validar luego mutar](patronValidarLuegoMutar.md).
 
 ## Qué es esto
 
-El comando más simple del mod: `/pay <jugador> <cantidad>` envía dinero de tu saldo al de otro
-jugador, al instante, sin confirmaciones ni GUI — como una transferencia bancaria directa.
+`/pay <jugador> <cantidad>` envía dinero de tu saldo al de otro jugador al instante, sin
+confirmaciones ni GUI.
 
 ## Cómo funciona
 
-Todo pasa por un único método, `EconomyManager.pay(from, to, amount)` (`EconomyManager.java:152-158`),
-que hace dos cosas en orden estricto: primero intenta **quitarle** el dinero al que paga
-(`take()`, que falla y no hace nada si no tiene saldo suficiente), y solo si eso funciona, se lo
-**da** al que recibe (`give()`). Esto evita que el dinero "se pierda" o "se duplique" si algo
-falla a medio camino: o se mueve completo, o no se mueve nada.
+`EconomyManager.pay(from, to, amount)` (`EconomyManager.java:152-158`) sigue
+[validar-luego-mutar](patronValidarLuegoMutar.md): `take()` primero, `give()` solo si eso tuvo
+éxito.
 
-El comando en sí (`PayCommand.java`) añade validaciones antes de siquiera intentar el pago: no
-puedes pagarte a ti mismo (línea 39-42), y si `pay()` devuelve que no había saldo suficiente, se
-avisa al jugador con un sonido de fallo en vez de silencio (`TransactionSounds.failure`, línea
-46). Si todo sale bien, tanto el que paga como el que recibe reciben un mensaje confirmando el
-movimiento (líneas 51,56), y quien recibe el pago se registra por nombre (`trackName`, línea 50)
-para que aparezca correctamente en `/baltop` aunque nunca antes hubiera tenido saldo.
+`PayCommand.java` valida antes de llamar: no puedes pagarte a ti mismo (líneas 39-42); si `pay()`
+falla por saldo insuficiente, mensaje + `TransactionSounds.failure` (línea 46). Si funciona,
+ambos jugadores reciben confirmación (líneas 51, 56) y el receptor se registra por nombre
+(`trackName`, línea 50) para aparecer en `/baltop` aunque nunca hubiera tenido saldo.
 
-Una decisión de diseño clave: `/pay` usa `give()`, no `giveEarned()` — quien recibe el pago **no**
-gana experiencia de nivel por ello (ver [salarioDiario.md](salarioDiario.md)). Si diera XP, dos
-jugadores podrían subir de nivel indefinidamente pasándose la misma moneda de un lado a otro sin
-generar riqueza real.
+Decisión de diseño: usa `give()`, no `giveEarned()` — el receptor no gana XP de nivel (ver
+[salario diario](salarioDiario.md)); si diera XP, dos jugadores podrían subir de nivel
+indefinidamente pasándose la misma moneda.
 
 ## Cómo se conecta con otras features
 
-Es el ejemplo más simple de cómo casi todo el mod comparte el mismo `EconomyManager` como única
-fuente de verdad del dinero (ver [saldoYRanking.md](saldoYRanking.md)) — el mismo patrón
-"validar todo, luego mutar" que usa `/pay` aquí se repite en `/trade`, las suscripciones y las
-tiendas.
+Ejemplo más simple de que todo el mod comparte `EconomyManager` como única fuente de verdad del
+dinero (ver [saldoYRanking.md](saldoYRanking.md)).
