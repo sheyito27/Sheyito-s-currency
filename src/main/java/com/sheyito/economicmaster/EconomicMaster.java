@@ -3,6 +3,7 @@ package com.sheyito.economicmaster;
 import com.mojang.logging.LogUtils;
 import com.sheyito.economicmaster.commands.CommandRegistrar;
 import com.sheyito.economicmaster.events.MobKillListener;
+import com.sheyito.economicmaster.events.PlayerDeathDebtListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
@@ -31,6 +32,7 @@ public class EconomicMaster {
     public EconomicMaster(IEventBus modEventBus, ModContainer modContainer) {
         NeoForge.EVENT_BUS.register(new ServerLifecycleHandler());
         NeoForge.EVENT_BUS.register(new MobKillListener());
+        NeoForge.EVENT_BUS.register(new PlayerDeathDebtListener());
         NeoForge.EVENT_BUS.register(new EconomicMasterScheduler());
         NeoForge.EVENT_BUS.register(new TradeScheduler());
         NeoForge.EVENT_BUS.register(new CommandRegistrar());
