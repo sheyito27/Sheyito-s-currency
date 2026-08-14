@@ -27,10 +27,11 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Backs /subscribe <jugador> <dinero> <tiempo> [descripcion] | providers | clients | cancel
- * <numero>. Running "/subscribe X ..." registers that X (the payer) pays the command's runner
- * (the receiver) - so {@link SubscriptionManager#subscribe} takes a receiver {@link ServerPlayer}
- * and a payer {@link UUID}, in that order, and charges the payer, not the receiver.
+ * Backs /subscribe <jugador> <dinero> <tiempo> [descripcion] | accept | deny | providers |
+ * clients | cancel <numero>. Running "/subscribe X ..." only sends X (the payer) a proposal to
+ * pay the command's runner (the receiver) - {@link SubscriptionManager#subscribe} (which takes a
+ * receiver {@link ServerPlayer} and a payer {@link UUID}, in that order, and charges the payer)
+ * is only ever reached through {@link SubscriptionManager#acceptInvite}.
  */
 class SubscriptionManagerTest {
 
@@ -214,6 +215,100 @@ class SubscriptionManagerTest {
             subscriptions.subscribe(server, otherReceiver, payerC, 10.0, 5, "");
 
             assertEquals(2, subscriptions.clientsFor(receiver.getUUID()).size());
+        });
+    }
+
+    @Test
+    void inviteDoesNotChargeUntilAccepted() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer payer = mockPlayer(UUID.randomUUID(), "Payer");
+            economy.give(payer.getUUID(), 100.0);
+            when(server.getPlayerList().getPlayer(payer.getUUID())).thenReturn(payer);
+
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "renta");
+
+            assertEquals(100.0, economy.getBalance(payer.getUUID()), "an invite alone must never charge anyone");
+            assertTrue(subscriptions.providersFor(payer.getUUID()).isEmpty());
+        });
+    }
+
+    @Test
+    void acceptInviteChargesAndCreatesSubscription() throws Exception {
+        withSubscriptions(5, 10, (subscriptions, economy, server) -> {
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer payer = mockPlayer(UUID.randomUUID(), "Payer");
+            economy.give(payer.getUUID(), 100.0);
+            when(server.getPlayerList().getPlayer(payer.getUUID())).thenReturn(payer);
+            when(server.getPlayerList().getPlayer(receiver.getUUID())).thenReturn(receiver);
+
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "renta");
+            assertTrue(subscriptions.acceptInvite(server, payer));
+
+            assertEquals(50.0, economy.getBalance(payer.getUUID()));
+            assertEquals(50.0, economy.getBalance(receiver.getUUID()));
+            List<PlayerSubscription> providers = subscriptions.providersFor(payer.getUUID());
+            assertEquals(1, providers.size());
+            assertEquals(15L, providers.get(0).nextChargeGameDay, "day 10 + 5 day interval");
+        });
+    }
+
+    @Test
+    void acceptInviteFailsWithNoPendingInvite() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) ->
+                assertFalse(subscriptions.acceptInvite(server, mockPlayer(UUID.randomUUID(), "Payer"))));
+    }
+
+    @Test
+    void acceptInviteLeavesTheInvitePendingWhenThePayerCantAfford() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer payer = mockPlayer(UUID.randomUUID(), "Payer");
+            when(server.getPlayerList().getPlayer(receiver.getUUID())).thenReturn(receiver);
+            // payer has 0 balance
+
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
+            assertFalse(subscriptions.acceptInvite(server, payer));
+
+            economy.give(payer.getUUID(), 50.0);
+            assertTrue(subscriptions.acceptInvite(server, payer), "a failed accept must not consume the invite - retrying after topping up should work");
+        });
+    }
+
+    @Test
+    void denyInviteRemovesItWithoutCharging() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer payer = mockPlayer(UUID.randomUUID(), "Payer");
+            economy.give(payer.getUUID(), 100.0);
+
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
+            assertTrue(subscriptions.denyInvite(server, payer));
+
+            assertEquals(100.0, economy.getBalance(payer.getUUID()));
+            assertFalse(subscriptions.acceptInvite(server, payer), "a denied invite must no longer be acceptable");
+        });
+    }
+
+    @Test
+    void denyInviteOnNonExistentReturnsFalse() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) ->
+                assertFalse(subscriptions.denyInvite(server, mockPlayer(UUID.randomUUID(), "Payer"))));
+    }
+
+    @Test
+    void expireInvitesRemovesOldOnes() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            ServerPlayer payer = mockPlayer(UUID.randomUUID(), "Payer");
+            when(server.getTickCount()).thenReturn(0);
+
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
+
+            when(server.getTickCount()).thenReturn(20 * 60 + 1);
+            subscriptions.expireInvites(server);
+
+            assertFalse(subscriptions.acceptInvite(server, payer), "an expired invite must no longer be acceptable");
         });
     }
 }
