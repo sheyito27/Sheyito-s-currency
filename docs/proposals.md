@@ -51,3 +51,4 @@
 
 - [ ] **Voz**: El banquero narra cada cobro, embargo y evento con estilo propio.
 - [ ] **Cartas Chance de sabor**: Eventos raros de bajo impacto con texto narrativo.
+- [ ] **Destruir el mundo**: Sí.
