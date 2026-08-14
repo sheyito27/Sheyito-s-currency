@@ -15,19 +15,31 @@ import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 /**
  * Awards money for killing whitelisted entities, driven entirely by
- * config/sheyitoscurrency/mobs.json. Fires only on the logical server (LivingDeathEvent
- * is a server-only event), so this mod needs no isClientSide checks here.
+ * config/sheyitoscurrency/mobs.json.
+ *
+ * <p>{@code LivingDeathEvent} is not actually server-only - it also fires on the logical
+ * client whenever the client locally runs {@code LivingEntity#die} (e.g. reacting to a
+ * death-related entity data packet before/without full server confirmation). Since this mod
+ * is meant to be server-side only, a player who mistakenly also drops the jar into their own
+ * client mods folder would otherwise crash the instant any nearby mob died, because
+ * {@link ConfigManager#load()} is only ever called from {@code ServerStartingEvent} and so
+ * every {@code ConfigManager} getter stays {@code null} on a pure client. Bailing out on the
+ * client side, plus a null-safety check on the config itself, closes that off completely.
  */
 public class MobKillListener {
 
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
-        MobRewardsConfig config = ConfigManager.mobRewards();
-        if (!config.enabled || EconomyManager.get() == null) {
+        LivingEntity victim = event.getEntity();
+        if (victim.level().isClientSide()) {
             return;
         }
 
-        LivingEntity victim = event.getEntity();
+        MobRewardsConfig config = ConfigManager.mobRewards();
+        if (config == null || !config.enabled || EconomyManager.get() == null) {
+            return;
+        }
+
         if (victim instanceof ServerPlayer) {
             return;
         }
