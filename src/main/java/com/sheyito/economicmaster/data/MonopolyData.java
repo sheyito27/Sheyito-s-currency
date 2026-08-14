@@ -24,6 +24,9 @@ public class MonopolyData {
     /** Mob ya sorteado para el evento activo; {@code null} si el tipo no lo usa. */
     public String currentMob = null;
 
+    /** Muertes del mob buscado que ya pagaron bounty en el evento activo (tipo MOB_WANTED). */
+    public int currentMobKills = 0;
+
     public static MonopolyData empty() {
         return new MonopolyData();
     }
