@@ -121,6 +121,8 @@ sorteo:
   `QUEST_REWARD_MULTIPLIER` eligen un multiplicador al azar de la lista `multipliers` del evento.
 - **Mob buscado**: `MOB_WANTED` elige un mob al azar de la lista `mobs`; al morir, el `bounty` se
   reparte por igual entre todos los jugadores que lo dañaron (independiente de la caza de `mobs.json`).
+  El evento admite un tope `maxKills` de muertes pagadas (5 por defecto; 0 = sin límite): al agotarlo
+  deja de pagar, pero el evento sigue activo hasta el siguiente sorteo.
 - **Cara o cruz contra La Casa**: `HOUSE_COINFLIP` habilita `/monopoly coinflip`. Apostar cuesta
   `cantidad × (1 + commission)` (la comisión se quema como sink) y con probabilidad `winChance`
   (50%) se gana el doble de la apuesta. Se puede retar a otro jugador, que acepta con
