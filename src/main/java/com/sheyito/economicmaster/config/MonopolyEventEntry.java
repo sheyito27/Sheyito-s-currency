@@ -1,0 +1,72 @@
+package com.sheyito.economicmaster.config;
+
+import java.util.List;
+
+/**
+ * Una entrada de la lista de eventos de monopoly.json. Todos los campos son públicos y
+ * opcionales según el {@code type}: cada evento solo lee los campos que le corresponden, así
+ * que el JSON es una lista plana de objetos con los mismos campos (los que no apliquen se
+ * ignoran o usan su valor por defecto).
+ *
+ * <p>Tipos soportados (ver {@link com.sheyito.economicmaster.monopoly.EventType}):
+ * <ul>
+ *   <li>{@code SALARY_MULTIPLIER} / {@code QUEST_REWARD_MULTIPLIER}: usan {@link #multipliers}
+ *       — el multiplicador activo se elige al azar de esa lista en el momento del roll.</li>
+ *   <li>{@code MOB_WANTED}: usa {@link #mobs} (lista de ids de entidad) y {@link #bounty} —
+ *       se elige un mob al azar de la lista y matarlo otorga la recompensa.</li>
+ *   <li>{@code HOUSE_COINFLIP}: usa {@link #commission} (comision de La Casa) y {@link #winChance}.</li>
+ * </ul>
+ *
+ * <p>WINDFALL (lluvia de dinero a todos los jugadores conectados) está planeado pero todavía
+ * no implementado — se deja solo como referencia para no perder la idea.
+ */
+public class MonopolyEventEntry {
+
+    /** Identificador único del evento (se persiste en monopoly_data.json). */
+    public String id;
+
+    /** Nombre del {@link com.sheyito.economicmaster.monopoly.EventType}. */
+    public String type;
+
+    /** Interruptor individual: un evento desactivado nunca se sortea ni se puede forzar. */
+    public boolean enabled = true;
+
+    /** Peso para el sorteo ponderado. {@code <= 0} excluye al evento del sorteo. */
+    public double weight = 1.0;
+
+    /** Lista de multiplicadores de la que se elige uno al azar (tipos de multiplicador). */
+    public List<Double> multipliers = List.of();
+
+    /** Lista de ids de entidad de la que se elige el "mob buscado" (tipo MOB_WANTED). */
+    public List<String> mobs = List.of();
+
+    /** Recompensa extra por cada kill del mob buscado (tipo MOB_WANTED). */
+    public double bounty = 0.0;
+
+    /** Comision de La Casa sobre cada apuesta, en tanto por uno (tipo HOUSE_COINFLIP). */
+    public double commission = 0.05;
+
+    /** Probabilidad de ganar en el cara o cruz (0..1), por defecto 50%. */
+    public double winChance = 0.5;
+
+    /** Mensaje de chat personalizado al activarse el evento. Tokens: %multiplier%, %mob%, %bounty%, %commission%. */
+    public String message = "";
+
+    public MonopolyEventEntry() {
+    }
+
+    public MonopolyEventEntry(String id, String type, boolean enabled, double weight,
+                              List<Double> multipliers, List<String> mobs, double bounty,
+                              double commission, double winChance, String message) {
+        this.id = id;
+        this.type = type;
+        this.enabled = enabled;
+        this.weight = weight;
+        this.multipliers = multipliers;
+        this.mobs = mobs;
+        this.bounty = bounty;
+        this.commission = commission;
+        this.winChance = winChance;
+        this.message = message;
+    }
+}
