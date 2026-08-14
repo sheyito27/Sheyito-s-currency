@@ -96,6 +96,12 @@ class MonopolyManagerTest {
         return new MonopolyEventEntry(id, "MOB_WANTED", true, 10, List.of(), mobs, bounty, 0.05, 0.5, "");
     }
 
+    private static MonopolyEventEntry mobEvent(String id, List<String> mobs, double bounty, int maxKills) {
+        MonopolyEventEntry entry = mobEvent(id, mobs, bounty);
+        entry.maxKills = maxKills;
+        return entry;
+    }
+
     @Test
     void noActiveEventReturnsNeutralMultipliers() throws Exception {
         MonopolyConfig config = new MonopolyConfig();
@@ -181,6 +187,62 @@ class MonopolyManagerTest {
             assertEquals("minecraft:zombie", monopoly.wantedMob());
             assertEquals(25.0, monopoly.wantedBounty());
             assertFalse(monopoly.isCoinflipActive());
+        });
+    }
+
+    @Test
+    void mobWantedCapStopsPayoutWhenExhaustedWithoutEndingEvent() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0, 5));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "se_busca");
+            assertTrue(monopoly.mobWantedPayoutActive());
+
+            for (int i = 1; i <= 4; i++) {
+                monopoly.onMobWantedKilled(server);
+                assertTrue(monopoly.mobWantedPayoutActive(), "antes del cupo se sigue pagando");
+                assertEquals(i, monopoly.currentMobKills());
+            }
+
+            monopoly.onMobWantedKilled(server);
+            assertFalse(monopoly.mobWantedPayoutActive(), "al agotar el cupo deja de pagar");
+            assertTrue(monopoly.mobBountyExhausted());
+            assertTrue(monopoly.isActive(), "el evento no termina al agotarse el cupo");
+            assertTrue(monopoly.isMobWanted());
+            assertEquals(5, monopoly.currentMobKills());
+        });
+    }
+
+    @Test
+    void mobWantedCapZeroMeansUnlimited() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0, 0));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "se_busca");
+
+            for (int i = 0; i < 100; i++) {
+                monopoly.onMobWantedKilled(server);
+            }
+            assertFalse(monopoly.mobBountyExhausted(), "maxKills 0 = sin limite");
+            assertTrue(monopoly.mobWantedPayoutActive());
+            assertEquals(100, monopoly.currentMobKills());
+        });
+    }
+
+    @Test
+    void mobWantedKillsResetOnNewRoll() throws Exception {
+        MonopolyConfig config = configWith(mobEvent("se_busca", List.of("minecraft:zombie"), 25.0, 5));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "se_busca");
+            monopoly.onMobWantedKilled(server);
+            monopoly.onMobWantedKilled(server);
+            monopoly.onMobWantedKilled(server);
+            assertEquals(3, monopoly.currentMobKills());
+
+            monopoly.forceRoll(server, "se_busca");
+            assertEquals(0, monopoly.currentMobKills(), "un re-sorteo reinicia el cupo");
+            assertTrue(monopoly.mobWantedPayoutActive());
         });
     }
 
