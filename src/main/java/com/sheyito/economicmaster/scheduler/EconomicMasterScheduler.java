@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.scheduler;
 
+import com.sheyito.economicmaster.debt.DebtManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
 import com.sheyito.economicmaster.shop.ShopManager;
@@ -38,5 +39,6 @@ public class EconomicMasterScheduler {
         SalaryManager.get().saveIfDirty();
         SubscriptionManager.get().saveIfDirty();
         ShopManager.get().saveIfDirty();
+        DebtManager.get().saveIfDirty();
     }
 }
