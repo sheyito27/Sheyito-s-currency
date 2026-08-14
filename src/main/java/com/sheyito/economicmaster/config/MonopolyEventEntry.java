@@ -12,8 +12,9 @@ import java.util.List;
  * <ul>
  *   <li>{@code SALARY_MULTIPLIER} / {@code QUEST_REWARD_MULTIPLIER}: usan {@link #multipliers}
  *       — el multiplicador activo se elige al azar de esa lista en el momento del roll.</li>
- *   <li>{@code MOB_WANTED}: usa {@link #mobs} (lista de ids de entidad) y {@link #bounty} —
- *       se elige un mob al azar de la lista y matarlo otorga la recompensa.</li>
+ *   <li>{@code MOB_WANTED}: usa {@link #mobs} (lista de ids de entidad), {@link #bounty} y
+ *       {@link #maxKills} (0 = sin límite) — se elige un mob al azar de la lista y matarlo otorga
+ *       la recompensa hasta que se agote el cupo.</li>
  *   <li>{@code HOUSE_COINFLIP}: usa {@link #commission} (comision de La Casa) y {@link #winChance}.</li>
  * </ul>
  *
@@ -42,6 +43,9 @@ public class MonopolyEventEntry {
 
     /** Recompensa extra por cada kill del mob buscado (tipo MOB_WANTED). */
     public double bounty = 0.0;
+
+    /** Límite de muertes del mob buscado que pagan bounty en un evento; 0 = sin límite (tipo MOB_WANTED). */
+    public int maxKills = 0;
 
     /** Comision de La Casa sobre cada apuesta, en tanto por uno (tipo HOUSE_COINFLIP). */
     public double commission = 0.05;
