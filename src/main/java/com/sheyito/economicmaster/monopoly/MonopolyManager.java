@@ -66,6 +66,9 @@ public class MonopolyManager {
     private Double currentMultiplier = null;
     private String currentMob = null;
 
+    /** Muertes del mob buscado que ya pagaron bounty en el evento activo (tipo MOB_WANTED). */
+    private int mobWantedKills = 0;
+
     /** Fuente de números aleatorios uniformes en [0,1) — inyectable para los tests. */
     private Supplier<Double> rng = () -> ThreadLocalRandom.current().nextDouble();
 
@@ -116,6 +119,7 @@ public class MonopolyManager {
         currentEventId = data.currentEventId;
         currentMultiplier = data.currentMultiplier;
         currentMob = data.currentMob;
+        mobWantedKills = Math.max(0, data.currentMobKills);
     }
 
     public void saveIfDirty() {
@@ -130,6 +134,7 @@ public class MonopolyManager {
         data.currentEventId = currentEventId;
         data.currentMultiplier = currentMultiplier;
         data.currentMob = currentMob;
+        data.currentMobKills = mobWantedKills;
         JsonFileUtil.save(file, data);
     }
 
@@ -195,6 +200,27 @@ public class MonopolyManager {
         return entry == null ? 0.0 : entry.bounty;
     }
 
+    /** Límite configurado de muertes del mob buscado que pagan en un evento; 0 = sin límite. */
+    public int mobWantedMaxKills() {
+        MonopolyEventEntry entry = currentEventConfig();
+        return entry == null ? 0 : Math.max(0, entry.maxKills);
+    }
+
+    /** Muertes del mob buscado que ya pagaron bounty en el evento activo. */
+    public int currentMobKills() {
+        return mobWantedKills;
+    }
+
+    /** true si matar al mob buscado sigue pagando bounty (no se ha agotado el cupo). */
+    public boolean mobWantedPayoutActive() {
+        return isMobWanted() && !mobBountyExhausted();
+    }
+
+    /** true si el cupo de muertes pagadas se agotó: el evento sigue activo pero ya no paga. */
+    public boolean mobBountyExhausted() {
+        return mobWantedMaxKills() > 0 && mobWantedKills >= mobWantedMaxKills();
+    }
+
     // ------------------------------------------------------------------
     // Contribuidores de daño del mob buscado (reparto del bounty)
     // ------------------------------------------------------------------
@@ -239,6 +265,19 @@ public class MonopolyManager {
             return 0.0;
         }
         return Money.round(bounty / contributors);
+    }
+
+    /**
+     * Registra una muerte pagada del mob buscado y, cuando se agota el cupo {@code maxKills},
+     * avisa de que la recompensa deja de pagar. El evento sigue activo hasta el siguiente sorteo.
+     */
+    public void onMobWantedKilled(MinecraftServer server) {
+        mobWantedKills++;
+        dirty.set(true);
+        if (!mobBountyExhausted()) {
+            return;
+        }
+        broadcast(server, "La recompensa por " + friendlyMobName(currentMob) + " se ha agotado; ya no paga hasta el proximo evento.");
     }
 
     /** true si el evento activo habilita el cara o cruz contra La Casa. */
@@ -324,6 +363,7 @@ public class MonopolyManager {
         currentEventId = chosen.id;
         currentMultiplier = resolveMultiplier(chosen);
         currentMob = resolveMob(chosen);
+        mobWantedKills = 0;
         dirty.set(true);
 
         broadcast(server, "¡EVENTO! " + formatMessage(chosen));
@@ -357,11 +397,13 @@ public class MonopolyManager {
     private void clearEvent() {
         if (currentEventId == null && currentMultiplier == null && currentMob == null) {
             damageContributors.clear();
+            mobWantedKills = 0;
             return;
         }
         currentEventId = null;
         currentMultiplier = null;
         currentMob = null;
+        mobWantedKills = 0;
         damageContributors.clear();
         dirty.set(true);
     }
