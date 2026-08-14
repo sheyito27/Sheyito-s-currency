@@ -5,6 +5,7 @@ import com.sheyito.economicmaster.commands.CommandRegistrar;
 import com.sheyito.economicmaster.events.MobKillListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
+import com.sheyito.economicmaster.monopoly.MonopolyEventListener;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
 import com.sheyito.economicmaster.shop.ShopCreationTracker;
 import com.sheyito.economicmaster.shop.ShopProtectionListener;
@@ -37,6 +38,7 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopCreationTracker());
         NeoForge.EVENT_BUS.register(new ShopTradeListener());
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
+        NeoForge.EVENT_BUS.register(new MonopolyEventListener());
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
 
