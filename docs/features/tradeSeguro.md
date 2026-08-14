@@ -2,53 +2,39 @@
 
 **Estado:** implementado.
 **Código relacionado:** `TradeCommand.java`, `TradeManager.java`, `TradeSession.java`, `TradeMenu.java`, `TradeScheduler.java`.
+**Patrones:** [invitación pendiente](patronInvitacionPendiente.md), [manager con ciclo de vida](patronManager.md), [comandos](patronComandos.md), [validar luego mutar](patronValidarLuegoMutar.md).
 
 ## Qué es esto
 
-Un intercambio de ítems (y opcionalmente dinero) entre dos jugadores, con una ventana compartida
-tipo cofre, diseñado para que **nadie pueda estafar a nadie**: ninguno de los dos puede llevarse
-lo del otro sin que el intercambio se complete de verdad para ambos a la vez.
+Intercambio de ítems (y opcionalmente dinero) entre dos jugadores con ventana compartida tipo
+cofre: ninguno puede llevarse lo del otro sin que el intercambio se complete para ambos a la vez.
 
 ## Cómo funciona
 
-**La invitación.** `/trade <jugador> [dinero] [mensaje]` (`TradeCommand.java`) no abre ninguna
-ventana todavía — solo registra una invitación pendiente en `TradeManager`
-(`TradeManager.java:74-86`) y le manda al destino un mensaje con un botón clicable "[Aceptar]"
-(usando un `ClickEvent` de Minecraft que ejecuta `/trade accept` por él). El dinero, si lo hay, se
-fija **en este momento** y ya no se puede cambiar dentro de la ventana — solo los ítems son
-negociables ahí dentro.
+**Invitación:** sigue el [patrón de invitación pendiente](patronInvitacionPendiente.md)
+(`TradeManager.invite`, `TradeManager.java:74-86`). El dinero ofrecido, si lo hay, se fija **en
+ese momento** y no es negociable dentro de la ventana — solo los ítems lo son.
 
-**Al aceptar.** `TradeManager.accept()` (`TradeManager.java:88-114`) crea una `TradeSession` —el
-estado compartido del intercambio— y abre una ventana (`TradeMenu`) para cada jugador. Aquí está
-el truco que hace que sea seguro sin escribir sincronización de red a mano: ambas ventanas
-apuntan a los **mismos objetos contenedor** en memoria (`SimpleContainer` de Minecraft), solo que
-intercambiados ("mi fila" para uno es "su fila" para el otro). Minecraft ya sincroniza
-automáticamente cualquier cambio en un contenedor a todos los que tienen una ventana abierta sobre
-él, así que ambos ven los mismos ítems en tiempo real sin que el mod tenga que enviar ningún
-paquete de red manualmente.
+**Al aceptar:** `TradeManager.accept()` (`TradeManager.java:88-114`) crea una `TradeSession` y
+abre una `TradeMenu` por jugador. Ambas ventanas apuntan a los mismos objetos `SimpleContainer`
+(intercambiados: "mi fila" para uno es "su fila" para el otro), así que la sincronización de
+inventario ya vanilla de Minecraft mantiene ambas vistas iguales sin red propia del mod.
 
-**Confirmar y la barra de progreso.** Cada jugador tiene un botón para confirmar su oferta. Si
-cualquiera de los dos **toca** su oferta después de confirmar, la confirmación se cancela
-automáticamente para ambos (`TradeSession.onOfferMutated`, línea 161) — así nadie puede confirmar,
-esperar a que el otro confirme, y cambiar su oferta en el último instante. Solo cuando **ambos**
-están confirmados a la vez (`isLocked()`, línea 102-104) empieza a llenarse una barra de progreso
-de ~3 segundos (`TradeSession.tick`, línea 176-190) antes de completar el intercambio de verdad —
-un pequeño margen para que cualquiera pueda cancelar si se arrepiente en el último segundo.
+**Confirmar:** tocar la oferta después de confirmar cancela la confirmación de ambos
+(`TradeSession.onOfferMutated`, línea 161) — nadie puede confirmar y cambiar de última hora.
+Con ambos confirmados (`isLocked()`, línea 102-104), una barra de progreso de ~3s
+(`TradeSession.tick`, líneas 176-190) precede a la finalización, como margen para cancelar.
 
-**Al completar.** El dinero pactado se cobra en este momento exacto, no antes (línea 199-220) —
-es la única parte del intercambio que puede fallar incluso después de que ambos confirmaron, si
-el saldo del que ofrecía dinero cambió mientras tanto (p. ej. lo gastó en otra cosa a la vez). Si
-eso pasa, el intercambio entero se cancela y todos los ítems vuelven a su dueño original — nunca
-se completa "a medias".
+**Completar:** el dinero se cobra en este instante exacto (línea 199-220), no antes — es el único
+punto que puede fallar tras la doble confirmación, si el saldo de quien ofrecía dinero cambió
+mientras tanto. Si falla, el intercambio entero se cancela y los ítems vuelven a su dueño
+original (nunca a medias — [validar luego mutar](patronValidarLuegoMutar.md)).
 
-**Nada se guarda en disco.** Toda la negociación vive solo en memoria mientras dura (`TradeManager`
-y `TradeSession` no tocan `JsonFileUtil` en ningún momento) — es una negociación en vivo, no un
-estado que tenga sentido recuperar tras un reinicio del servidor.
+**Sin persistencia:** ver la excepción de `TradeManager` en el
+[patrón de manager](patronManager.md) — una negociación en curso no sobrevive un reinicio.
 
 ## Cómo se conecta con otras features
 
-Usa `EconomyManager.take()`/`give()` igual que `/pay`, y comparte el mismo patrón de invitación
-pendiente + expiración por tiempo que usan las [suscripciones](suscripcionesP2P.md)
-(`TradeManager.INVITE_TIMEOUT_TICKS`). `TradeScheduler` corre cada tick del servidor (a diferencia
-del scheduler económico general, que corre cada ~30s) porque la barra de progreso necesita
+Usa `EconomyManager.take()`/`give()` igual que [`/pay`](pagosP2P.md). `TradeScheduler` corre cada
+tick (no cada ~30s como el scheduler económico general) porque la barra de progreso necesita
 resolución fina.

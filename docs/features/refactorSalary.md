@@ -20,7 +20,7 @@ falta para llegar ahí.
 
 ## Por qué se hizo este cambio
 
-El diseño general del mod (ver `docs/DESIGN.md`) busca que el dinero circule bajo presión
+El diseño general del mod busca que el dinero circule bajo presión
 constante, no que se acumule sin límite. Un techo de 500 SC/día hacía que, una vez un jugador
 llegaba a nivel alto, el salario por sí solo generara mucho dinero fácil, entrando en tensión
 con la filosofía de "nada se imprime sin que algo queme". Bajar el techo a 100 y, a la vez,
