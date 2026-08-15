@@ -45,9 +45,9 @@ public final class EcoCommand {
 
     /**
      * {@code CHARGE} is the only admin-facing operation that can leave a player's balance
-     * negative - the same {@code EconomyManager.charge} used by the waystone toll (see
-     * {@code integration.WaystoneTollLogic}). Useful to manually reproduce/test that without
-     * needing Waystones installed.
+     * negative. Nothing else in the mod uses this today - the waystone toll blocks instead of
+     * overdrawing (see {@code integration.WaystoneTollLogic}). Preserved for testing edge cases
+     * and for a future feature that needs negative balances (e.g. mandatory recurring payments).
      */
     private enum Operation { GIVE, TAKE, SET, CHARGE }
 
