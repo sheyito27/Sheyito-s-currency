@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), cobro por reclamar chunks con **FTB Chunks**, IVA de transmisión que quema parte de cada pago/trade/compra/suscripción, embargo de equipo si te quedas en deuda, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), cobro por reclamar chunks con **FTB Chunks**, IVA de transmisión que quema parte de cada pago/trade/compra/suscripción, embargo de equipo si te quedas en deuda, renta progresiva semanal sobre ganancias y renta de force-load de chunks, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -22,7 +22,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md),
 [renta de chunks (FTB Chunks)](docs/features/rentaDeChunks.md),
 [IVA de transmisión](docs/features/ivaDeTransmision.md),
-[embargo silencioso y brutal](docs/features/embargoDeudas.md).
+[embargo silencioso y brutal](docs/features/embargoDeudas.md),
+[renta progresiva sobre ganancias](docs/features/rentaProgresiva.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -61,7 +62,8 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala como `n^1.5` por jugador y no es configurable (ver más abajo).
   - `transmission_tax.json` — porcentaje de IVA que se quema en `/pay`, el dinero de `/trade`, las tiendas de cartel y las suscripciones (`taxPercent`, 10% por defecto, ver más abajo).
   - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto) y condiciones de cierre de la votación de subasta (`minVotersToClose`, `minVoteGameDays`, ver más abajo).
-- **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
+  - `rent.json` — cadencia compartida (`intervalGameDays`, 7 por defecto) de la renta progresiva sobre ganancias (`profitBrackets`) y la renta de force-load de chunks (`forceLoadRentBase`, ver más abajo).
+- **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas, chunks reclamados/force-loaded, seguimiento de renta): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
 
@@ -150,7 +152,11 @@ volverse inalcanzable. Si no está instalado, el mod funciona igual, solo que si
 
 Este mod no implementa protección ni reclamo de chunks — eso lo hace FTB Chunks enteramente. Si no
 te alcanza el saldo para el siguiente chunk, **el reclamo se bloquea** y FTB Chunks muestra el
-motivo. No hay renta periódica todavía; eso queda para la futura feature "Día de Renta" del roadmap.
+motivo. El reclamo sigue siendo pago único; lo único con renta periódica es el **force-load**: cada
+`intervalGameDays` días (`rent.json`, 7 por defecto) se cobra `forceLoadRentBase * n^1.5` (base 10,
+`n` = chunks que tenés force-loaded ahora mismo) por mantenerlos cargados, también estando
+desconectado. Si no cubrís el total, se descargan **todos** de golpe — inmediato si estás online,
+en cuanto te reconectes si no.
 
 ## IVA de transmisión
 
@@ -180,6 +186,15 @@ incautados se manda a la pool de subastas del servidor; el resto se te devuelve 
 La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes días de juego
 a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace nada por sí sola — un admin la
 saca con `/sc embargo retirar` y la comunidad decide qué hacer con ella.
+
+## Renta progresiva sobre ganancias
+
+Cada `intervalGameDays` días de juego (7 por defecto, `rent.json`), se mira cuánto **ganaste** en
+ese periodo (no tu patrimonio total) y se cobra un porcentaje según el tramo: 1-10K → 10%,
+10K-100K → 20%, 100K-1M → 30%, 1M en adelante → 40% (tope). El tipo es **plano por tramo**, no
+marginal: toda la ganancia se grava al porcentaje de su tramo final. Si tu saldo bajó en el
+periodo, no se cobra nada, y el punto de partida del siguiente periodo se ajusta hacia abajo. Nunca
+se grava el saldo que ya tenías acumulado de antes, solo lo nuevo.
 
 ## Salario diario y niveles
 
@@ -243,15 +258,16 @@ com.sheyito.economicmaster
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
-├── chunk/ChunkClaimManager       recuento de chunks reclamados por jugador (precio n^1.5)
+├── chunk/ChunkClaimRegistry      chunks reclamados (precio n^1.5) y force-loaded (renta n^1.5 base 10) por jugador
+├── rent/                         RentManager/RentLogic - renta progresiva semanal sobre ganancias (tipo plano por tramo)
 ├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu - plazo de gracia, incautación y votación
 ├── auction/AuctionPoolManager    pool de subastas: solo almacenamiento, /sc embargo retirar la vacía
-├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones + autoguardado
+├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones/rentas + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
 ├── commands/                     /bal /baltop /pay /subscribe /eco /trade /embargo + /sc (reward, dimension lock, chunk reset, embargo retirar - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
-├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo de chunk) - todas compileOnly
+├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo/force-load de chunk) - todas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve), ItemStackJson (persistir ItemStack real)
 ```
 
