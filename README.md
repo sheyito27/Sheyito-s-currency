@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, deuda por muerte, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -71,12 +71,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
-- `/debt` — muestra tu deuda actual (importe, plazo, si está vencida).
-- `/debt player <jugador>` — consulta la deuda de cualquier otro jugador.
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
-- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo (deuda). Infraestructura reservada para pruebas y futuras features; la muerte ya no la usa.
+- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 
@@ -167,10 +165,9 @@ com.sheyito.economicmaster
 ├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned/charge (sobregiro)
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
-├── debt/DebtManager              plazo de la deuda por muerte (días de juego)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
-├── events/                       LivingDeathEvent (caza, deuda por muerte), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /debt
+├── events/                       LivingDeathEvent (caza, penalización por muerte), ciclo de vida del servidor
+├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
