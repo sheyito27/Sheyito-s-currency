@@ -5,6 +5,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.ModList;
 
+import java.util.UUID;
+
 /**
  * Pure soft-dependency gate: this class itself never references any FTB Chunks/FTB Library type,
  * so it is always safe to load. When FTB Chunks is present, it delegates to
@@ -40,6 +42,13 @@ public final class FTBChunksCompat {
     public static void applyPendingForceUnload(ServerPlayer player) {
         if (ModList.get().isLoaded(FTBCHUNKS_MODID)) {
             FtbChunksIntegration.applyPendingForceUnloadIfNeeded(player);
+        }
+    }
+
+    /** No-op if FTB Chunks isn't installed - backs {@code /sc rent forzar}. */
+    public static void forceProcessForceLoadRent(MinecraftServer server, UUID uuid) {
+        if (ModList.get().isLoaded(FTBCHUNKS_MODID)) {
+            FtbChunksIntegration.forceProcessForceLoadRent(server, uuid);
         }
     }
 }
