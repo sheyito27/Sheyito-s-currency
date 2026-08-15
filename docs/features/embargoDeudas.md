@@ -13,11 +13,12 @@ saldo a exactamente 0, y guarda lo incautado hasta que la comunidad vota **una s
 mandar a una pool de subastas — el resto se le devuelve. No hay reembolso ni marcha atrás: pagar
 después de que se ejecute el embargo no recupera nada.
 
-**Importante:** hoy no existe ninguna vía de gameplay real para caer en saldo negativo — el único
-caller de `EconomyManager.charge()` es el admin-only `/eco charge`. Esta feature construye
-únicamente la **reacción** a un saldo negativo, sea cual sea su origen; la futura feature de
-"pagos obligatorios" será quien dispare deuda real de forma orgánica, sin tener que tocar nada de
-esto cuando llegue — el enganche vive en el choke point genérico de `EconomyManager.setBalance()`.
+**Historia:** cuando se construyó esta feature, la única vía real para caer en saldo negativo era
+el admin-only `/eco charge` — el enganche a `EconomyManager.setBalance()` se hizo genérico a
+propósito para no depender de eso. Esa previsión ya dio sus frutos: la
+[renta progresiva sobre ganancias](rentaProgresiva.md) es ahora la primera vía de **gameplay real**
+(no de admin) que puede dejar el saldo en negativo y disparar este plazo de gracia, sin haber
+tenido que tocar una sola línea de este archivo.
 
 ## Cómo funciona
 
@@ -122,7 +123,8 @@ El único ajuste de config es `config/sheyitoscurrency/embargo.json` (`enabled`,
 
 ## Cómo se conecta con otras features
 
-Es el primer consumidor real de la transición ≥0→negativo en `EconomyManager.setBalance()` — hoy
-solo alcanzable a mano vía `/eco charge`, pero el enganche es genérico a propósito para que la
-futura feature de "pagos obligatorios" no necesite tocar nada de este archivo. No usa
-`EconomyManager.charge()` en ningún punto (ese método sigue siendo exclusivo de `/eco charge`).
+Es el consumidor de la transición ≥0→negativo en `EconomyManager.setBalance()` — genérico a
+propósito, así que no le importa qué la causó. Hoy tiene dos disparadores reales: `/eco charge`
+(admin) y la [renta progresiva sobre ganancias](rentaProgresiva.md) (gameplay real, la primera vía
+orgánica). Este propio archivo no usa `EconomyManager.charge()` en ningún punto — solo reacciona a
+que el saldo ya haya cruzado a negativo, sin importarle quién lo cruzó.
