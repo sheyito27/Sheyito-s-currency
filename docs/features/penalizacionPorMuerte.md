@@ -40,13 +40,17 @@ era bajo). Se simplificó a una sola rama porcentual porque generar deuda autom�
 resultó una mecánica demasiado punitiva para el ritmo del servidor.
 
 En ese momento se dejó `EconomyManager.charge(uuid, amount)` (resta sin comprobar fondos) y todo
-`DebtManager`/`/debt` sin usar, "por si una futura feature los necesitaba". Esa futura feature
-llegó con el [peaje de movilidad de Waystones](peajeMovilidadWaystones.md), que sí usa `charge()`
-— pero al investigar cómo mostraba `/debt` un saldo negativo (con `-balance` en vivo, sin importar
-si alguna vez se llamó `incurDebt`), quedó claro que dejar `DebtManager` vivo solo iba a mostrar un
-"sin plazo registrado" que nunca cambiaría. Se decidió borrar `DebtManager`, `DebtData` y `/debt`
-por completo: la deuda deja de ser un estado trackeado con plazo, es simplemente saldo negativo,
-y eso ya se consulta con `/bal`.
+`DebtManager`/`/debt` sin usar, "por si una futura feature los necesitaba". El
+[peaje de movilidad de Waystones](peajeMovilidadWaystones.md) llegó a usar `charge()` brevemente
+durante su diseño inicial — y al investigar cómo mostraba `/debt` un saldo negativo (con
+`-balance` en vivo, sin importar si alguna vez se llamó `incurDebt`), quedó claro que dejar
+`DebtManager` vivo solo iba a mostrar un "sin plazo registrado" que nunca cambiaría. Se decidió
+borrar `DebtManager`, `DebtData` y `/debt` por completo: la deuda deja de ser un estado trackeado
+con plazo, es simplemente saldo negativo, y eso ya se consulta con `/bal`.
+
+El peaje de waystones terminó bloqueando en vez de sobregirar (ver su propia ficha), así que
+`charge()` volvió a quedar sin consumidor real — reservada para una futura feature de pagos
+obligatorios que sí necesite dejar el saldo en negativo.
 
 La propuesta "Deuda con plazo estricto" en `docs/proposals.md` queda descartada tal como estaba
 planteada — si algún día se retoma, sería una feature nueva desde cero, no una reactivación de
