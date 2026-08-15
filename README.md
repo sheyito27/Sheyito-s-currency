@@ -50,7 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
-  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad y una lista `messages` de anuncios de los que el sorteo elige uno al azar).
+  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad, una lista `messages` de anuncios de los que el sorteo elige uno al azar, y para `WINDFALL` la lista `effects` de efectos de poción con `effectDurationSeconds` y `effectAmplifier`).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -122,11 +122,16 @@ sorteo:
 - **Mob buscado**: `MOB_WANTED` elige un mob al azar de la lista `mobs`; al morir, el `bounty` se
   reparte por igual entre todos los jugadores que lo dañaron (independiente de la caza de `mobs.json`).
   El evento admite un tope `maxKills` de muertes pagadas (5 por defecto; 0 = sin límite): al agotarlo
-  deja de pagar, pero el evento sigue activo hasta el siguiente sorteo.
+  deja de pagar, pero el evento sigue activo hasta el siguiente sorteo. Con `maxKills` a 1 sirve para
+  un **boss buscado** (evento por defecto `boss_buscado`: wither, ender dragon, elder guardian o
+  warden, con un bounty grande).
 - **Cara o cruz contra La Casa**: `HOUSE_COINFLIP` habilita `/monopoly coinflip`. Apostar cuesta
   `cantidad × (1 + commission)` (la comisión se quema como sink) y con probabilidad `winChance`
   (50%) se gana el doble de la apuesta. Se puede retar a otro jugador, que acepta con
   `/monopoly accept` — ambos pagan la comisión y el ganador se lleva el doble.
+- **Efecto instantáneo (WINDFALL)**: `WINDFALL` elige al azar un efecto de poción de la lista
+  `effects` (con `effectDurationSeconds` y `effectAmplifier` configurables) y lo aplica una sola vez
+  a todos los jugadores conectados en el momento del sorteo. Quien se conecte después no lo recibe.
 
 El sorteo es ponderado (`weight`) y cada evento tiene su propio `enabled`. El evento activo y sus
 parámetros sorteados se persisten en el mundo y sobreviven reinicios. Detalle completo en
