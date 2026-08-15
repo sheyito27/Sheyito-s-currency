@@ -7,22 +7,23 @@
 ## Qué es esto
 
 Reclamar un chunk con el mod FTB Chunks (si está instalado) cuesta Sheyicoins — pero a diferencia
-de cualquier otro cobro de este mod, **el precio no es fijo ni configurable**: escala con la raíz
-cuadrada del número de chunk por jugador. El chunk número `n` que reclamás (1º, 2º, 3º...) cuesta
-`1000 * √n`:
+de cualquier otro cobro de este mod, **el precio no es fijo ni configurable**: escala como `n^1.5`
+por jugador. El chunk número `n` que reclamás (1º, 2º, 3º...) cuesta `1000 * n^1.5`:
 
 | Chunk # | Coste |
 |---|---|
 | 1º | 1.000 |
-| 2º | ~1.414 |
-| 3º | ~1.732 |
-| 4º | 2.000 |
-| 10º | ~3.162 |
-| 100º | 10.000 |
+| 2º | ~2.828 |
+| 3º | ~5.196 |
+| 5º | ~11.180 |
+| 10º | ~31.623 |
+| 20º | ~89.443 |
 
-(Se probó primero una cuadrática pura, `1000 * n²` — el 10º chunk salía 100.000 y el 100º
-10.000.000, demasiado agresivo. La raíz cuadrada mantiene la fricción anti-acaparamiento sin
-volverse inalcanzable a partir de unos pocos chunks.)
+Se probaron dos exponentes antes de llegar a este: una cuadrática pura (`n²`) escalaba demasiado
+rápido (10º chunk 100.000, 100º 10.000.000); una raíz cuadrada (`n^0.5`) apenas crecía (10º chunk
+solo ~3.162, se sentía casi plano). `1.5` es el punto intermedio: cada chunk adicional cuesta
+proporcionalmente más que el anterior (a diferencia de una lineal `n^1`, que sube parejo) sin
+volverse inalcanzable en las primeras decenas de chunks.
 
 Si no tienes saldo suficiente para el siguiente chunk, **el reclamo se bloquea** — FTB Chunks
 muestra un mensaje explicando por qué y el chunk no queda reclamado. Por eso el precio vive
@@ -81,7 +82,7 @@ técnicamente espera una translation key, pero como el resto de este mod nunca u
 le pasa directamente el mensaje en español — Minecraft muestra el texto crudo cuando no encuentra
 traducción registrada (mismo truco que el nombre de dimensión en morado).
 
-**El mensaje de bloqueo se mantiene deliberadamente corto** (`"Saldo insuficiente (1414 SC)."`, sin
+**El mensaje de bloqueo se mantiene deliberadamente corto** (`"Saldo insuficiente (2828 SC)."`, sin
 pasar por `Money.format()` ni su nombre de moneda completo): ese texto se renderiza dentro del
 propio panel de reclamo de FTB Chunks, que tiene muy poco ancho y no hace wrap — un mensaje largo
 se corta a mitad de frase. El mensaje de cobro exitoso (chat normal, con mucho más espacio) sí usa
