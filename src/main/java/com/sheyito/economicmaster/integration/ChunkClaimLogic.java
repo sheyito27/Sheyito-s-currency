@@ -11,15 +11,18 @@ import java.util.UUID;
  * compileOnly, not testImplementation) - mirrors {@code WaystoneTollLogic}.
  *
  * <p>Unlike every other charge in this mod, the price is not configurable: claiming your
- * {@code n}-th chunk (1-based, {@code n = alreadyClaimed + 1}) costs {@code BASE_COST * sqrt(n)}
- * Sheyicoins - a gentle anti-hoarding curve (1st chunk 1000, 2nd ~1414, 3rd ~1732, 10th ~3162, ...)
- * that server owners can't flatten via config. A plain quadratic ({@code n^2}) was tried first and
- * escalated too fast (100th chunk would be 10,000,000) - square root keeps every additional chunk
- * a little more expensive without runaway growth.
+ * {@code n}-th chunk (1-based, {@code n = alreadyClaimed + 1}) costs {@code BASE_COST * n^1.5}
+ * Sheyicoins - an anti-hoarding curve (1st chunk 1000, 2nd ~2828, 3rd ~5196, 10th ~31623, ...)
+ * that server owners can't flatten via config. Two other exponents were tried and rejected: a
+ * plain quadratic ({@code n^2}) escalated too fast (10th chunk 100,000, 100th 10,000,000), while
+ * a plain square root ({@code n^0.5}) barely grew at all (10th chunk only ~3162). {@code n^1.5}
+ * sits in between: it genuinely accelerates (each extra chunk costs proportionally more than the
+ * last, unlike a flat linear {@code n^1}) without becoming unreachable after a handful of chunks.
  */
 final class ChunkClaimLogic {
 
     private static final double BASE_COST = 1000.0;
+    private static final double EXPONENT = 1.5;
 
     private ChunkClaimLogic() {
     }
@@ -31,7 +34,7 @@ final class ChunkClaimLogic {
     /** Cost of claiming the next chunk, given how many the player has already claimed. */
     static double costFor(int alreadyClaimed) {
         int n = alreadyClaimed + 1;
-        return BASE_COST * Math.sqrt(n);
+        return BASE_COST * Math.pow(n, EXPONENT);
     }
 
     /** Read-only check, never mutates the balance - used in the BEFORE_CLAIM phase. */
