@@ -15,9 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Tracks the repayment deadline for players who died with a low enough balance to be charged
- * a flat death penalty that pushed them into debt (see {@code PlayerDeathDebtListener}). The
- * debt amount itself is never duplicated here - it's just {@code -EconomyManager.getBalance()}
+ * Tracks the repayment deadline for players in debt. Currently unused since death penalties no
+ * longer incur debt, but preserved for future features (e.g., strict-deadline debt, bank loans).
+ * The debt amount itself is never duplicated here - it's just {@code -EconomyManager.getBalance()}
  * whenever that's negative - this manager only owns the "how many in-game days are left" clock.
  *
  * <p>Enforcement of an overdue debt (embargo, seizure, ...) is intentionally out of scope here;
