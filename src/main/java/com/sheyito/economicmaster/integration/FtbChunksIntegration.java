@@ -1,6 +1,7 @@
 package com.sheyito.economicmaster.integration;
 
 import com.sheyito.economicmaster.EconomicMaster;
+import com.sheyito.economicmaster.chunk.ChunkClaimManager;
 import com.sheyito.economicmaster.config.ChunkClaimConfig;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
@@ -23,7 +24,8 @@ import net.minecraft.server.level.ServerPlayer;
  * NeoForge's. Two phases are hooked, per {@code ClaimedChunkEvent}'s own javadoc warning that
  * {@code BEFORE_CLAIM} may fire for a <em>simulated</em> operation and must never mutate state:
  * {@code BEFORE_CLAIM} only checks affordability (blocks the claim if insufficient); the actual
- * charge happens in {@code AFTER_CLAIM}, which only fires once the claim is confirmed real.
+ * charge - and the {@link ChunkClaimManager} count increment that drives next time's price -
+ * happens in {@code AFTER_CLAIM}, which only fires once the claim is confirmed real.
  *
  * <p>Verified against FTB Chunks' own consuming code ({@code ChunkTeamDataImpl.claim()}): only
  * {@code CompoundEventResult#object()} is read (the wrapped {@link ClaimResult}, via its
@@ -41,7 +43,7 @@ final class FtbChunksIntegration {
     static void register() {
         ClaimedChunkEvent.BEFORE_CLAIM.register(FtbChunksIntegration::onBeforeClaim);
         ClaimedChunkEvent.AFTER_CLAIM.register(FtbChunksIntegration::onAfterClaim);
-        EconomicMaster.LOGGER.info("Sheyito's currency: integracion con FTB Chunks activada - reclamar un chunk cobra el importe configurado.");
+        EconomicMaster.LOGGER.info("Sheyito's currency: integracion con FTB Chunks activada - reclamar un chunk cobra un importe creciente por jugador.");
     }
 
     /** Check only, never deducts - may fire for a simulated claim attempt. */
@@ -49,27 +51,36 @@ final class FtbChunksIntegration {
         ServerPlayer player = source.getPlayer();
         ChunkClaimConfig config = ConfigManager.chunkClaim();
         EconomyManager economy = EconomyManager.get();
+        ChunkClaimManager claims = ChunkClaimManager.get();
 
-        if (player == null || economy == null || !ChunkClaimLogic.isEnabled(config)
-                || ChunkClaimLogic.canAfford(economy, config, player.getUUID())) {
+        if (player == null || economy == null || claims == null || !ChunkClaimLogic.isEnabled(config)) {
+            return CompoundEventResult.pass();
+        }
+
+        int alreadyClaimed = claims.getClaimCount(player.getUUID());
+        if (ChunkClaimLogic.canAfford(economy, config, player.getUUID(), alreadyClaimed)) {
             return CompoundEventResult.pass();
         }
 
         return CompoundEventResult.interruptTrue(ClaimResult.customProblem("No tienes suficiente saldo para reclamar este chunk (cuesta "
-                + Money.format(config.cost) + ")."));
+                + Money.format(ChunkClaimLogic.costFor(alreadyClaimed)) + ")."));
     }
 
-    /** Charges the claim cost, only once the claim is confirmed real (never simulated). */
+    /** Charges the claim cost and bumps the player's count, only once the claim is confirmed real. */
     private static void onAfterClaim(CommandSourceStack source, ClaimedChunk chunk) {
         ServerPlayer player = source.getPlayer();
         ChunkClaimConfig config = ConfigManager.chunkClaim();
         EconomyManager economy = EconomyManager.get();
-        if (player == null || economy == null || !ChunkClaimLogic.isEnabled(config)) {
+        ChunkClaimManager claims = ChunkClaimManager.get();
+        if (player == null || economy == null || claims == null || !ChunkClaimLogic.isEnabled(config)) {
             return;
         }
 
-        if (ChunkClaimLogic.chargeClaim(economy, config, player.getUUID())) {
-            player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.cost) + " (reclamo de chunk)."));
+        int alreadyClaimed = claims.getClaimCount(player.getUUID());
+        if (ChunkClaimLogic.chargeClaim(economy, config, player.getUUID(), alreadyClaimed)) {
+            claims.incrementClaimCount(player.getUUID());
+            player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(ChunkClaimLogic.costFor(alreadyClaimed))
+                    + " (chunk #" + (alreadyClaimed + 1) + " reclamado)."));
         }
     }
 }
