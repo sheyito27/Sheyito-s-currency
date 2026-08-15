@@ -6,6 +6,7 @@ import com.sheyito.economicmaster.events.MobKillListener;
 import com.sheyito.economicmaster.events.PlayerDeathPenaltyListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
+import com.sheyito.economicmaster.integration.WaystonesCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
 import com.sheyito.economicmaster.shop.ShopCreationTracker;
 import com.sheyito.economicmaster.shop.ShopProtectionListener;
@@ -41,6 +42,7 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
+        modEventBus.addListener((FMLCommonSetupEvent event) -> WaystonesCompat.logDetection());
 
         LOGGER.info("Sheyito's currency inicializado (server-side).");
     }
