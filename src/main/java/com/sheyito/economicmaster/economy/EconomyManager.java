@@ -3,6 +3,7 @@ package com.sheyito.economicmaster.economy;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.DataPaths;
+import com.sheyito.economicmaster.embargo.EmbargoManager;
 import com.sheyito.economicmaster.data.EconomyData;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.LevelCurve;
@@ -109,10 +110,22 @@ public class EconomyManager {
      * enforces that itself - {@link #take} validates funds before calling this, and
      * {@code /eco set} restricts its Brigadier argument to non-negative values - so this stays
      * a plain, unclamped setter.
+     *
+     * <p>This is the single choke point every mutator ({@link #give}, {@link #take},
+     * {@link #charge}) funnels through, so it's also where an embargo grace period starts: if a
+     * balance crosses from >=0 to negative, {@code EmbargoManager} is notified generically here,
+     * regardless of which caller (today only {@code /eco charge}, later "pagos obligatorios")
+     * caused it.
      */
     public void setBalance(UUID uuid, double amount) {
-        balances.put(uuid, Money.round(amount));
+        double rounded = Money.round(amount);
+        double previous = getBalance(uuid);
+        balances.put(uuid, rounded);
         dirty.set(true);
+
+        if (previous >= 0 && rounded < 0 && EmbargoManager.get() != null) {
+            EmbargoManager.get().onBalanceWentNegative(uuid);
+        }
     }
 
     public void give(UUID uuid, double amount) {
