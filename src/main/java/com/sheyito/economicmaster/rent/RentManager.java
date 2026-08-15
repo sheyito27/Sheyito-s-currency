@@ -108,15 +108,10 @@ public class RentManager {
 
         for (Map.Entry<UUID, Double> entry : economy.top(Integer.MAX_VALUE)) {
             UUID uuid = entry.getKey();
-            double balance = entry.getValue();
             Record record = records.get(uuid);
 
             if (record == null) {
-                record = new Record();
-                record.lastRentDay = currentDay;
-                record.balanceSnapshot = balance;
-                records.put(uuid, record);
-                dirty.set(true);
+                seedBaseline(uuid, entry.getValue(), currentDay);
                 continue;
             }
 
@@ -124,21 +119,58 @@ public class RentManager {
                 continue;
             }
 
-            double profit = Math.max(0.0, balance - record.balanceSnapshot);
-            if (profit > 0) {
-                double tax = RentLogic.taxFor(profit, config.profitBrackets);
-                if (economy.take(uuid, tax)) {
-                    ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-                    if (player != null) {
-                        player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §fRenta semanal: -"
-                                + Money.format(tax) + " sobre " + Money.format(profit) + " de ganancias."));
-                    }
+            chargeAndAdvance(server, economy, config, uuid, record, currentDay);
+        }
+    }
+
+    /**
+     * Admin-only testing tool for {@code /sc rent forzar} - charges (or seeds, if this is the
+     * player's first time being seen) this one player's profit tax right now, ignoring whether
+     * {@code intervalGameDays} has actually elapsed. Same math and side effects as the normal
+     * per-player pass inside {@link #processDueRent}, just without the "is it due yet" gate.
+     */
+    public void forceProcess(MinecraftServer server, UUID uuid) {
+        RentConfig config = ConfigManager.rent();
+        if (!config.enabled) {
+            return;
+        }
+        EconomyManager economy = EconomyManager.get();
+        long currentDay = GameTime.currentDay(server);
+        Record record = records.get(uuid);
+
+        if (record == null) {
+            seedBaseline(uuid, economy.getBalance(uuid), currentDay);
+            return;
+        }
+
+        chargeAndAdvance(server, economy, config, uuid, record, currentDay);
+    }
+
+    private void seedBaseline(UUID uuid, double balance, long currentDay) {
+        Record record = new Record();
+        record.lastRentDay = currentDay;
+        record.balanceSnapshot = balance;
+        records.put(uuid, record);
+        dirty.set(true);
+    }
+
+    private void chargeAndAdvance(MinecraftServer server, EconomyManager economy, RentConfig config,
+                                   UUID uuid, Record record, long currentDay) {
+        double balance = economy.getBalance(uuid);
+        double profit = Math.max(0.0, balance - record.balanceSnapshot);
+        if (profit > 0) {
+            double tax = RentLogic.taxFor(profit, config.profitBrackets);
+            if (economy.take(uuid, tax)) {
+                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+                if (player != null) {
+                    player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §fRenta semanal: -"
+                            + Money.format(tax) + " sobre " + Money.format(profit) + " de ganancias."));
                 }
             }
-
-            record.lastRentDay = currentDay;
-            record.balanceSnapshot = economy.getBalance(uuid);
-            dirty.set(true);
         }
+
+        record.lastRentDay = currentDay;
+        record.balanceSnapshot = economy.getBalance(uuid);
+        dirty.set(true);
     }
 }
