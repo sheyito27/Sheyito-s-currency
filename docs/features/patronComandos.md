@@ -1,7 +1,7 @@
 # Patrón: comandos con Brigadier
 
 Usado por: `BalCommand`, `BalTopCommand`, `PayCommand`, `SubscribeCommand`, `TradeCommand`,
-`BuyCommand`, `EcoCommand`, `EconomicMasterCommand`, `DebtCommand`.
+`BuyCommand`, `EcoCommand`, `EconomicMasterCommand`.
 
 ## Qué resuelve
 
