@@ -37,7 +37,8 @@ public final class ShopTransactionService {
         if (ShopContainers.countMatching(container, shop.item()) < shop.quantity()) {
             return Result.SIN_STOCK;
         }
-        if (EconomyManager.get().getBalance(buyer.getUUID()) < shop.price()) {
+        double grossPrice = EconomyManager.get().grossWithTax(shop.price());
+        if (EconomyManager.get().getBalance(buyer.getUUID()) < grossPrice) {
             return Result.SALDO_INSUFICIENTE;
         }
         int free = ShopContainers.freeCapacityFor(buyer.getInventory(), shop.item());
@@ -46,11 +47,11 @@ public final class ShopTransactionService {
         }
 
         ItemStack withdrawn = ShopContainers.withdraw(container, shop.item(), shop.quantity());
-        if (!EconomyManager.get().take(buyer.getUUID(), shop.price())) {
+        if (!EconomyManager.get().take(buyer.getUUID(), grossPrice)) {
             ShopContainers.deposit(container, withdrawn);
             return Result.SALDO_INSUFICIENTE;
         }
-        EconomyManager.get().give(shop.ownerUuid(), shop.price());
+        EconomyManager.get().give(shop.ownerUuid(), EconomyManager.get().netAfterTax(shop.price()));
         buyer.getInventory().add(withdrawn);
         return Result.OK;
     }
@@ -64,7 +65,8 @@ public final class ShopTransactionService {
         if (ShopContainers.countMatching(seller.getInventory(), shop.item()) < shop.quantity()) {
             return Result.SIN_STOCK;
         }
-        if (EconomyManager.get().getBalance(shop.ownerUuid()) < shop.price()) {
+        double grossPrice = EconomyManager.get().grossWithTax(shop.price());
+        if (EconomyManager.get().getBalance(shop.ownerUuid()) < grossPrice) {
             return Result.DUENO_SIN_SALDO;
         }
         if (ShopContainers.freeCapacityFor(container, shop.item()) < shop.quantity()) {
@@ -72,11 +74,11 @@ public final class ShopTransactionService {
         }
 
         ItemStack withdrawn = ShopContainers.withdraw(seller.getInventory(), shop.item(), shop.quantity());
-        if (!EconomyManager.get().take(shop.ownerUuid(), shop.price())) {
+        if (!EconomyManager.get().take(shop.ownerUuid(), grossPrice)) {
             seller.getInventory().add(withdrawn);
             return Result.DUENO_SIN_SALDO;
         }
-        EconomyManager.get().give(seller.getUUID(), shop.price());
+        EconomyManager.get().give(seller.getUUID(), EconomyManager.get().netAfterTax(shop.price()));
         ShopContainers.deposit(container, withdrawn);
         return Result.OK;
     }
