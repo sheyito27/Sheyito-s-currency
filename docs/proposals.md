@@ -15,7 +15,8 @@
 
 - [ ] **Peajes de movilidad**: /home, /back, /tpa, waystones y desbloquear dimensión cobran SC.
 - [ ] **Renta de chunks**: SC por reclamar chunks.
-- [x] **Deuda por muerte**: Morir con balance negativo genera deuda con plazo estricto de un día.
+- [x] **Muerte**: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
+- [ ] **Deuda con plazo estricto**: Morir con poco saldo genera deuda negativa con plazo fijo para saldarla.
 - [ ] **Embargo silencioso y brutal**: Deuda impaga roba activos valiosos, anuncio público y subasta.
 - [ ] **Día de Renta**: Cada 7 días cobra chunks, cuotas, suscripciones y deudas con countdown.
 - [ ] **Descuento por pago anticipado**: Pagar la renta antes del día 5 ahorra un 10%.
