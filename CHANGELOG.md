@@ -2,6 +2,19 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.7
+
+### Arreglado: recuento de chunks reclamados
+- Desreclamar un chunk ahora sí baja el recuento (antes solo subía, así que el precio del siguiente reclamo se calculaba sobre un total histórico en vez de los chunks que tenías reclamados en ese momento).
+
+### Nuevo: `/sc chunk reset <jugador>`
+- Comando de dev (OP) para poner a 0 el recuento de chunks reclamados de un jugador, sin reembolsar nada - para reprobar la curva de precio sin desreclamar chunk a chunk.
+
+### Cambiado: comandos de administración/dev bajo `/sc`
+- `/sheyitoscurrency reward` pasa a ser `/sc reward`.
+- `/dimension lock` pasa a ser `/sc dimension lock`.
+- Todo comando de administración/dev de este mod vive ahora bajo la raíz compartida `/sc`.
+
 ## Versión 1.0.6
 
 ### Nuevo: renta de chunks (FTB Chunks)
