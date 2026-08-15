@@ -1,8 +1,10 @@
 package com.sheyito.economicmaster.scheduler;
 
+import com.sheyito.economicmaster.auction.AuctionPoolManager;
 import com.sheyito.economicmaster.chunk.ChunkClaimManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.embargo.EmbargoManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
 import com.sheyito.economicmaster.shop.ShopManager;
 import com.sheyito.economicmaster.subscription.SubscriptionManager;
@@ -35,6 +37,7 @@ public class EconomicMasterScheduler {
         SalaryManager.get().tick(event.getServer());
         SubscriptionManager.get().processDueCharges(event.getServer());
         SubscriptionManager.get().expireInvites(event.getServer());
+        EmbargoManager.get().tickVoteClosing(event.getServer());
 
         EconomyManager.get().saveIfDirty();
         SalaryManager.get().saveIfDirty();
@@ -42,5 +45,7 @@ public class EconomicMasterScheduler {
         ShopManager.get().saveIfDirty();
         DimensionUnlockManager.get().saveIfDirty();
         ChunkClaimManager.get().saveIfDirty();
+        EmbargoManager.get().saveIfDirty();
+        AuctionPoolManager.get().saveIfDirty();
     }
 }
