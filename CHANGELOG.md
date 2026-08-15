@@ -2,6 +2,14 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.5
+
+### Nuevo: peaje de movilidad (Waystones)
+- Si tenés instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. A diferencia de la muerte, este peaje no se limita a tu saldo: si no te alcanza, se cobra igual y el saldo queda negativo, sin bloquear el teletransporte.
+
+### Quitado: `/debt` y la deuda con plazo
+- Se eliminó el comando `/debt` y toda la infraestructura que llevaba la cuenta de un plazo para pagar. Un saldo negativo (por el peaje de arriba, o por `/eco charge`) ya no es un estado aparte con vencimiento - es simplemente saldo negativo, y se consulta con `/bal` como cualquier otro.
+
 ## Versión 1.0.4
 
 ### Nuevo: penalización por muerte
