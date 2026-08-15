@@ -12,9 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Tracks, per player, how many chunks they've claimed via FTB Chunks so far - drives the
- * quadratic pricing in {@code ChunkClaimLogic}. Follows the manager-with-lifecycle pattern (see
- * docs/features/patronManager.md): instantiated once per server session by
+ * Tracks, per player, how many chunks they currently hold claimed via FTB Chunks - drives the
+ * {@code n^1.5} pricing in {@code ChunkClaimLogic}. This is a live count, not a lifetime total:
+ * {@link #incrementClaimCount} on claim, {@link #decrementClaimCount} on unclaim, so releasing
+ * chunks brings the price of the next claim back down. Follows the manager-with-lifecycle
+ * pattern (see docs/features/patronManager.md): instantiated once per server session by
  * {@code ServerLifecycleHandler}, saved on every mutation-triggering tick pass plus on server
  * stop.
  */
@@ -76,6 +78,16 @@ public class ChunkClaimManager {
 
     public void incrementClaimCount(UUID uuid) {
         claimCount.merge(uuid, 1, Integer::sum);
+        dirty.set(true);
+    }
+
+    /**
+     * Reverses {@link #incrementClaimCount}, floored at 0 - called when a player unclaims a
+     * chunk, so the price of their next claim reflects how many chunks they currently hold, not
+     * a lifetime total that only ever goes up.
+     */
+    public void decrementClaimCount(UUID uuid) {
+        claimCount.merge(uuid, 0, (current, unused) -> Math.max(0, current - 1));
         dirty.set(true);
     }
 }
