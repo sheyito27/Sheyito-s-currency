@@ -135,10 +135,9 @@ comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 
 **Integración opcional, sin dependencia dura** — si el mod [FTB Chunks](https://www.curseforge.com/minecraft/mc-mods/ftb-chunks-forge)
 está instalado, reclamar un chunk cobra Sheyicoins. **El precio no es fijo ni configurable**: sube
-con la raíz cuadrada de cada chunk que ya tengas — el chunk número `n` (1º, 2º, 3º...) cuesta
-`1000 * √n` (1.000 / ~1.414 / ~1.732 / ... / ~3.162 en el 10º), para desincentivar acaparar
-territorio sin volverse inalcanzable. Si no está instalado, el mod funciona igual, solo que sin
-esta feature.
+como `n^1.5` con cada chunk que ya tengas — el chunk número `n` (1º, 2º, 3º...) cuesta `1000 * n^1.5`
+(1.000 / ~2.828 / ~5.196 / ... / ~31.623 en el 10º), para desincentivar acaparar territorio sin
+volverse inalcanzable. Si no está instalado, el mod funciona igual, solo que sin esta feature.
 
 Este mod no implementa protección ni reclamo de chunks — eso lo hace FTB Chunks enteramente. Si no
 te alcanza el saldo para el siguiente chunk, **el reclamo se bloquea** y FTB Chunks muestra el
