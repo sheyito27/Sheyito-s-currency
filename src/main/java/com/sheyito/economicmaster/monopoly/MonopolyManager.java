@@ -11,10 +11,14 @@ import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -66,6 +70,7 @@ public class MonopolyManager {
     private Double currentMultiplier = null;
     private String currentMob = null;
     private String currentMessage = null;
+    private String currentEffect = null;
 
     /** Muertes del mob buscado que ya pagaron bounty en el evento activo (tipo MOB_WANTED). */
     private int mobWantedKills = 0;
@@ -121,6 +126,7 @@ public class MonopolyManager {
         currentMultiplier = data.currentMultiplier;
         currentMob = data.currentMob;
         currentMessage = data.currentMessage;
+        currentEffect = data.currentEffect;
         mobWantedKills = Math.max(0, data.currentMobKills);
     }
 
@@ -137,6 +143,7 @@ public class MonopolyManager {
         data.currentMultiplier = currentMultiplier;
         data.currentMob = currentMob;
         data.currentMessage = currentMessage;
+        data.currentEffect = currentEffect;
         data.currentMobKills = mobWantedKills;
         JsonFileUtil.save(file, data);
     }
@@ -200,6 +207,16 @@ public class MonopolyManager {
     /** El mensaje ya sorteado para el evento activo (template en bruto, sin sustituir), o {@code null} si se usa el default. */
     public String currentMessage() {
         return currentMessage;
+    }
+
+    /** true si el evento activo es un WINDFALL con efecto ya sorteado. */
+    public boolean isWindfall() {
+        return currentEffect != null && eventType() == EventType.WINDFALL;
+    }
+
+    /** El efecto de poción ya sorteado para el evento activo (id de efecto), o {@code null}. */
+    public String currentEffect() {
+        return currentEffect;
     }
 
     /** Recompensa extra configurada por cada kill del mob buscado. */
@@ -372,10 +389,12 @@ public class MonopolyManager {
         currentMultiplier = resolveMultiplier(chosen);
         currentMob = resolveMob(chosen);
         currentMessage = resolveMessage(chosen);
+        currentEffect = resolveEffect(chosen);
         mobWantedKills = 0;
         dirty.set(true);
 
         broadcast(server, "¡EVENTO! " + formatMessage(chosen));
+        applyWindfall(server);
         EconomicMaster.LOGGER.info("Sheyito's currency: monopoly activa evento {} (tipo {})", chosen.id, chosen.type);
     }
 
@@ -404,7 +423,8 @@ public class MonopolyManager {
     }
 
     private void clearEvent() {
-        if (currentEventId == null && currentMultiplier == null && currentMob == null && currentMessage == null) {
+        if (currentEventId == null && currentMultiplier == null && currentMob == null
+                && currentMessage == null && currentEffect == null) {
             damageContributors.clear();
             mobWantedKills = 0;
             return;
@@ -413,6 +433,7 @@ public class MonopolyManager {
         currentMultiplier = null;
         currentMob = null;
         currentMessage = null;
+        currentEffect = null;
         mobWantedKills = 0;
         damageContributors.clear();
         dirty.set(true);
@@ -429,6 +450,7 @@ public class MonopolyManager {
                     e.multipliers != null && !e.multipliers.isEmpty();
             case MOB_WANTED -> e.mobs != null && !e.mobs.isEmpty() && e.bounty > 0;
             case HOUSE_COINFLIP -> e.commission >= 0 && e.winChance >= 0 && e.winChance <= 1;
+            case WINDFALL -> e.effects != null && !e.effects.isEmpty();
         };
     }
 
@@ -479,6 +501,18 @@ public class MonopolyManager {
         return e.messages.get(index);
     }
 
+    /**
+     * Elige al azar uno de los efectos de poción configurados del evento; {@code null} si la lista
+     * está vacía o el tipo no es WINDFALL. Se guarda el id en bruto para aplicarlo en el roll.
+     */
+    private String resolveEffect(MonopolyEventEntry e) {
+        if (EventType.fromId(e.type) == EventType.WINDFALL && e.effects != null && !e.effects.isEmpty()) {
+            int index = Math.min(e.effects.size() - 1, (int) (rng.get() * e.effects.size()));
+            return e.effects.get(index);
+        }
+        return null;
+    }
+
     private String formatMessage(MonopolyEventEntry e) {
         String msg = currentMessage == null ? defaultMessage(e) : currentMessage;
         if (currentMultiplier != null) {
@@ -489,6 +523,10 @@ public class MonopolyManager {
         }
         msg = msg.replace("%bounty%", Money.format(wantedBounty()));
         msg = msg.replace("%commission%", String.format(java.util.Locale.US, "%.1f", houseCommission() * 100));
+        if (currentEffect != null) {
+            msg = msg.replace("%effect%", friendlyEffectName(currentEffect));
+            msg = msg.replace("%duration%", String.valueOf(currentEventConfig() == null ? 60 : currentEventConfig().effectDurationSeconds));
+        }
         return msg;
     }
 
@@ -499,6 +537,7 @@ public class MonopolyManager {
             case QUEST_REWARD_MULTIPLIER -> "Fiebre de misiones: las recompensas se multiplican por %multiplier%.";
             case MOB_WANTED -> "Se busca un mob: matar %mob% otorga %bounty% extra.";
             case HOUSE_COINFLIP -> "Cara o cruz contra La Casa: /monopoly coinflip <cantidad> [jugador].";
+            case WINDFALL -> "Golpe de suerte: todos los jugadores reciben el efecto %effect% durante %duration%s.";
             case null -> "Evento de la economia.";
         };
     }
@@ -513,6 +552,47 @@ public class MonopolyManager {
         }
         int colon = entityId.indexOf(':');
         return colon >= 0 ? entityId.substring(colon + 1) : entityId;
+    }
+
+    private static String friendlyEffectName(String effectId) {
+        if (effectId == null || effectId.isBlank()) {
+            return "efecto";
+        }
+        int colon = effectId.indexOf(':');
+        String name = colon >= 0 ? effectId.substring(colon + 1) : effectId;
+        return name.replace('_', ' ');
+    }
+
+    /**
+     * Disparo único del evento WINDFALL: aplica al instante el efecto sorteado a todos los jugadores
+     * conectados, con la duración y el amplificador configurados. Quien se conecte después no lo
+     * recibe, igual que en una lluvia de dinero.
+     */
+    private void applyWindfall(MinecraftServer server) {
+        if (currentEffect == null) {
+            return;
+        }
+        ResourceLocation effectId;
+        try {
+            effectId = ResourceLocation.parse(currentEffect);
+        } catch (IllegalArgumentException e) {
+            EconomicMaster.LOGGER.warn("Sheyito's currency: id de efecto de WINDFALL invalido: {}", currentEffect);
+            return;
+        }
+        MobEffect effect = BuiltInRegistries.MOB_EFFECT.getValue(effectId);
+        if (effect == null) {
+            EconomicMaster.LOGGER.warn("Sheyito's currency: efecto de WINDFALL desconocido: {}", currentEffect);
+            return;
+        }
+        MonopolyEventEntry entry = currentEventConfig();
+        int ticks = Math.max(1, (entry == null ? 60 : entry.effectDurationSeconds) * 20);
+        int amplifier = Math.max(0, entry == null ? 0 : entry.effectAmplifier);
+        MobEffectInstance instance = new MobEffectInstance(effect, ticks, amplifier);
+        String friendly = friendlyEffectName(currentEffect);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.addEffect(instance);
+            player.sendSystemMessage(Component.literal("§a[Monopoly] §fRecibes " + friendly + " durante " + (ticks / 20) + "s."));
+        }
     }
 
     private void broadcast(MinecraftServer server, String msg) {
