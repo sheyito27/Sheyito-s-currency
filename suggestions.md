@@ -15,21 +15,13 @@ Al completar e implementar y validar un punto, se marca `[X]` aquí (y también 
 - [ ] Embargo silencioso y brutal: Deuda impaga roba activos valiosos, anuncio público y subasta.
 - [ ] Día de Renta: Cada 7 días cobra chunks, cuotas, suscripciones y deudas con countdown.
 - [ ] Descuento por pago anticipado: Pagar la renta antes del día 5 ahorra un 10%.
-- [ ] IVA de transmisión: Comisión sobre /pay y el dinero del /trade que quema transferencias.
+- [X] IVA de transmisión: Comisión sobre /pay, el dinero de /trade, tiendas y suscripciones que quema transferencias (10% por defecto, doble corte: paga de más, recibe de menos).
 - [ ] Cuota de mantenimiento: Coste periódico progresivo por patrimonio acumulado del jugador.
-- [ ] Emergencias /health y /feed: Curar vida y hambre con /health al instante a cambio de SC.
-- [ ] Vuelo por suscripción: Suscripción al comando /fly a cambio de una gran cantidad de SC al día.
-- [ ] Buffs corporativos: Efectos de poción recurrentes pagados mediante cuota diaria obligatoria.
 
 ## Dopamina
 
-- [ ] Lotería con pozo creciente: Pozo que crece si nadie gana; sorteo diario con comisión.
-- [ ] Casino coinflip: Apostar a 50/50 con edge de casa del 2%.
 - [ ] Gacha con exclusivos no renovables: Menú aleatorio; ediciones limitadas numeradas y , encantamientos op, loot de estructuras random, artefactos.
-- [ ] Sobre misterioso: Ítem aleatorio por precio fijo, con pool curado que excluye irreemplazables.
 - [ ] Ofertas flash: Descuentos temporales con temporizador en gacha, XP y conveniencias.
-- [ ] Subastas de embargo y remates: Bienes embargados y exclusivos subastados a la comunidad.
-- [ ] Apuestas P2P: Retar a otro jugador a un coinflip con comisión del 3% para el banco.
 - [X] Compra de XP: Intercambio directo de Sheyicoins por experiencia vanilla (`/buy xp`), 1:1 a propósito como sink.
 
 ## Salario
