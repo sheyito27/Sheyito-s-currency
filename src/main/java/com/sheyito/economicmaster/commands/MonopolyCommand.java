@@ -85,6 +85,7 @@ public final class MonopolyCommand {
                         ? ", " + monopoly.currentMobKills() + "/" + monopoly.mobWantedMaxKills() + " muertes" : "")
                     + ")" + (monopoly.mobBountyExhausted() ? " — recompensa agotada" : "");
             case HOUSE_COINFLIP -> "cara o cruz, comision " + String.format(Locale.US, "%.1f", monopoly.houseCommission() * 100) + "%";
+            case WINDFALL -> "efecto instantaneo: " + monopoly.currentEffect();
             case null -> "desconocido";
         };
     }
