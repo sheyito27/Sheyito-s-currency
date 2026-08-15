@@ -105,6 +105,23 @@ public class MonopolyConfig {
         list.get(list.size() - 1).effectDurationSeconds = 60;
         list.get(list.size() - 1).effectAmplifier = 0;
 
+        list.add(new MonopolyEventEntry(
+                "mala_suerte", "WINDFALL", true, 5,
+                List.of(), List.of(), 0.0, 0.05, 0.5,
+                List.of(
+                        "¡Golpe de mala suerte! Al final del arcoiris había un troll, %effect% a todos los jugadores durante %duration%s.",
+                        "Día de sobretrabajo: todos los jugadores reciben %effect% durante %duration%s.",
+                        "Se ha aumentado la jornada laboral y sufres las consecuencias: todos los jugadores reciben %effect% durante %duration%s.",
+                        "Hoy las horas extras no se cobran: todos los jugadores reciben %effect% durante %duration%s.",
+                        "¡Evento especial! La dificultad del servidor se aumenta temporalmente, otorgando %effect% a todos los jugadores durante %duration%s.",
+                        "Los dioses maldicen vuestras heregías y os castigan con %effect% durante %duration%s.")));
+        list.get(list.size() - 1).effects = List.of(
+                "minecraft:poison", "minecraft:slowness", "minecraft:mining_fatigue",
+                "minecraft:instant_damage", "minecraft:weakness", "minecraft:blindness",
+                "minecraft:hunger", "minecraft:wither");
+        list.get(list.size() - 1).effectDurationSeconds = 10;
+        list.get(list.size() - 1).effectAmplifier = 0;
+
         return list;
     }
 }
