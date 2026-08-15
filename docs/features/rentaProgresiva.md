@@ -50,11 +50,22 @@ precisión que la de día):
 Toda la aritmética de tramos vive en `RentLogic` (pura, sin tocar `EconomyManager` ni persistencia)
 para poder testearla con listas de tramos cualquiera, sin necesitar un servidor.
 
+Los pasos 2-3 (sembrar la base la primera vez, o cobrar y avanzar el snapshot) están extraídos en
+métodos privados (`seedBaseline`/`chargeAndAdvance`) que también reutiliza `forceProcess` — el
+método detrás de `/sc rent forzar` — así que forzar un cobro de prueba ejecuta exactamente la misma
+lógica que la pasada periódica real, solo que sin esperar a que `intervalGameDays` haya pasado de
+verdad.
+
 ## Comandos
 
-Ninguno propio — el único ajuste es `config/sheyitoscurrency/rent.json` (`enabled`,
-`intervalGameDays`, `profitBrackets` — lista de `{minProfit, percent}` — y `forceLoadRentBase`,
-que pertenece a la [renta de force-load](rentaDeChunks.md#renta-de-force-load), no a esta).
+- `/sc rent forzar <jugador>` (OP nivel 2) — fuerza una pasada de cobro inmediata para ese
+  jugador, ignorando si ya pasaron `intervalGameDays` de verdad. Cobra también la renta de
+  force-load de chunks del mismo jugador en la misma llamada (`RentCommand.java`) — evita tener
+  que esperar 7 días de juego reales para probar que un cobro dispara bien.
+
+El único ajuste de config es `config/sheyitoscurrency/rent.json` (`enabled`, `intervalGameDays`,
+`profitBrackets` — lista de `{minProfit, percent}` — y `forceLoadRentBase`, que pertenece a la
+[renta de force-load](rentaDeChunks.md#renta-de-force-load), no a esta).
 
 ## Cómo se conecta con otras features
 
