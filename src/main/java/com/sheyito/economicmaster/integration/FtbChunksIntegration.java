@@ -160,28 +160,51 @@ final class FtbChunksIntegration {
 
         long currentDay = GameTime.currentDay(server);
         for (UUID uuid : claims.playersDueForForceLoadRent(currentDay, config.intervalGameDays)) {
-            int loaded = claims.getLoadedCount(uuid);
-            double rent = ChunkClaimRegistry.forceLoadRentFor(config.forceLoadRentBase, loaded);
-            boolean paid = economy.take(uuid, rent);
-            claims.markForceLoadRentChecked(uuid, currentDay);
+            chargeOrUnload(server, claims, economy, config, uuid, currentDay);
+        }
+    }
 
-            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-            if (paid) {
-                if (player != null) {
-                    player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(rent)
-                            + " (renta de " + loaded + " chunk(s) force-loaded)."));
-                }
-                continue;
-            }
+    /**
+     * Admin-only testing tool for {@code /sc rent forzar} - bills this one player's force-load
+     * rent right now, ignoring whether {@code intervalGameDays} has actually elapsed. A no-op if
+     * they have nothing force-loaded (nothing to bill). Same math and side effects (including
+     * all-or-nothing auto-unload on failure) as the normal per-player pass inside
+     * {@link #processForceLoadRent}.
+     */
+    static void forceProcessForceLoadRent(MinecraftServer server, UUID uuid) {
+        ChunkClaimRegistry claims = ChunkClaimRegistry.get();
+        EconomyManager economy = EconomyManager.get();
+        RentConfig config = ConfigManager.rent();
+        if (claims == null || economy == null || config == null || !config.enabled || claims.getLoadedCount(uuid) <= 0) {
+            return;
+        }
 
+        chargeOrUnload(server, claims, economy, config, uuid, GameTime.currentDay(server));
+    }
+
+    private static void chargeOrUnload(MinecraftServer server, ChunkClaimRegistry claims, EconomyManager economy,
+                                        RentConfig config, UUID uuid, long currentDay) {
+        int loaded = claims.getLoadedCount(uuid);
+        double rent = ChunkClaimRegistry.forceLoadRentFor(config.forceLoadRentBase, loaded);
+        boolean paid = economy.take(uuid, rent);
+        claims.markForceLoadRentChecked(uuid, currentDay);
+
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+        if (paid) {
             if (player != null) {
-                unloadAllForceLoadedChunks(player);
-                claims.clearLoadedChunks(uuid);
-                player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo cubriste la renta de force-load ("
-                        + Money.format(rent) + ") - se descargaron todos tus chunks force-loaded."));
-            } else {
-                claims.markPendingForceUnload(uuid);
+                player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(rent)
+                        + " (renta de " + loaded + " chunk(s) force-loaded)."));
             }
+            return;
+        }
+
+        if (player != null) {
+            unloadAllForceLoadedChunks(player);
+            claims.clearLoadedChunks(uuid);
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo cubriste la renta de force-load ("
+                    + Money.format(rent) + ") - se descargaron todos tus chunks force-loaded."));
+        } else {
+            claims.markPendingForceUnload(uuid);
         }
     }
 
