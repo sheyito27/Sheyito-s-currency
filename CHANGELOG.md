@@ -2,6 +2,11 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.4
+
+### Nuevo: penalización por muerte
+- Morir te hace perder automáticamente el 50% de tu Sheyicoins actuales (configurable en `debt.json`, `penaltyPercent`). Al ser un porcentaje de tu propio saldo, nunca te deja en negativo ni rompe la banca.
+
 ## Versión 1.0.3
 
 ### Nuevo: comprar experiencia (`/buy xp`)
