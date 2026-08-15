@@ -168,6 +168,10 @@ configurable, a propósito.
   nada. Herramienta de pruebas (`ChunkCommand.java`) para re-probar la curva de precio desde el
   principio sin tener que desreclamar chunk a chunk; vive bajo la raíz compartida `/sc` (ver
   [patrón de comandos](patronComandos.md)).
+- `/sc rent forzar <jugador>` (OP nivel 2) — fuerza el cobro de la renta de force-load de ese
+  jugador ahora mismo, ignorando si ya pasaron `intervalGameDays` de verdad (mismo comando que
+  fuerza la [renta progresiva sobre ganancias](rentaProgresiva.md), en una sola llamada). No-op
+  si no tiene ningún chunk force-loaded — nada que cobrar.
 
 ## Cómo se conecta con otras features
 
