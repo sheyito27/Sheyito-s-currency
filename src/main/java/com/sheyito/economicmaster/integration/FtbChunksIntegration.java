@@ -62,8 +62,10 @@ final class FtbChunksIntegration {
             return CompoundEventResult.pass();
         }
 
-        return CompoundEventResult.interruptTrue(ClaimResult.customProblem("No tienes suficiente saldo para reclamar este chunk (cuesta "
-                + Money.format(ChunkClaimLogic.costFor(alreadyClaimed)) + ")."));
+        // Kept deliberately short (no full Money.format()) - this text renders inside FTB Chunks'
+        // own claim GUI panel, which has very little horizontal room and does not wrap.
+        return CompoundEventResult.interruptTrue(ClaimResult.customProblem(
+                "Saldo insuficiente (" + Math.round(ChunkClaimLogic.costFor(alreadyClaimed)) + " SC)."));
     }
 
     /** Charges the claim cost and bumps the player's count, only once the claim is confirmed real. */
