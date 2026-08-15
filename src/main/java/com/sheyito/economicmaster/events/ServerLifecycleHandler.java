@@ -1,11 +1,13 @@
 package com.sheyito.economicmaster.events;
 
 import com.sheyito.economicmaster.auction.AuctionPoolManager;
-import com.sheyito.economicmaster.chunk.ChunkClaimManager;
+import com.sheyito.economicmaster.chunk.ChunkClaimRegistry;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.embargo.EmbargoManager;
+import com.sheyito.economicmaster.integration.FTBChunksCompat;
+import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
 import com.sheyito.economicmaster.shop.ShopManager;
 import com.sheyito.economicmaster.subscription.SubscriptionManager;
@@ -27,9 +29,10 @@ public class ServerLifecycleHandler {
         TradeManager.init(event.getServer());
         ShopManager.init(event.getServer());
         DimensionUnlockManager.init(event.getServer());
-        ChunkClaimManager.init(event.getServer());
+        ChunkClaimRegistry.init(event.getServer());
         EmbargoManager.init(event.getServer());
         AuctionPoolManager.init(event.getServer());
+        RentManager.init(event.getServer());
     }
 
     @SubscribeEvent
@@ -40,9 +43,10 @@ public class ServerLifecycleHandler {
         SalaryManager.shutdown();
         SubscriptionManager.shutdown();
         DimensionUnlockManager.shutdown();
-        ChunkClaimManager.shutdown();
+        ChunkClaimRegistry.shutdown();
         EmbargoManager.shutdown();
         AuctionPoolManager.shutdown();
+        RentManager.shutdown();
     }
 
     @SubscribeEvent
@@ -52,6 +56,9 @@ public class ServerLifecycleHandler {
         }
         if (EmbargoManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
             EmbargoManager.get().deliverPendingReturns(player);
+        }
+        if (event.getEntity() instanceof ServerPlayer player) {
+            FTBChunksCompat.applyPendingForceUnload(player);
         }
     }
 
