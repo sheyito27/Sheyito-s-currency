@@ -84,6 +84,15 @@ dependencies {
     compileOnly "net.blay09.mods:waystones-common:21.1.41+1.21.1"
     compileOnly "net.blay09.mods:balm-common:21.0.65+1.21.1"
 
+    // Soft-dependency only (compileOnly, never implementation): lets FtbChunksIntegration compile
+    // against FTB Chunks' ClaimedChunkEvent (Architectury-based, same system FTB Quests uses -
+    // architectury-neoforge above is shared) so reclaiming a chunk costs a one-time charge.
+    // ftb-library-neoforge is required too because ClaimResult imports its NameMap class. Never
+    // packaged into our jar and never required at runtime - gated behind
+    // ModList.get().isLoaded("ftbchunks") in FTBChunksCompat.
+    compileOnly "dev.ftb.mods:ftb-chunks-neoforge:2101.1.21"
+    compileOnly "dev.ftb.mods:ftb-library-neoforge:2101.1.35"
+
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.mockito:mockito-core:5.14.2'
