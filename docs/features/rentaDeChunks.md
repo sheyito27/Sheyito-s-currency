@@ -44,12 +44,11 @@ solo tocada tras confirmar `ModList.get().isLoaded("ftbchunks")` en `FTBChunksCo
 **Los eventos de FTB Chunks van por Architectury** (`dev.architectury.event.Event`), el mismo
 sistema que ya usa la integración de FTB Quests — no hace falta añadir esa dependencia de nuevo.
 
-**Aviso crítico de la propia documentación de FTB Chunks**: `ClaimedChunkEvent.BEFORE_CLAIM`
-puede dispararse para una operación **simulada** (por ejemplo, una comprobación en la UI de "¿se
+**Aviso crítico de la propia documentación de FTB Chunks**: los eventos `BEFORE_*`
+pueden dispararse para una operación **simulada** (por ejemplo, una comprobación en la UI de "¿se
 podría reclamar esto?" sin que se llegue a reclamar de verdad) — su javadoc dice explícitamente
-que el handler no debe mutar estado ahí. Por eso el cobro real — y el incremento del contador que
-determina el precio del próximo chunk — pasan en `AFTER_CLAIM`, que solo se dispara cuando el
-reclamo fue real:
+que el handler no debe mutar estado ahí. Por eso toda mutación (cobrar, incrementar o decrementar
+el contador) pasa en los eventos `AFTER_*`, que solo se disparan cuando la operación fue real:
 
 ```java
 // BEFORE_CLAIM: solo comprueba contra el recuento actual, nunca cobra ni lo modifica
@@ -57,7 +56,7 @@ private static CompoundEventResult<ClaimResult> onBeforeClaim(CommandSourceStack
     ServerPlayer player = source.getPlayer();
     int alreadyClaimed = claims.getClaimCount(player.getUUID());
     if (!ChunkClaimLogic.canAfford(economy, config, player.getUUID(), alreadyClaimed)) {
-        return CompoundEventResult.interruptTrue(ClaimResult.customProblem("No tienes suficiente saldo..."));
+        return CompoundEventResult.interruptTrue(ClaimResult.customProblem("Saldo insuficiente..."));
     }
     return CompoundEventResult.pass();
 }
@@ -69,9 +68,22 @@ private static void onAfterClaim(CommandSourceStack source, ClaimedChunk chunk) 
         claims.incrementClaimCount(player.getUUID());
     }
 }
+
+// AFTER_UNCLAIM: decrementa el mismo recuento, sin reembolso
+private static void onAfterUnclaim(CommandSourceStack source, ClaimedChunk chunk) {
+    claims.decrementClaimCount(player.getUUID());
+}
 ```
 
-Mismo patrón de dos fases que el peaje de Waystones (`Prepare` comprueba, `Complete` cobra).
+Mismo patrón de dos fases (comprobar/cobrar) que el peaje de Waystones (`Prepare`/`Complete`), con
+`AFTER_UNCLAIM` sumado para mantener el recuento honesto.
+
+**Bug corregido:** en la primera versión, el recuento solo subía — desreclamar un chunk no lo
+bajaba. Un jugador que reclamaba y liberaba chunks repetidamente veía que el precio seguía
+calculándose sobre el total histórico ("llevo 34 en total") en vez de los que tiene ahora mismo
+("tengo 1"), así que podían cobrarle el precio del 35º chunk por algo que era, en la práctica, su
+2º chunk activo. `AFTER_UNCLAIM` + `decrementClaimCount` lo arregla: el recuento es "cuántos chunks
+tenés reclamados ahora", no un contador de por vida.
 
 **Verificado contra el código real que consume el resultado** (no solo la documentación pública,
 para no adivinar mal): `ChunkTeamDataImpl.claim()` de FTB Chunks hace
@@ -89,9 +101,11 @@ se corta a mitad de frase. El mensaje de cobro exitoso (chat normal, con mucho m
 `Money.format()` completo.
 
 **`ChunkClaimManager`** sigue el [patrón de manager con ciclo de vida](patronManager.md): persiste,
-por jugador, cuántos chunks lleva reclamados (`chunk_claim_data.json`, dentro del save del mundo) —
-un `Map<UUID, Integer>` simple, mismo criterio que `SalaryManager` (conversión a `String` solo en
-`load()`/`save()`, nunca la ve Gson directamente).
+por jugador, cuántos chunks tiene reclamados **ahora mismo** (`chunk_claim_data.json`, dentro del
+save del mundo) — un `Map<UUID, Integer>` simple, mismo criterio que `SalaryManager` (conversión a
+`String` solo en `load()`/`save()`, nunca la ve Gson directamente). `decrementClaimCount` tiene
+piso en 0, así que desreclamar de más (o desreclamar algo que este mod nunca vio reclamarse) nunca
+deja el recuento en negativo.
 
 Toda la decisión de negocio (`costFor`, `canAfford`, `chargeClaim`) vive en `ChunkClaimLogic` — sin
 imports de FTB Chunks/FTB Library ni del manager — para poder testearla pasando el recuento como un
