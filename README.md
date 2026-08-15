@@ -82,8 +82,11 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
 - `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
-- `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
-- `/dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
+- `/sc reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
+- `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
+- `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
+
+Todos los comandos de administración/pruebas viven bajo la raíz compartida `/sc` (Brigadier fusiona los subcomandos de cada clase en un único árbol).
 
 ## Integración con FTB Quests
 
@@ -91,10 +94,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 Sheyito's currency **no depende en tiempo de compilación** de FTB Quests de forma dura: se compila contra sus clases con `compileOnly` (nunca se empaqueta ni se exige), y todo el código que las referencia vive aislado en una sola clase que solo se toca si `ModList` detecta `ftbquests` cargado al arrancar — si no está instalado, el mod funciona exactamente igual sin él.
 
-Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si quieres que pague un importe distinto al automático:
+Como alternativa/complemento manual sigue disponible el comando administrativo `/sc reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si quieres que pague un importe distinto al automático:
 
 ```
-sheyitoscurrency reward @p 200
+sc reward @p 200
 ```
 
 - En el campo de texto del reward **no** se pone la barra `/` inicial (FTB Quests la añade sola).
@@ -128,7 +131,7 @@ se detectan todas automáticamente, nada hardcodeado) cuesta `price` Sheyicoins 
 (`dimension_unlock.json`, 5000 por defecto). Si no te alcanza, **el portal no te deja pasar** y te
 quedas en el Overworld. Si pagas, esa dimensión queda desbloqueada para siempre para ti — nunca
 más se te vuelve a cobrar por entrar a ella. El mensaje siempre dice qué dimensión es, resaltada
-en morado. Un admin puede revertir el desbloqueo de un jugador con `/dimension lock` (ver
+en morado. Un admin puede revertir el desbloqueo de un jugador con `/sc dimension lock` (ver
 comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 
 ## Renta de chunks (FTB Chunks)
@@ -205,14 +208,14 @@ com.sheyito.economicmaster
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
-├── chunk/ChunkClaimManager       recuento de chunks reclamados por jugador (precio cuadratico)
+├── chunk/ChunkClaimManager       recuento de chunks reclamados por jugador (precio n^1.5)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /dimension
+├── commands/                     /bal /baltop /pay /subscribe /eco /trade + /sc (reward, dimension lock, chunk reset - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo de chunk) - todas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
 
-Nota: el paquete Java (`com.sheyito.economicmaster`) y el nombre de la clase principal (`EconomicMaster.java`) se mantienen sin cambios — son estructura interna invisible para el jugador. Lo que sí cambió es el `mod_id` (`sheyitoscurrency`), que es lo que determina el nombre del jar, la carpeta de configuración, la carpeta de datos por mundo, y el comando de FTB Quests.
+Nota: el paquete Java (`com.sheyito.economicmaster`) y el nombre de la clase principal (`EconomicMaster.java`) se mantienen sin cambios — son estructura interna invisible para el jugador. Lo que sí cambió es el `mod_id` (`sheyitoscurrency`), que es lo que determina el nombre del jar, la carpeta de configuración y la carpeta de datos por mundo — no el nombre de los comandos, que viven todos bajo la raíz corta `/sc` (ver más arriba).
