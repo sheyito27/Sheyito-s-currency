@@ -11,6 +11,7 @@ import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -579,15 +580,15 @@ public class MonopolyManager {
             EconomicMaster.LOGGER.warn("Sheyito's currency: id de efecto de WINDFALL invalido: {}", currentEffect);
             return;
         }
-        MobEffect effect = BuiltInRegistries.MOB_EFFECT.getValue(effectId);
-        if (effect == null) {
+        Holder.Reference<MobEffect> effectHolder = BuiltInRegistries.MOB_EFFECT.getHolder(effectId).orElse(null);
+        if (effectHolder == null) {
             EconomicMaster.LOGGER.warn("Sheyito's currency: efecto de WINDFALL desconocido: {}", currentEffect);
             return;
         }
         MonopolyEventEntry entry = currentEventConfig();
         int ticks = Math.max(1, (entry == null ? 60 : entry.effectDurationSeconds) * 20);
         int amplifier = Math.max(0, entry == null ? 0 : entry.effectAmplifier);
-        MobEffectInstance instance = new MobEffectInstance(effect, ticks, amplifier);
+        MobEffectInstance instance = new MobEffectInstance(effectHolder, ticks, amplifier);
         String friendly = friendlyEffectName(currentEffect);
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.addEffect(instance);
