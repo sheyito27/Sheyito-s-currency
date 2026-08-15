@@ -8,7 +8,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Covers the unlock/isUnlocked/lock round-trip used by /dimension lock. */
+/** Covers the unlock/isUnlocked/lock round-trip used by /sc dimension lock. */
 class DimensionUnlockManagerTest {
 
     @Test
