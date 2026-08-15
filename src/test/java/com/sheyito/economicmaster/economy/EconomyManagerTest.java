@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Balance math backing /bal, /baltop, /pay, /eco give|take|set, /sheyitoscurrency reward,
+ * Balance math backing /bal, /baltop, /pay, /eco give|take|set, /sc reward,
  * mob kills and salary payouts all live here - the commands themselves are thin dispatchers
  * around these methods.
  */
