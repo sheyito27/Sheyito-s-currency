@@ -30,7 +30,6 @@ public class ServerLifecycleHandler {
         EconomyManager.shutdown();
         SalaryManager.shutdown();
         SubscriptionManager.shutdown();
-        DebtManager.shutdown();
     }
 
     @SubscribeEvent
