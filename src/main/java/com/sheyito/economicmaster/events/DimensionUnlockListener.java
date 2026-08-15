@@ -5,6 +5,7 @@ import com.sheyito.economicmaster.config.DimensionUnlockConfig;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.util.Money;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
@@ -68,15 +69,31 @@ public class DimensionUnlockListener {
             return true;
         }
 
+        Component dimensionName = dimensionDisplayName(targetDimension);
+
         if (!economy.take(uuid, config.price)) {
-            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNecesitas "
-                    + Money.format(config.price) + " Sheyicoins para desbloquear esta dimension. Te quedas en el Overworld."));
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNecesitas " + Money.format(config.price) + " para desbloquear ")
+                    .append(dimensionName)
+                    .append(Component.literal("§f. Te quedas en el Overworld.")));
             return false;
         }
 
         unlocks.unlock(uuid, targetDimension);
-        player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.price)
-                + " Sheyicoins. Dimension desbloqueada para siempre - ya podes entrar cuando quieras."));
+        player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.price) + ". ")
+                .append(dimensionName)
+                .append(Component.literal("§f desbloqueada para siempre - ya podes entrar cuando quieras.")));
         return true;
+    }
+
+    /**
+     * Human-readable, colored dimension name with no per-dimension hardcoding: vanilla's own
+     * "dimension.&lt;namespace&gt;.&lt;path&gt;" translation key (e.g. "dimension.minecraft.the_nether" -&gt;
+     * "The Nether"). Any well-behaved modded dimension that registers the same key convention
+     * gets a proper name too; if it doesn't, the client falls back to showing the raw key text
+     * instead of crashing.
+     */
+    private static Component dimensionDisplayName(ResourceKey<Level> dimension) {
+        String key = "dimension." + dimension.location().getNamespace() + "." + dimension.location().getPath();
+        return Component.translatable(key).withStyle(ChatFormatting.LIGHT_PURPLE);
     }
 }
