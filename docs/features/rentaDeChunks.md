@@ -1,8 +1,8 @@
 # Renta de chunks (FTB Chunks)
 
 **Estado:** implementado.
-**Código relacionado:** `FTBChunksCompat.java`, `FtbChunksIntegration.java`, `ChunkClaimLogic.java`, `ChunkClaimManager.java`, `ChunkClaimConfig.java`.
-**Patrones:** [manager](patronManager.md), [config](patronConfig.md); ver también [integración FTB Quests](integracionFtbQuests.md) y [peaje de movilidad (Waystones)](peajeMovilidadWaystones.md), de los que copia el mecanismo de soft-dependency.
+**Código relacionado:** `FTBChunksCompat.java`, `FtbChunksIntegration.java`, `ChunkClaimLogic.java`, `ChunkClaimManager.java`, `ChunkClaimConfig.java`, `ChunkCommand.java`.
+**Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md); ver también [integración FTB Quests](integracionFtbQuests.md) y [peaje de movilidad (Waystones)](peajeMovilidadWaystones.md), de los que copia el mecanismo de soft-dependency.
 
 ## Qué es esto
 
@@ -113,9 +113,14 @@ imports de FTB Chunks/FTB Library ni del manager — para poder testearla pasand
 
 ## Comandos
 
-No añade comandos propios (ni falta — FTB Chunks ya tiene los suyos para reclamar/liberar); el
-único ajuste posible es `enabled` en `config/sheyitoscurrency/chunk_claim.json` — el precio en sí
-no es configurable, a propósito.
+Para reclamar/liberar chunks, ninguno propio — FTB Chunks ya tiene los suyos; el único ajuste
+posible es `enabled` en `config/sheyitoscurrency/chunk_claim.json`, el precio en sí no es
+configurable, a propósito.
+
+- `/sc chunk reset <jugador>` (OP nivel 2) — pone el recuento de ese jugador a 0, sin reembolsar
+  nada. Herramienta de pruebas (`ChunkCommand.java`) para re-probar la curva de precio desde el
+  principio sin tener que desreclamar chunk a chunk; vive bajo la raíz compartida `/sc` (ver
+  [patrón de comandos](patronComandos.md)).
 
 ## Cómo se conecta con otras features
 
