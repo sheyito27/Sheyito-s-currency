@@ -2,6 +2,15 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.9
+
+### Nuevo: embargo silencioso y brutal
+- Si tu saldo se vuelve negativo (hoy solo posible vía `/eco charge`), tienes 30 segundos reales de gracia (pausados si te desconectas) para saldarlo. Mientras tanto no puedes recibir dinero de otros jugadores, tirar objetos, ni abrir cofres/ender chest.
+- Si se agota el plazo: se incauta del inventario (equipado y suelto) toda armadura, arma o herramienta, el saldo vuelve a 0, sin marcha atrás.
+- Los objetos incautados van a una votación secreta y cambiable (`/embargo vote`, menú tipo cofre) entre los jugadores conectados (excluye a la víctima) para elegir cuál se manda a la pool de subastas del servidor - el resto se devuelve al cerrar. La votación cierra solo con suficientes votos y suficientes días de juego a la vez; un empate lo gana quien alcanzó ese número de votos primero.
+- `/sc embargo retirar` (OP): saca el siguiente ítem de la pool de subastas - es la única forma de que salga, nada es automático.
+- Configurable en `embargo.json` (`graceSeconds`, `minVotersToClose`, `minVoteGameDays`).
+
 ## Versión 1.0.8
 
 ### Nuevo: IVA de transmisión
