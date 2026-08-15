@@ -92,7 +92,7 @@ final class FtbChunksIntegration {
     /**
      * Brings the count back down when a chunk is genuinely unclaimed, so the next claim is
      * priced off how many chunks the player holds now, not a lifetime total that only grows.
-     * No refund - releasing a chunk is free, same as {@code /dimension lock} doesn't refund.
+     * No refund - releasing a chunk is free, same as {@code /sc dimension lock} doesn't refund.
      */
     private static void onAfterUnclaim(CommandSourceStack source, ClaimedChunk chunk) {
         ServerPlayer player = source.getPlayer();
