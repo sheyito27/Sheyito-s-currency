@@ -5,7 +5,7 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ## Versión 1.0.6
 
 ### Nuevo: renta de chunks (FTB Chunks)
-- Si tienes instalado el mod FTB Chunks, reclamar un chunk cuesta 200 Sheyicoins por defecto (configurable en `chunk_claim.json`), una sola vez por chunk. No hace falta FTB Chunks para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, el reclamo se bloquea - no se cobra nada. Este mod no protege ni reclama chunks, eso lo hace FTB Chunks; solo cobra.
+- Si tienes instalado el mod FTB Chunks, reclamar un chunk cuesta Sheyicoins - una sola vez por chunk, sin renta periódica todavía. El precio no es un valor fijo: escala al cuadrado con cada chunk que ya tengas (1.000 el primero, 4.000 el segundo, 9.000 el tercero...) y no es configurable, a propósito, para desincentivar acaparar territorio. No hace falta FTB Chunks para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, el reclamo se bloquea - no se cobra nada. Este mod no protege ni reclama chunks, eso lo hace FTB Chunks; solo cobra y lleva la cuenta.
 
 ## Versión 1.0.5
 
