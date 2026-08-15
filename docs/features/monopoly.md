@@ -29,7 +29,8 @@ sus parámetros ya sorteados se persisten en `<mundo>/sheyitoscurrency/monopoly_
 **Sorteo.** `roll` filtra los eventos habilitados, con `weight > 0` y "válidos" (ver más abajo), y
 elige uno ponderado. Para los tipos con listas (`multipliers`, `mobs`), además se elige al azar el
 valor concreto de la lista en ese mismo momento, y ese valor queda fijado (y persistido) para todo
-el evento. El mensaje de chat soporta los tokens `%multiplier%`, `%mob%`, `%bounty%` y `%commission%`.
+el evento. El mensaje de chat soporta los tokens `%multiplier%`, `%mob%`, `%bounty%`, `%commission%`,
+`%effect%` y `%duration%`.
 
 **Mensajes variables.** Cada evento puede declarar una lista `messages` con varias variantes de
 chat; en el momento del sorteo se elige **una al azar** y queda fijada para todo el evento (se
@@ -57,14 +58,33 @@ devuelven valores neutros si no hay evento activo del tipo correspondiente:
 |---|---|---|
 | `SALARY_MULTIPLIER` | `multipliers` | El salario diario se multiplica por un valor de la lista. |
 | `QUEST_REWARD_MULTIPLIER` | `multipliers` | Las recompensas de misiones se multiplican por un valor de la lista. |
-| `MOB_WANTED` | `mobs`, `bounty`, `maxKills` | Se elige un mob de la lista; al morir, el `bounty` se reparte por igual entre todos los que lo dañaron, hasta un máximo de `maxKills` muertes pagadas por evento (0 = sin límite). |
+| `MOB_WANTED` | `mobs`, `bounty`, `maxKills` | Se elige un mob de la lista; al morir, el `bounty` se reparte por igual entre todos los que lo dañaron, hasta un máximo de `maxKills` muertes pagadas por evento (0 = sin límite). Con `maxKills` a 1 sirve para un "boss buscado" (un evento que paga una sola muerte de un boss). |
 | `HOUSE_COINFLIP` | `commission`, `winChance` | Habilita `/monopoly coinflip`. |
+| `WINDFALL` | `effects`, `effectDurationSeconds`, `effectAmplifier` | Efecto instantáneo: se elige un efecto de poción de la lista y se aplica una sola vez a todos los jugadores conectados. |
 
 Un evento es "válido" para el sorteo solo si su `type` existe y tiene los campos que necesita
 (p. ej. una entrada `SALARY_MULTIPLIER` sin `multipliers` nunca se sortea y se avisa por log).
 
-> **WINDFALL** (lluvia de dinero a todos los jugadores conectados) está **planeado pero no
-> implementado**: queda documentado como comentario en `EventType.java` y `MonopolyConfig.java`.
+## Evento WINDFALL (efecto instantáneo)
+
+Es la categoría de eventos "de un disparo": cuando el sorteo elige un `WINDFALL`, el mod hace dos
+cosas en el mismo instante:
+
+1. Anuncia el evento por el chat (el mensaje puede usar `%effect%` — nombre legible del efecto — y
+   `%duration%` — duración en segundos).
+2. Aplica al momento el efecto de poción elegido a **todos los jugadores conectados**, con la
+   duración (`effectDurationSeconds`) y el amplificador (`effectAmplifier`, 0 = nivel 1) que
+   configure el evento.
+
+Detalles de diseño:
+
+- El efecto se elige **al azar de `effects` en el momento del roll** y se persiste en
+  `monopoly_data.json` (campo `currentEffect`), igual que el multiplicador, el mob o el mensaje.
+- Es un **disparo único**: quien no esté conectado en ese momento no lo recibe (igual que una lluvia
+  de dinero). El evento sigue "activo" hasta el siguiente sorteo, pero ya no vuelve a aplicar nada.
+- El id de cada efecto es un id de registro vanilla, p. ej. `minecraft:regeneration`,
+  `minecraft:speed` o `minecraft:absorption`. Si el id no existe, se avisa por log y no se aplica nada.
+- `applyWindfall` se ejecuta dentro de `roll` (MonopolyManager.java), justo después del broadcast.
 
 ## Reparto del bounty del mob buscado
 
