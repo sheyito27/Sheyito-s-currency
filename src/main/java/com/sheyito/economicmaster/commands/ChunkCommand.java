@@ -4,7 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.sheyito.economicmaster.chunk.ChunkClaimManager;
+import com.sheyito.economicmaster.chunk.ChunkClaimRegistry;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -14,10 +14,10 @@ import java.util.Collection;
 import java.util.UUID;
 
 /**
- * Admin-only testing tool for the renta de chunks feature (see {@code ChunkClaimManager}):
+ * Admin-only testing tool for the renta de chunks feature (see {@code ChunkClaimRegistry}):
  * drops a player's live claim count back to 0 so the `n^1.5` pricing curve can be re-tested from
  * the start without unclaiming every chunk one by one. Does not refund anything - see
- * {@link ChunkClaimManager#resetClaimCount}.
+ * {@link ChunkClaimRegistry#resetClaimCount}.
  *
  * <p>Lives under {@code /sc}, the shared root for every admin/dev command in this mod (see also
  * {@code EconomicMasterCommand}, {@code DimensionCommand}) - Brigadier merges multiple
@@ -43,7 +43,7 @@ public final class ChunkCommand {
         GameProfile target = profiles.iterator().next();
         UUID uuid = target.getId();
 
-        ChunkClaimManager.get().resetClaimCount(uuid);
+        ChunkClaimRegistry.get().resetClaimCount(uuid);
 
         ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §f" + target.getName()
                 + " ya tiene su recuento de chunks a 0."), true);
