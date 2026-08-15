@@ -21,24 +21,6 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ### Arreglado
 - Solucionado un cuelgue que le pasaba a algún jugador al matar mobs, si tenía el mod instalado también por su cuenta en el cliente (no hace falta, el mod solo va en el servidor).
 
-## Versión 1.0.0 - Lanzamiento inicial
-
-- Saldo por jugador, con `/bal`, `/baltop` y ver el saldo/nivel de otros jugadores.
-- Salario automático que sube con tu nivel.
-- Recompensas por matar mobs (configurable).
-- Suscripciones entre jugadores.
-- `/trade`: intercambio seguro de items entre dos jugadores con ventana tipo cofre.
-- Tiendas con cartel + cofre: coloca un cartel con el precio y la gente puede comprar/vender directamente.
-- Todo en español.
-
-## Versión 1.0.1
-
-- La moneda se llama **Sheyicoins**.
-- Las misiones de FTB Quests dan dinero automáticamente al completarse, sin tener que configurar nada misión por misión.
-- Sonidos nuevos: uno cuando una compra/venta/intercambio sale bien, otro cuando falla.
-- Matar mobs ya no da dinero por defecto (se puede activar en la configuración).
-
-
 ## Versión 1.0.2
 
 ### Suscripciones (`/subscribe`)
@@ -60,3 +42,20 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ### Otros
 - El mensaje de intercambio completado también dice cuánto dinero se incluyó.
 - Corregido un fallo de ortografía: "Sheyicoins añadidas" (antes decía "añadido").
+
+## Versión 1.0.1
+
+- La moneda se llama **Sheyicoins**.
+- Las misiones de FTB Quests dan dinero automáticamente al completarse, sin tener que configurar nada misión por misión.
+- Sonidos nuevos: uno cuando una compra/venta/intercambio sale bien, otro cuando falla.
+- Matar mobs ya no da dinero por defecto (se puede activar en la configuración).
+
+## Versión 1.0.0 - Lanzamiento inicial
+
+- Saldo por jugador, con `/bal`, `/baltop` y ver el saldo/nivel de otros jugadores.
+- Salario automático que sube con tu nivel.
+- Recompensas por matar mobs (configurable).
+- Suscripciones entre jugadores.
+- `/trade`: intercambio seguro de items entre dos jugadores con ventana tipo cofre.
+- Tiendas con cartel + cofre: coloca un cartel con el precio y la gente puede comprar/vender directamente.
+- Todo en español.
