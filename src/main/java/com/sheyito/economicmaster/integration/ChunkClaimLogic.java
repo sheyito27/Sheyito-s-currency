@@ -11,9 +11,11 @@ import java.util.UUID;
  * compileOnly, not testImplementation) - mirrors {@code WaystoneTollLogic}.
  *
  * <p>Unlike every other charge in this mod, the price is not configurable: claiming your
- * {@code n}-th chunk (1-based, {@code n = alreadyClaimed + 1}) costs {@code BASE_COST * n^2}
- * Sheyicoins - a deliberate anti-hoarding curve (1st chunk 1000, 2nd 4000, 3rd 9000, ...) that
- * server owners can't flatten via config.
+ * {@code n}-th chunk (1-based, {@code n = alreadyClaimed + 1}) costs {@code BASE_COST * sqrt(n)}
+ * Sheyicoins - a gentle anti-hoarding curve (1st chunk 1000, 2nd ~1414, 3rd ~1732, 10th ~3162, ...)
+ * that server owners can't flatten via config. A plain quadratic ({@code n^2}) was tried first and
+ * escalated too fast (100th chunk would be 10,000,000) - square root keeps every additional chunk
+ * a little more expensive without runaway growth.
  */
 final class ChunkClaimLogic {
 
@@ -28,8 +30,8 @@ final class ChunkClaimLogic {
 
     /** Cost of claiming the next chunk, given how many the player has already claimed. */
     static double costFor(int alreadyClaimed) {
-        long n = alreadyClaimed + 1L;
-        return BASE_COST * n * n;
+        int n = alreadyClaimed + 1;
+        return BASE_COST * Math.sqrt(n);
     }
 
     /** Read-only check, never mutates the balance - used in the BEFORE_CLAIM phase. */
