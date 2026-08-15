@@ -23,6 +23,7 @@ public final class ConfigManager {
     private static volatile WaystoneTollConfig waystoneToll;
     private static volatile DimensionUnlockConfig dimensionUnlock;
     private static volatile ChunkClaimConfig chunkClaim;
+    private static volatile TransmissionTaxConfig transmissionTax;
 
     private ConfigManager() {
     }
@@ -48,6 +49,7 @@ public final class ConfigManager {
         waystoneToll = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("waystone_toll.json"), WaystoneTollConfig.class, WaystoneTollConfig::defaults);
         dimensionUnlock = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("dimension_unlock.json"), DimensionUnlockConfig.class, DimensionUnlockConfig::defaults);
         chunkClaim = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("chunk_claim.json"), ChunkClaimConfig.class, ChunkClaimConfig::defaults);
+        transmissionTax = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("transmission_tax.json"), TransmissionTaxConfig.class, TransmissionTaxConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -93,5 +95,9 @@ public final class ConfigManager {
 
     public static ChunkClaimConfig chunkClaim() {
         return chunkClaim;
+    }
+
+    public static TransmissionTaxConfig transmissionTax() {
+        return transmissionTax;
     }
 }
