@@ -19,6 +19,7 @@ public final class ConfigManager {
     private static volatile SubscriptionsConfig subscriptions;
     private static volatile ShopConfig shop;
     private static volatile XpShopConfig xpShop;
+    private static volatile MonopolyConfig monopoly;
 
     private ConfigManager() {
     }
@@ -40,6 +41,7 @@ public final class ConfigManager {
         subscriptions = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("subscriptions.json"), SubscriptionsConfig.class, SubscriptionsConfig::defaults);
         shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
         xpShop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("xp_shop.json"), XpShopConfig.class, XpShopConfig::defaults);
+        monopoly = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("monopoly.json"), MonopolyConfig.class, MonopolyConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -69,5 +71,9 @@ public final class ConfigManager {
 
     public static XpShopConfig xpShop() {
         return xpShop;
+    }
+
+    public static MonopolyConfig monopoly() {
+        return monopoly;
     }
 }

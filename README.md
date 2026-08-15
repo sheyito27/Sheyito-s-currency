@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, **eventos económicos aleatorios** ("Monopoly": cada día se sortea un evento que altera la economía temporalmente, incluyendo un cara o cruz contra La Casa), e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -16,7 +16,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [tiendas](docs/features/tiendasAutomaticas.md),
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
-[compra de XP](docs/features/compraXP.md).
+[compra de XP](docs/features/compraXP.md),
+[eventos económicos Monopoly](docs/features/monopoly.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -49,6 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
+  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad, una lista `messages` de anuncios de los que el sorteo elige uno al azar, y para `WINDFALL` la lista `effects` de efectos de poción con `effectDurationSeconds` y `effectAmplifier`).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -69,10 +71,16 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
+- `/monopoly status` — muestra el evento económico activo (si lo hay) y cuándo llega el siguiente.
+- `/monopoly coinflip <cantidad>` — cara o cruz contra La Casa (solo mientras el evento `HOUSE_COINFLIP` está activo; La Casa cobra una comisión que se quema).
+- `/monopoly coinflip <cantidad> <jugador>` — retar a otro jugador a un cara o cruz (ambos pagan la comisión de La Casa).
+- `/monopoly accept` / `/monopoly deny` — aceptar o rechazar un reto de cara o cruz pendiente.
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
+- `/monopoly roll [id]` — fuerza un sorteo de evento ahora mismo (con `id`, fuerza ese evento concreto).
+- `/monopoly end` — termina el evento actual; el siguiente llegará en la próxima frontera de periodo.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 
 ## Integración con FTB Quests
@@ -102,6 +110,34 @@ El salario se paga cada `intervalGameDays` **días de juego** (no minutos reales
 El importe no es fijo: cada jugador tiene un **nivel** (0 a `maxLevel`, 50 por defecto) que va del salario base (`baseSalary`, 10 $/día) al salario máximo (`maxSalary`, 100 $/día) de forma lineal. Subir de nivel requiere XP, y **cada moneda ganada (no recibida por pago de otro jugador) otorga `xpPerCoin` XP** (0.1 por defecto): matar mobs, cobrar recompensas de misiones, el propio salario, y el dinero que cobras como vendedor de una suscripción, todo suma XP. Las transferencias con `/pay` y los ajustes de `/eco give` **no** dan XP, para que nadie suba de nivel simplemente pasándose dinero entre cuentas.
 
 La XP necesaria para pasar del nivel L-1 al L es `levelCurveBaseXp * fibonacci(L)` — al crecer Fibonacci de forma exponencial, los primeros niveles son rápidos pero los últimos son deliberadamente brutales (con los valores por defecto, llegar al nivel 50 exige sumas de monedas ganadas absolutamente descomunales). Todo esto es ajustable en `salary.json` (`baseSalary`, `maxSalary`, `maxLevel`, `xpPerCoin`, `levelCurveBaseXp`). Consulta tu progreso con `/bal level`.
+
+## Eventos económicos (Monopoly)
+
+Cada `eventsPerDay` **días de juego** (1 por defecto) el servidor sortea un evento de `monopoly.json`
+y lo anuncia en el chat. El evento elegido altera la economía temporalmente hasta el siguiente
+sorteo:
+
+- **Multiplicadores de salario y misiones**: los eventos de tipo `SALARY_MULTIPLIER` /
+  `QUEST_REWARD_MULTIPLIER` eligen un multiplicador al azar de la lista `multipliers` del evento.
+- **Mob buscado**: `MOB_WANTED` elige un mob al azar de la lista `mobs`; al morir, el `bounty` se
+  reparte por igual entre todos los jugadores que lo dañaron (independiente de la caza de `mobs.json`).
+  El evento admite un tope `maxKills` de muertes pagadas (5 por defecto; 0 = sin límite): al agotarlo
+  deja de pagar, pero el evento sigue activo hasta el siguiente sorteo. Con `maxKills` a 1 sirve para
+  un **boss buscado** (evento por defecto `boss_buscado`: wither, ender dragon, elder guardian o
+  warden, con un bounty grande).
+- **Cara o cruz contra La Casa**: `HOUSE_COINFLIP` habilita `/monopoly coinflip`. Apostar cuesta
+  `cantidad × (1 + commission)` (la comisión se quema como sink) y con probabilidad `winChance`
+  (50%) se gana el doble de la apuesta. Se puede retar a otro jugador, que acepta con
+  `/monopoly accept` — ambos pagan la comisión y el ganador se lleva el doble.
+- **Efecto instantáneo (WINDFALL)**: `WINDFALL` elige al azar un efecto de poción de la lista
+  `effects` (con `effectDurationSeconds` y `effectAmplifier` configurables) y lo aplica una sola vez
+  a todos los jugadores conectados en el momento del sorteo. Quien se conecte después no lo recibe.
+  Los efectos pueden ser positivos (`golpe_de_suerte`: regeneración, velocidad, ...) o negativos
+  (`mala_suerte`: veneno, lentitud, fatiga de minería, ...).
+
+El sorteo es ponderado (`weight`) y cada evento tiene su propio `enabled`. El evento activo y sus
+parámetros sorteados se persisten en el mundo y sobreviven reinicios. Detalle completo en
+[`docs/features/monopoly.md`](docs/features/monopoly.md).
 
 ## Suscripciones (100% entre jugadores)
 
@@ -156,11 +192,12 @@ com.sheyito.economicmaster
 ├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
-├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
+├── scheduler/                    chequeo cada ~30s de salario/suscripciones/eventos + autoguardado
 ├── events/                       LivingDeathEvent (caza), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
+├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /buy /monopoly
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
+├── monopoly/                     MonopolyManager (sorteo + cara o cruz) y MonopolyEventListener (mob buscado)
 ├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
