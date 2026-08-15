@@ -1,8 +1,9 @@
 # Patrón: manager con ciclo de vida y autoguardado perezoso
 
 Usado por: `EconomyManager`, `SalaryManager`, `SubscriptionManager`, `ShopManager`,
-`DimensionUnlockManager`, `ChunkClaimManager`, `EmbargoManager`, `AuctionPoolManager` — y
-parcialmente `TradeManager` (mismo ciclo de vida, pero sin persistencia, ver más abajo).
+`DimensionUnlockManager`, `ChunkClaimRegistry` (renombrada de `ChunkClaimManager`),
+`EmbargoManager`, `AuctionPoolManager`, `RentManager` — y parcialmente `TradeManager` (mismo ciclo
+de vida, pero sin persistencia, ver más abajo).
 
 ## Qué resuelve
 
