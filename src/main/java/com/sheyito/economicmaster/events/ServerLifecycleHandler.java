@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.events;
 
+import com.sheyito.economicmaster.chunk.ChunkClaimManager;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
@@ -23,6 +24,7 @@ public class ServerLifecycleHandler {
         TradeManager.init(event.getServer());
         ShopManager.init(event.getServer());
         DimensionUnlockManager.init(event.getServer());
+        ChunkClaimManager.init(event.getServer());
     }
 
     @SubscribeEvent
@@ -33,6 +35,7 @@ public class ServerLifecycleHandler {
         SalaryManager.shutdown();
         SubscriptionManager.shutdown();
         DimensionUnlockManager.shutdown();
+        ChunkClaimManager.shutdown();
     }
 
     @SubscribeEvent
