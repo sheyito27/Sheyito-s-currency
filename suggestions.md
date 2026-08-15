@@ -12,7 +12,7 @@ Al completar e implementar y validar un punto, se marca `[X]` aquí (y también 
 - [ ] Peajes de movilidad restantes: /home, /back y /tpa aún no cobran SC.
 - [X] Renta de chunks: Reclamar con FTB Chunks cuesta 1.000·n^1.5 SC (n = chunk que reclamás), pago único, no configurable (sin renta periódica todavía - ver "Día de Renta").
 - [X] Muerte: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
-- [ ] Embargo silencioso y brutal: Deuda impaga roba activos valiosos, anuncio público y subasta.
+- [X] Embargo silencioso y brutal: Saldo negativo sin saldar en 30s (pausados offline) incauta armadura/armas/herramientas; votación secreta de la comunidad elige qué pieza va a la pool de subastas.
 - [ ] Día de Renta: Cada 7 días cobra chunks, cuotas, suscripciones y deudas con countdown.
 - [ ] Descuento por pago anticipado: Pagar la renta antes del día 5 ahorra un 10%.
 - [X] IVA de transmisión: Comisión sobre /pay, el dinero de /trade, tiendas y suscripciones que quema transferencias (10% por defecto, doble corte: paga de más, recibe de menos).
