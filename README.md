@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -17,7 +17,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
 [compra de XP](docs/features/compraXP.md),
-[penalización por muerte](docs/features/penalizacionPorMuerte.md).
+[penalización por muerte](docs/features/penalizacionPorMuerte.md),
+[peaje de movilidad (Waystones)](docs/features/peajeMovilidadWaystones.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -51,6 +52,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
   - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
+  - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -103,6 +105,16 @@ sheyitoscurrency reward @p 200
 Morir siempre tiene un coste económico: pierdes un porcentaje de tu saldo actual (`debt.json`,
 `penaltyPercent`, 50% por defecto). Al ser un porcentaje de lo que tenés en ese momento, nunca
 puede dejarte en negativo ni romper la banca.
+
+## Peaje de movilidad (Waystones)
+
+**Integración opcional, sin dependencia dura** — si el mod [Waystones](https://modrinth.com/mod/waystones)
+está instalado, usar un waystone cobra `cost` Sheyicoins (`waystone_toll.json`, 100 por defecto).
+Si no está instalado, el mod funciona igual, solo que sin esta feature.
+
+A diferencia de la muerte, este peaje **no se limita a tu saldo**: si no te alcanza, se cobra igual
+y el saldo queda negativo — no se bloquea el teletransporte. Un saldo negativo se consulta con
+`/bal`, no hay un comando ni un estado de deuda separado.
 
 ## Salario diario y niveles
 
@@ -170,7 +182,7 @@ com.sheyito.economicmaster
 ├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
-├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
+├── integration/                  FTBQuestsCompat/FtbQuestsIntegration (recompensa) + WaystonesCompat/WaystonesIntegration (peaje) - ambas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
 
