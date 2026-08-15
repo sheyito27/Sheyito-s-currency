@@ -31,6 +31,14 @@ elige uno ponderado. Para los tipos con listas (`multipliers`, `mobs`), además 
 valor concreto de la lista en ese mismo momento, y ese valor queda fijado (y persistido) para todo
 el evento. El mensaje de chat soporta los tokens `%multiplier%`, `%mob%`, `%bounty%` y `%commission%`.
 
+**Mensajes variables.** Cada evento puede declarar una lista `messages` con varias variantes de
+chat; en el momento del sorteo se elige **una al azar** y queda fijada para todo el evento (se
+persiste en `monopoly_data.json` igual que el multiplicador o el mob, así un reinicio no cambia el
+anuncio). Si la lista está vacía, se usa el mensaje por defecto del tipo. Se guarda el template en
+bruto: los tokens se sustituyen al anunciar, no al sortear. Si un servidor ya tenía un
+`monopoly.json` generado con el antiguo campo `message` (String único), ese campo se ignora y habrá
+que regenerar o editar el archivo para usar `messages`.
+
 **Cómo "se entera" el resto del mod.** Nadie llama al sorteo: los consumidores consultan getters que
 devuelven valores neutros si no hay evento activo del tipo correspondiente:
 
