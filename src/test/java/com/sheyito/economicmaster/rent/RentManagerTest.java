@@ -126,6 +126,33 @@ class RentManagerTest {
     }
 
     @Test
+    void forceProcessSeedsABaselineOnFirstSightingJustLikeTheNormalPass() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.give(uuid, 5_000.0);
+
+            rent.forceProcess(server, uuid);
+
+            assertEquals(5_000.0, economy.getBalance(uuid), "first sighting via forceProcess only seeds a baseline too");
+        });
+    }
+
+    @Test
+    void forceProcessChargesImmediatelyIgnoringTheInterval() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.give(uuid, 5_000.0);
+            rent.forceProcess(server, uuid); // seeds baseline = 5,000 at day 0
+
+            economy.give(uuid, 5_000.0); // balance now 10,000 -> profit 5,000, bracket 10% -> tax 500
+            // still day 0 - a normal processDueRent pass would skip this, forceProcess must not
+            rent.forceProcess(server, uuid);
+
+            assertEquals(9_500.0, economy.getBalance(uuid), "charged immediately despite 0 days having elapsed");
+        });
+    }
+
+    @Test
     void higherBracketAppliesForLargerProfits() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
