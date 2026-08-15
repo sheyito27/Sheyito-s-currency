@@ -9,8 +9,9 @@ import java.util.List;
  * La selección es ponderada (peso mayor = más probable) y el evento elegido permanece activo
  * hasta el siguiente sorteo.
  *
- * <p>WINDFALL (lluvia de dinero) está planeado pero todavía no implementado: no hay ninguna
- * entrada de ese tipo en los defaults y el {@code EventType} no lo expone aún.
+ * <p>WINDFALL (efecto instantáneo) ya está implementado: aplica al momento un efecto de poción
+ * (elegido de la lista {@code effects}) a todos los jugadores conectados, con duración y
+ * amplificador configurables por evento.
  */
 public class MonopolyConfig {
 
@@ -80,6 +81,29 @@ public class MonopolyConfig {
                 List.of(
                         "Cara o cruz contra La Casa: /monopoly coinflip <cantidad> [jugador]. La Casa cobra una comision del %commission%%.",
                         "La Casa abre mesa de cara o cruz: apuesta con /monopoly coinflip (comision %commission%%).")));
+
+        list.add(new MonopolyEventEntry(
+                "boss_buscado", "MOB_WANTED", true, 5,
+                List.of(), List.of("minecraft:wither", "minecraft:ender_dragon",
+                        "minecraft:elder_guardian", "minecraft:warden"), 500.0, 0.05, 0.5,
+                List.of(
+                        "¡Caceria de boss! Elimina a %mob% y reparte %bounty% Sheyicoins entre los cazadores.",
+                        "Un boss ronda la zona: %mob%. Su derrota vale %bounty% Sheyicoins.",
+                        "Se ofrece una fortuna por tumbar a %mob%: +%bounty% Sheyicoins en total.")));
+        list.get(list.size() - 1).maxKills = 1;
+
+        list.add(new MonopolyEventEntry(
+                "golpe_de_suerte", "WINDFALL", true, 5,
+                List.of(), List.of(), 0.0, 0.05, 0.5,
+                List.of(
+                        "¡Golpe de suerte! El banquero reparte %effect% a todos los jugadores durante %duration%s.",
+                        "Dia de wellness: todos los jugadores reciben %effect% durante %duration%s.")));
+        list.get(list.size() - 1).effects = List.of(
+                "minecraft:regeneration", "minecraft:speed", "minecraft:haste",
+                "minecraft:luck", "minecraft:absorption", "minecraft:resistance",
+                "minecraft:night_vision");
+        list.get(list.size() - 1).effectDurationSeconds = 60;
+        list.get(list.size() - 1).effectAmplifier = 0;
 
         return list;
     }
