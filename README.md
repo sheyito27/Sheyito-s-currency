@@ -81,6 +81,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
+- `/dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 
 ## Integración con FTB Quests
 
@@ -124,7 +125,9 @@ Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier 
 se detectan todas automáticamente, nada hardcodeado) cuesta `price` Sheyicoins la primera vez
 (`dimension_unlock.json`, 5000 por defecto). Si no te alcanza, **el portal no te deja pasar** y te
 quedás en el Overworld. Si pagás, esa dimensión queda desbloqueada para siempre para vos — nunca
-más se te vuelve a cobrar por entrar a ella.
+más se te vuelve a cobrar por entrar a ella. El mensaje siempre dice qué dimensión es, resaltada
+en morado. Un admin puede revertir el desbloqueo de un jugador con `/dimension lock` (ver
+comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 
 ## Salario diario y niveles
 
@@ -190,7 +193,7 @@ com.sheyito.economicmaster
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
+├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /dimension
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat/FtbQuestsIntegration (recompensa) + WaystonesCompat/WaystonesIntegration (peaje) - ambas compileOnly
