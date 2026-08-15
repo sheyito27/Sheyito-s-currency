@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.scheduler;
 
+import com.sheyito.economicmaster.chunk.ChunkClaimManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
@@ -40,5 +41,6 @@ public class EconomicMasterScheduler {
         SubscriptionManager.get().saveIfDirty();
         ShopManager.get().saveIfDirty();
         DimensionUnlockManager.get().saveIfDirty();
+        ChunkClaimManager.get().saveIfDirty();
     }
 }
