@@ -2,7 +2,7 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
-## Versión 1.5.0
+## Versión 1.0.5
 
 ### Nuevo: peaje de movilidad (Waystones)
 - Si tienes instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, se bloquea el teletransporte - no se cobra nada.
