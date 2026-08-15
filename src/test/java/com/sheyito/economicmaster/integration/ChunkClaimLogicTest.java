@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 
-/** Covers the chunk claim charge: quadratic cost per player, blocks (never charges) when short. */
+/** Covers the chunk claim charge: sqrt(n)-scaled cost per player, blocks (never charges) when short. */
 class ChunkClaimLogicTest {
 
     @BeforeAll
@@ -59,28 +59,28 @@ class ChunkClaimLogicTest {
     }
 
     @Test
-    void costForScalesQuadraticallyWithBase1000() {
-        assertEquals(1000.0, ChunkClaimLogic.costFor(0), "1st chunk: 1000 * 1^2");
-        assertEquals(4000.0, ChunkClaimLogic.costFor(1), "2nd chunk: 1000 * 2^2");
-        assertEquals(9000.0, ChunkClaimLogic.costFor(2), "3rd chunk: 1000 * 3^2");
-        assertEquals(100000.0, ChunkClaimLogic.costFor(9), "10th chunk: 1000 * 10^2");
+    void costForScalesWithSquareRootAndBase1000() {
+        assertEquals(1000.0, ChunkClaimLogic.costFor(0), "1st chunk: 1000 * sqrt(1)");
+        assertEquals(2000.0, ChunkClaimLogic.costFor(3), "4th chunk: 1000 * sqrt(4)");
+        assertEquals(3000.0, ChunkClaimLogic.costFor(8), "9th chunk: 1000 * sqrt(9)");
+        assertEquals(10000.0, ChunkClaimLogic.costFor(99), "100th chunk: 1000 * sqrt(100)");
     }
 
     @Test
     void canAffordIsTrueWhenBalanceCoversTheNextChunk() {
         withEconomy((economy, uuid) -> {
-            economy.give(uuid, 4000.0);
+            economy.give(uuid, 2000.0);
 
-            assertTrue(ChunkClaimLogic.canAfford(economy, defaultConfig(), uuid, 1), "2nd chunk costs exactly 4000");
+            assertTrue(ChunkClaimLogic.canAfford(economy, defaultConfig(), uuid, 3), "4th chunk costs exactly 2000");
         });
     }
 
     @Test
     void canAffordIsFalseWhenBalanceIsInsufficientForTheNextChunk() {
         withEconomy((economy, uuid) -> {
-            economy.give(uuid, 3999.99);
+            economy.give(uuid, 1999.99);
 
-            assertFalse(ChunkClaimLogic.canAfford(economy, defaultConfig(), uuid, 1));
+            assertFalse(ChunkClaimLogic.canAfford(economy, defaultConfig(), uuid, 3));
         });
     }
 
@@ -108,11 +108,11 @@ class ChunkClaimLogicTest {
     @Test
     void chargeClaimLeavesBalanceUntouchedAndReturnsFalseWhenInsufficient() {
         withEconomy((economy, uuid) -> {
-            economy.give(uuid, 8999.0);
+            economy.give(uuid, 2999.0);
 
-            assertFalse(ChunkClaimLogic.chargeClaim(economy, defaultConfig(), uuid, 2), "3rd chunk costs 9000");
+            assertFalse(ChunkClaimLogic.chargeClaim(economy, defaultConfig(), uuid, 8), "9th chunk costs 3000");
 
-            assertEquals(8999.0, economy.getBalance(uuid), "take() never mutates the balance when it returns false");
+            assertEquals(2999.0, economy.getBalance(uuid), "take() never mutates the balance when it returns false");
         });
     }
 }
