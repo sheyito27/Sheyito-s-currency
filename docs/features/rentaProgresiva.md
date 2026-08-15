@@ -29,6 +29,19 @@ ganaste), no se cobra nada — y el punto de partida del siguiente periodo se re
 así que una recuperación posterior sí cuenta como ganancia nueva contra ese punto más bajo. Nunca
 se cobra sobre el saldo total que ya tenías acumulado de antes.
 
+**Las pérdidas nunca se compensan**, a propósito (confirmado con el usuario): perder saldo es un
+gasto, algo completamente ajeno a esta renta — no genera ningún "crédito" que reste de una ganancia
+futura. Si perdés 5.000 una semana y ganás 5.000 la siguiente, la segunda semana igual se grava como
+ganancia nueva, aunque en neto solo hayas vuelto al punto de partida.
+
+**Esta renta sí puede dejarte en números rojos, a propósito**: a diferencia de cualquier otro
+cobro de este mod (que usan `EconomyManager.take()` y se bloquean o se saltan si no alcanza el
+saldo), esta usa `EconomyManager.charge()` — la misma vía sin comprobación que usa `/eco charge`.
+La idea explícita del usuario es que la renta pueda llevarte a la banca rota. Como
+`EconomyManager.setBalance()` ya avisa a `EmbargoManager` en cuanto el saldo cruza de ≥0 a
+negativo, esta es la primera vía de gameplay real (no solo `/eco charge` de admin) que dispara el
+[plazo de gracia del embargo](embargoDeudas.md) — sin haber tenido que tocar nada de ese sistema.
+
 ## Cómo funciona
 
 `RentManager` guarda, por jugador, `lastRentDay` (último día de juego en que se comprobó) y
@@ -43,9 +56,9 @@ precisión que la de día):
    el registro.
 3. Si ya pasaron `intervalGameDays` desde `lastRentDay`: `ganancia = max(0, saldoActual -
    snapshot)`; si es mayor que 0, se cobra `RentLogic.taxFor(ganancia, tramos)` vía
-   `EconomyManager.take()` (nunca deja saldo negativo — si por lo que sea falla, simplemente se
-   salta ese cobro). El snapshot se actualiza al saldo actual (ya descontado el cobro) y
-   `lastRentDay` al día actual, cierre o no haya habido ganancia.
+   `EconomyManager.charge()` — sin comprobar fondos, puede dejar el saldo negativo a propósito
+   (ver más abajo). El snapshot se actualiza al saldo actual (ya descontado el cobro, negativo o
+   no) y `lastRentDay` al día actual, cobre o no haya habido ganancia.
 
 Toda la aritmética de tramos vive en `RentLogic` (pura, sin tocar `EconomyManager` ni persistencia)
 para poder testearla con listas de tramos cualquiera, sin necesitar un servidor.
@@ -69,6 +82,9 @@ El único ajuste de config es `config/sheyitoscurrency/rent.json` (`enabled`, `i
 
 ## Cómo se conecta con otras features
 
-Usa `take()` como el resto de sumideros del mod — nunca deja saldo negativo, así que nunca dispara
-el [embargo por deuda](embargoDeudas.md) por sí sola. Es independiente del IVA de transmisión (que
-solo se aplica a transacciones entre jugadores, no a esta renta periódica).
+Es, a propósito, la única feature de todo el mod que usa `charge()` en vez de `take()` fuera de
+`/eco charge` — así que es el primer disparador real (no de admin) del
+[embargo por deuda](embargoDeudas.md). La renta de force-load de chunks, en cambio, sigue usando
+`take()` + auto-unload todo-o-nada (nunca deja saldo negativo) — ambas rentas comparten cadencia
+pero no filosofía de cobro. Es independiente del IVA de transmisión (que solo se aplica a
+transacciones entre jugadores, no a esta renta periódica).
