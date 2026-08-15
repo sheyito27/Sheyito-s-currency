@@ -5,10 +5,10 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ## Versión 1.0.5
 
 ### Nuevo: peaje de movilidad (Waystones)
-- Si tenés instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, se bloquea el teletransporte - no se cobra nada.
+- Si tienes instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, se bloquea el teletransporte - no se cobra nada.
 
 ### Nuevo: desbloqueo de dimensiones
-- Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded - se detectan todas solas) cuesta 5000 Sheyicoins por defecto la primera vez (configurable en `dimension_unlock.json`). Si no te alcanza, el portal no te deja pasar y te quedás en el Overworld. Una vez pagás, esa dimensión queda desbloqueada para siempre. El mensaje dice qué dimensión es, en morado.
+- Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded - se detectan todas solas) cuesta 5000 Sheyicoins por defecto la primera vez (configurable en `dimension_unlock.json`). Si no te alcanza, el portal no te deja pasar y te quedas en el Overworld. Una vez pagas, esa dimensión queda desbloqueada para siempre. El mensaje dice qué dimensión es, en morado.
 - `/dimension lock <jugador> <dimension>` (OP): revierte el desbloqueo de un jugador para poder reprobar el flujo sin reiniciar el mundo.
 
 ### Arreglado
