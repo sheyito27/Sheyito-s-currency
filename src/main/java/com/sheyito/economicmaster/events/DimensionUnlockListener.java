@@ -81,7 +81,7 @@ public class DimensionUnlockListener {
         unlocks.unlock(uuid, targetDimension);
         player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.price) + ". ")
                 .append(dimensionName)
-                .append(Component.literal("§f desbloqueada para siempre - ya podes entrar cuando quieras.")));
+                .append(Component.literal("§f desbloqueada para siempre - ya puedes entrar cuando quieras.")));
         return true;
     }
 
