@@ -45,8 +45,7 @@ public final class EcoCommand {
 
     /**
      * {@code CHARGE} is the only admin-facing operation that can leave a player's balance
-     * negative - useful to manually reproduce/test the death-debt mechanic (see
-     * {@code PlayerDeathDebtListener}) without waiting for a real death.
+     * negative. Preserved for testing edge cases and future features that may require debt.
      */
     private enum Operation { GIVE, TAKE, SET, CHARGE }
 
