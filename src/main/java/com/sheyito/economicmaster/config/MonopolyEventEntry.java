@@ -53,15 +53,19 @@ public class MonopolyEventEntry {
     /** Probabilidad de ganar en el cara o cruz (0..1), por defecto 50%. */
     public double winChance = 0.5;
 
-    /** Mensaje de chat personalizado al activarse el evento. Tokens: %multiplier%, %mob%, %bounty%, %commission%. */
-    public String message = "";
+    /**
+     * Lista de mensajes de chat posibles al activarse el evento: el sorteo elige uno al azar.
+     * Tokens (en cada mensaje): %multiplier%, %mob%, %bounty%, %commission%. Si la lista está
+     * vacía se usa el mensaje por defecto del tipo de evento.
+     */
+    public List<String> messages = List.of();
 
     public MonopolyEventEntry() {
     }
 
     public MonopolyEventEntry(String id, String type, boolean enabled, double weight,
                               List<Double> multipliers, List<String> mobs, double bounty,
-                              double commission, double winChance, String message) {
+                              double commission, double winChance, List<String> messages) {
         this.id = id;
         this.type = type;
         this.enabled = enabled;
@@ -71,6 +75,6 @@ public class MonopolyEventEntry {
         this.bounty = bounty;
         this.commission = commission;
         this.winChance = winChance;
-        this.message = message;
+        this.messages = messages;
     }
 }
