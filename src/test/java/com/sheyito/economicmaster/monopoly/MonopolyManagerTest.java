@@ -12,6 +12,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -211,6 +213,83 @@ class MonopolyManagerTest {
             verify(sp).sendSystemMessage(captor.capture());
             String sent = captor.getValue().getString();
             assertTrue(sent.contains("Ganador: los salarios suben a x2.00!"), "broadcast usa el mensaje sorteado y sustituye tokens: " + sent);
+        });
+    }
+
+    @Test
+    void windfallPicksEffectFromConfiguredList() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("fortuna", "WINDFALL", true, 5,
+                List.of(), List.of(), 0.0, 0.05, 0.5, List.of());
+        entry.effects = List.of("minecraft:regeneration", "minecraft:speed");
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "fortuna");
+            assertEquals("minecraft:regeneration", monopoly.currentEffect());
+            assertTrue(monopoly.isWindfall());
+
+            monopoly.setRng(() -> 0.99);
+            monopoly.forceRoll(server, "fortuna");
+            assertEquals("minecraft:speed", monopoly.currentEffect());
+        });
+    }
+
+    @Test
+    void windfallAppliesEffectToConnectedPlayersOnce() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("fortuna", "WINDFALL", true, 5,
+                List.of(), List.of(), 0.0, 0.05, 0.5, List.of());
+        entry.effects = List.of("minecraft:regeneration");
+        entry.effectDurationSeconds = 60;
+        entry.effectAmplifier = 1;
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            ServerPlayer alice = mock(ServerPlayer.class);
+            ServerPlayer bob = mock(ServerPlayer.class);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(alice, bob));
+
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "fortuna");
+
+            ArgumentCaptor<MobEffectInstance> captor = ArgumentCaptor.forClass(MobEffectInstance.class);
+            verify(alice).addEffect(captor.capture());
+            verify(bob).addEffect(captor.capture());
+            List<MobEffectInstance> applied = captor.getAllValues();
+            assertEquals(2, applied.size());
+            for (MobEffectInstance instance : applied) {
+                assertEquals(MobEffects.REGENERATION, instance.getEffect());
+                assertEquals(60 * 20, instance.getDuration());
+                assertEquals(1, instance.getAmplifier());
+            }
+        });
+    }
+
+    @Test
+    void windfallWithoutEffectsIsIgnoredByTheRoll() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("fortuna", "WINDFALL", true, 5,
+                List.of(), List.of(), 0.0, 0.05, 0.5, List.of());
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.tick(server);
+            assertFalse(monopoly.isActive(), "WINDFALL sin lista de efectos no debe sortearse");
+        });
+    }
+
+    @Test
+    void bossWantedWithMaxKillsOnePaysOnlyOnce() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("boss", "MOB_WANTED", true, 5,
+                List.of(), List.of("minecraft:wither"), 500.0, 0.05, 0.5, List.of());
+        entry.maxKills = 1;
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "boss");
+            assertTrue(monopoly.mobWantedPayoutActive());
+
+            monopoly.onMobWantedKilled(server);
+            assertFalse(monopoly.mobWantedPayoutActive(), "tras 1 kill el boss deja de pagar");
+            assertEquals(1, monopoly.currentMobKills());
+            assertTrue(monopoly.isActive(), "el evento no termina, solo deja de pagar");
         });
     }
 
