@@ -132,6 +132,8 @@ sorteo:
 - **Efecto instantáneo (WINDFALL)**: `WINDFALL` elige al azar un efecto de poción de la lista
   `effects` (con `effectDurationSeconds` y `effectAmplifier` configurables) y lo aplica una sola vez
   a todos los jugadores conectados en el momento del sorteo. Quien se conecte después no lo recibe.
+  Los efectos pueden ser positivos (`golpe_de_suerte`: regeneración, velocidad, ...) o negativos
+  (`mala_suerte`: veneno, lentitud, fatiga de minería, ...).
 
 El sorteo es ponderado (`weight`) y cada evento tiene su propio `enabled`. El evento activo y sus
 parámetros sorteados se persisten en el mundo y sobreviven reinicios. Detalle completo en
