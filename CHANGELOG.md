@@ -7,6 +7,9 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ### Nuevo: peaje de movilidad (Waystones)
 - Si tenés instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, se bloquea el teletransporte - no se cobra nada.
 
+### Nuevo: desbloqueo de dimensiones
+- Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded - se detectan todas solas) cuesta 5000 Sheyicoins por defecto la primera vez (configurable en `dimension_unlock.json`). Si no te alcanza, el portal no te deja pasar y te quedás en el Overworld. Una vez pagás, esa dimensión queda desbloqueada para siempre.
+
 ### Quitado: `/debt` y la deuda con plazo
 - Se eliminó el comando `/debt` y toda la infraestructura que llevaba la cuenta de un plazo para pagar. Un saldo negativo (hoy solo posible vía `/eco charge`, herramienta de admin) ya no es un estado aparte con vencimiento - es simplemente saldo negativo, y se consulta con `/bal` como cualquier otro.
 
