@@ -56,7 +56,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
   - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
-  - `chunk_claim.json` — coste en Sheyicoins de reclamar un chunk con el mod FTB Chunks, 200 por defecto (ver más abajo).
+  - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala al cuadrado por jugador y no es configurable (ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -134,12 +134,14 @@ comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 ## Renta de chunks (FTB Chunks)
 
 **Integración opcional, sin dependencia dura** — si el mod [FTB Chunks](https://www.curseforge.com/minecraft/mc-mods/ftb-chunks-forge)
-está instalado, reclamar un chunk cobra `cost` Sheyicoins (`chunk_claim.json`, 200 por defecto),
-**una sola vez por chunk**. Si no está instalado, el mod funciona igual, solo que sin esta feature.
+está instalado, reclamar un chunk cobra Sheyicoins. **El precio no es fijo ni configurable**: sube
+al cuadrado con cada chunk que ya tengas — el chunk número `n` (1º, 2º, 3º...) cuesta `1000 * n²`
+(1.000 / 4.000 / 9.000 / ... / 100.000 en el 10º), para desincentivar acaparar territorio. Si no
+está instalado, el mod funciona igual, solo que sin esta feature.
 
 Este mod no implementa protección ni reclamo de chunks — eso lo hace FTB Chunks enteramente. Si no
-te alcanza el saldo, **el reclamo se bloquea** y FTB Chunks muestra el motivo. No hay renta
-periódica todavía; eso queda para la futura feature "Día de Renta" del roadmap.
+te alcanza el saldo para el siguiente chunk, **el reclamo se bloquea** y FTB Chunks muestra el
+motivo. No hay renta periódica todavía; eso queda para la futura feature "Día de Renta" del roadmap.
 
 ## Salario diario y niveles
 
@@ -203,6 +205,7 @@ com.sheyito.economicmaster
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
+├── chunk/ChunkClaimManager       recuento de chunks reclamados por jugador (precio cuadratico)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
 ├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /dimension
