@@ -20,6 +20,7 @@ public final class ConfigManager {
     private static volatile ShopConfig shop;
     private static volatile XpShopConfig xpShop;
     private static volatile DebtConfig debt;
+    private static volatile WaystoneTollConfig waystoneToll;
 
     private ConfigManager() {
     }
@@ -42,6 +43,7 @@ public final class ConfigManager {
         shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
         xpShop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("xp_shop.json"), XpShopConfig.class, XpShopConfig::defaults);
         debt = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("debt.json"), DebtConfig.class, DebtConfig::defaults);
+        waystoneToll = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("waystone_toll.json"), WaystoneTollConfig.class, WaystoneTollConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -75,5 +77,9 @@ public final class ConfigManager {
 
     public static DebtConfig debt() {
         return debt;
+    }
+
+    public static WaystoneTollConfig waystoneToll() {
+        return waystoneToll;
     }
 }
