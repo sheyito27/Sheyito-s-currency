@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), cobro por reclamar chunks con **FTB Chunks**, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), cobro por reclamar chunks con **FTB Chunks**, IVA de transmisión que quema parte de cada pago/trade/compra/suscripción, embargo de equipo si te quedas en deuda, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -20,7 +20,9 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [penalización por muerte](docs/features/penalizacionPorMuerte.md),
 [peaje de movilidad (Waystones)](docs/features/peajeMovilidadWaystones.md),
 [desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md),
-[renta de chunks (FTB Chunks)](docs/features/rentaDeChunks.md).
+[renta de chunks (FTB Chunks)](docs/features/rentaDeChunks.md),
+[IVA de transmisión](docs/features/ivaDeTransmision.md),
+[embargo silencioso y brutal](docs/features/embargoDeudas.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -58,6 +60,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
   - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala como `n^1.5` por jugador y no es configurable (ver más abajo).
   - `transmission_tax.json` — porcentaje de IVA que se quema en `/pay`, el dinero de `/trade`, las tiendas de cartel y las suscripciones (`taxPercent`, 10% por defecto, ver más abajo).
+  - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto) y condiciones de cierre de la votación de subasta (`minVotersToClose`, `minVoteGameDays`, ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -78,6 +81,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
+- `/embargo vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
@@ -86,6 +90,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/sc reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
+- `/sc embargo retirar` — saca el ítem más antiguo de la pool de subastas y lo entrega al admin que lo ejecuta (ver más abajo). Es la única forma de que un ítem salga de la pool.
 
 Todos los comandos de administración/pruebas viven bajo la raíz compartida `/sc` (Brigadier fusiona los subcomandos de cada clase en un único árbol).
 
@@ -158,6 +163,24 @@ pactado (lo que escribís en `/pay` o el precio del cartel) nunca cambia; el IVA
 momento del cobro. No afecta a `/eco`, `/sc reward`, el salario, la caza de mobs, ni a los peajes de
 waystones/dimensiones/chunks — ninguno de esos es una compraventa entre jugadores.
 
+## Embargo silencioso y brutal
+
+Si tu saldo se vuelve negativo (hoy solo posible vía `/eco charge`, herramienta de admin — la
+futura feature de "pagos obligatorios" será la vía real de gameplay), tienes `graceSeconds`
+segundos **reales** (30 por defecto, pausados mientras estás desconectado) para saldarlo vendiendo
+en tiendas, cobrando salario o completando misiones. Mientras tanto no puedes recibir dinero de
+otros jugadores (`/pay`/`/trade`), tirar objetos al suelo, ni abrir cofres o el ender chest — para
+que no puedas esconder tu equipo.
+
+Si se agota el plazo, se ejecuta todo de golpe: se te incauta del inventario (equipado y suelto)
+toda armadura, arma o herramienta, tu saldo vuelve a exactamente 0, y no hay marcha atrás — pagar
+después no recupera nada. En cuanto haya suficientes jugadores conectados (sin contar a la
+víctima), se abre una votación secreta (`/embargo vote`, menú tipo cofre) sobre cuál de los objetos
+incautados se manda a la pool de subastas del servidor; el resto se te devuelve en cuanto cierra.
+La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes días de juego
+a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace nada por sí sola — un admin la
+saca con `/sc embargo retirar` y la comunidad decide qué hacer con ella.
+
 ## Salario diario y niveles
 
 El salario se paga cada `intervalGameDays` **días de juego** (no minutos reales — 1 día de juego son 24000 ticks del mundo, así que si el servidor está apagado el reloj no corre y no hay pagos "atrasados" que recuperar). Por defecto es 1 día de juego.
@@ -221,13 +244,15 @@ com.sheyito.economicmaster
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
 ├── chunk/ChunkClaimManager       recuento de chunks reclamados por jugador (precio n^1.5)
-├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
+├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu - plazo de gracia, incautación y votación
+├── auction/AuctionPoolManager    pool de subastas: solo almacenamiento, /sc embargo retirar la vacía
+├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /trade + /sc (reward, dimension lock, chunk reset - admin/dev)
+├── commands/                     /bal /baltop /pay /subscribe /eco /trade /embargo + /sc (reward, dimension lock, chunk reset, embargo retirar - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo de chunk) - todas compileOnly
-└── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
+└── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve), ItemStackJson (persistir ItemStack real)
 ```
 
 Nota: el paquete Java (`com.sheyito.economicmaster`) y el nombre de la clase principal (`EconomicMaster.java`) se mantienen sin cambios — son estructura interna invisible para el jugador. Lo que sí cambió es el `mod_id` (`sheyitoscurrency`), que es lo que determina el nombre del jar, la carpeta de configuración y la carpeta de datos por mundo — no el nombre de los comandos, que viven todos bajo la raíz corta `/sc` (ver más arriba).
