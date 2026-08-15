@@ -62,7 +62,7 @@ final class WaystonesIntegration {
             }
 
             Component message = Component.literal("§c[Sheyito's currency] §fNo tienes suficiente saldo para usar este waystone (cuesta "
-                    + Money.format(config.cost) + " Sheyicoins).");
+                    + Money.format(config.cost) + ").");
             return CompletableFuture.completedFuture(Either.right(new WaystoneTeleportError(message)));
         });
     }
@@ -88,7 +88,7 @@ final class WaystonesIntegration {
         }
 
         if (WaystoneTollLogic.chargeToll(economy, config, player.getUUID())) {
-            player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.cost) + " Sheyicoins (peaje de movilidad)."));
+            player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(config.cost) + " (peaje de movilidad)."));
         }
     }
 
