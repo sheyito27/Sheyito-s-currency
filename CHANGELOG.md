@@ -2,6 +2,17 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.1.0
+
+### Nuevo: renta progresiva sobre ganancias
+- Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal. Si tu saldo bajó en el periodo, no se cobra nada.
+
+### Nuevo: renta de force-load de chunks (FTB Chunks)
+- Force-loadear un chunk sigue siendo gratis al activarlo, pero cada 7 días de juego se cobra `forceLoadRentBase * n^1.5` (base 10, `n` = chunks force-loaded ahora mismo) por jugador - también estando desconectado. Si no cubres el total, se descargan todos tus chunks force-loaded de golpe: inmediato si estás online, en cuanto te reconectes si no.
+
+### Cambiado
+- `ChunkClaimManager` se renombró a `ChunkClaimRegistry` al absorber el recuento de chunks force-loaded (mismo `chunk_claim_data.json`, sin pérdida de datos al actualizar).
+
 ## Versión 1.0.9
 
 ### Nuevo: embargo silencioso y brutal
