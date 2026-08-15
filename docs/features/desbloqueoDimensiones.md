@@ -7,8 +7,8 @@
 ## Qué es esto
 
 Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded)
-cuesta `price` Sheyicoins (5000 por defecto) **la primera vez**. Si no tenés saldo suficiente, el
-viaje se bloquea y te quedás en el Overworld, con un aviso. Si pagás, esa dimensión queda
+cuesta `price` Sheyicoins (5000 por defecto) **la primera vez**. Si no tienes saldo suficiente, el
+viaje se bloquea y te quedas en el Overworld, con un aviso. Si pagas, esa dimensión queda
 desbloqueada para siempre — nunca más se te vuelve a cobrar por entrar a ella.
 
 No hay nada hardcodeado por dimensión: la feature detecta genéricamente **cualquier** dimensión
