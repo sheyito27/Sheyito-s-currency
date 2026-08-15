@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
 
-/** Covers the waystone toll: always charges, can leave the balance negative, never blocks. */
+/** Covers the waystone toll: blocks (never charges) when the balance can't cover the cost. */
 class WaystoneTollLogicTest {
 
     @BeforeAll
@@ -64,24 +64,52 @@ class WaystoneTollLogicTest {
     }
 
     @Test
-    void applyTollDeductsExactCostWhenBalanceCoversIt() {
+    void canAffordIsTrueWhenBalanceCoversCost() {
+        withEconomy((economy, uuid) -> {
+            economy.give(uuid, 100.0);
+
+            assertTrue(WaystoneTollLogic.canAfford(economy, defaultConfig(), uuid));
+        });
+    }
+
+    @Test
+    void canAffordIsFalseWhenBalanceIsInsufficient() {
+        withEconomy((economy, uuid) -> {
+            economy.give(uuid, 99.99);
+
+            assertFalse(WaystoneTollLogic.canAfford(economy, defaultConfig(), uuid));
+        });
+    }
+
+    @Test
+    void canAffordIsAlwaysTrueWhenDisabled() {
+        withEconomy((economy, uuid) -> {
+            WaystoneTollConfig disabled = defaultConfig();
+            disabled.enabled = false;
+
+            assertTrue(WaystoneTollLogic.canAfford(economy, disabled, uuid), "no balance given, but toll is off");
+        });
+    }
+
+    @Test
+    void chargeTollDeductsExactCostAndReturnsTrueWhenAffordable() {
         withEconomy((economy, uuid) -> {
             economy.give(uuid, 500.0);
 
-            WaystoneTollLogic.applyToll(economy, defaultConfig(), uuid);
+            assertTrue(WaystoneTollLogic.chargeToll(economy, defaultConfig(), uuid));
 
             assertEquals(400.0, economy.getBalance(uuid));
         });
     }
 
     @Test
-    void applyTollLeavesBalanceNegativeWhenInsufficient() {
+    void chargeTollLeavesBalanceUntouchedAndReturnsFalseWhenInsufficient() {
         withEconomy((economy, uuid) -> {
             economy.give(uuid, 30.0);
 
-            WaystoneTollLogic.applyToll(economy, defaultConfig(), uuid);
+            assertFalse(WaystoneTollLogic.chargeToll(economy, defaultConfig(), uuid));
 
-            assertEquals(-70.0, economy.getBalance(uuid), "30 - 100 cost = -70, never blocked");
+            assertEquals(30.0, economy.getBalance(uuid), "take() never mutates the balance when it returns false");
         });
     }
 }
