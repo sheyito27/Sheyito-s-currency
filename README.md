@@ -17,7 +17,7 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
 [compra de XP](docs/features/compraXP.md),
-[deuda por muerte](docs/features/deudaPorMuerte.md).
+[penalización por muerte](docs/features/penalizacionPorMuerte.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -50,7 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
-  - `debt.json` — penalización por muerte y plazo de la deuda (ver más abajo).
+  - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -76,7 +76,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
-- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo (deuda). Pensado para probar/forzar el mecanismo de deuda por muerte manualmente.
+- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo (deuda). Infraestructura reservada para pruebas y futuras features; la muerte ya no la usa.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 
@@ -100,19 +100,11 @@ sheyitoscurrency reward @p 200
 
 **Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si querés que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
 
-## Deuda por muerte
+## Muerte
 
-Morir tiene un coste económico, con dos ramas según tu saldo en ese momento (`debt.json`,
-`balanceThreshold`, 500 SC por defecto):
-
-- **Saldo ≤ umbral:** penalización fija (`penaltyAmount`, 500 SC por defecto) que puede dejarte
-  en negativo — eso es la deuda, con un plazo estricto (`deadlineGameDays`, 1 día de juego por
-  defecto) para volver a saldo ≥ 0.
-- **Saldo > umbral:** se te cobra un porcentaje de tu patrimonio (`penaltyPercent`, 30% por
-  defecto) — nunca te deja en negativo.
-
-Consulta tu deuda con `/debt` (o `/debt player <jugador>` la de otro). Qué pasa si el plazo vence
-sin pagar está fuera de esta feature (es la futura feature de embargo del roadmap).
+Morir siempre tiene un coste económico: pierdes un porcentaje de tu saldo actual (`debt.json`,
+`penaltyPercent`, 50% por defecto). Al ser un porcentaje de lo que tenés en ese momento, nunca
+puede dejarte en negativo ni romper la banca.
 
 ## Salario diario y niveles
 
