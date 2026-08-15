@@ -7,12 +7,14 @@ import com.sheyito.economicmaster.config.GeneralConfig;
 import com.sheyito.economicmaster.config.MonopolyConfig;
 import com.sheyito.economicmaster.config.MonopolyEventEntry;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 import java.util.List;
@@ -21,9 +23,11 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -81,19 +85,19 @@ class MonopolyManagerTest {
     }
 
     private static MonopolyEventEntry salaryEvent(String id, double weight, List<Double> multipliers) {
-        return new MonopolyEventEntry(id, "SALARY_MULTIPLIER", true, weight, multipliers, List.of(), 0.0, 0.05, 0.5, "");
+        return new MonopolyEventEntry(id, "SALARY_MULTIPLIER", true, weight, multipliers, List.of(), 0.0, 0.05, 0.5, List.of());
     }
 
     private static MonopolyEventEntry questEvent(String id, List<Double> multipliers) {
-        return new MonopolyEventEntry(id, "QUEST_REWARD_MULTIPLIER", true, 10, multipliers, List.of(), 0.0, 0.05, 0.5, "");
+        return new MonopolyEventEntry(id, "QUEST_REWARD_MULTIPLIER", true, 10, multipliers, List.of(), 0.0, 0.05, 0.5, List.of());
     }
 
     private static MonopolyEventEntry coinflipEvent() {
-        return new MonopolyEventEntry("cara_o_cruz", "HOUSE_COINFLIP", true, 5, List.of(), List.of(), 0.0, 0.05, 0.5, "");
+        return new MonopolyEventEntry("cara_o_cruz", "HOUSE_COINFLIP", true, 5, List.of(), List.of(), 0.0, 0.05, 0.5, List.of());
     }
 
     private static MonopolyEventEntry mobEvent(String id, List<String> mobs, double bounty) {
-        return new MonopolyEventEntry(id, "MOB_WANTED", true, 10, List.of(), mobs, bounty, 0.05, 0.5, "");
+        return new MonopolyEventEntry(id, "MOB_WANTED", true, 10, List.of(), mobs, bounty, 0.05, 0.5, List.of());
     }
 
     private static MonopolyEventEntry mobEvent(String id, List<String> mobs, double bounty, int maxKills) {
@@ -164,6 +168,53 @@ class MonopolyManagerTest {
     }
 
     @Test
+    void messageIsPickedRandomlyFromConfiguredList() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("ruleta", "SALARY_MULTIPLIER", true, 10,
+                List.of(2.0), List.of(), 0.0, 0.05, 0.5,
+                List.of("Mensaje A: salarios x%multiplier%.", "Mensaje B: salarios x%multiplier%."));
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "ruleta");
+            assertEquals("Mensaje A: salarios x%multiplier%.", monopoly.currentMessage());
+
+            monopoly.setRng(() -> 0.99);
+            monopoly.forceRoll(server, "ruleta");
+            assertEquals("Mensaje B: salarios x%multiplier%.", monopoly.currentMessage());
+        });
+    }
+
+    @Test
+    void messageFallsBackToDefaultWhenListIsEmpty() throws Exception {
+        MonopolyConfig config = configWith(salaryEvent("bonus", 10.0, List.of(2.0)));
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "bonus");
+            assertNull(monopoly.currentMessage(), "sin mensajes configurados el evento usa el default");
+        });
+    }
+
+    @Test
+    void broadcastSendsTheSortedMessageWithTokensReplaced() throws Exception {
+        MonopolyEventEntry entry = new MonopolyEventEntry("ruleta", "SALARY_MULTIPLIER", true, 10,
+                List.of(2.0), List.of(), 0.0, 0.05, 0.5,
+                List.of("Ganador: los salarios suben a %multiplier%!"));
+        MonopolyConfig config = configWith(entry);
+        withMonopoly(config, 0, (monopoly, economy, server) -> {
+            ServerPlayer sp = mock(ServerPlayer.class);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(sp));
+
+            monopoly.setRng(() -> 0.0);
+            monopoly.forceRoll(server, "ruleta");
+
+            ArgumentCaptor<Component> captor = ArgumentCaptor.forClass(Component.class);
+            verify(sp).sendSystemMessage(captor.capture());
+            String sent = captor.getValue().getString();
+            assertTrue(sent.contains("Ganador: los salarios suben a x2.00!"), "broadcast usa el mensaje sorteado y sustituye tokens: " + sent);
+        });
+    }
+
+    @Test
     void questRewardMultiplierIsPickedFromConfiguredList() throws Exception {
         MonopolyConfig config = configWith(questEvent("misiones", List.of(2.0, 4.0)));
         withMonopoly(config, 0, (monopoly, economy, server) -> {
@@ -177,7 +228,7 @@ class MonopolyManagerTest {
     @Test
     void mobWantedPicksMobFromListAndBounty() throws Exception {
         MonopolyEventEntry entry = new MonopolyEventEntry("se_busca", "MOB_WANTED", true, 10,
-                List.of(), List.of("minecraft:zombie", "minecraft:skeleton"), 25.0, 0.05, 0.5, "");
+                List.of(), List.of("minecraft:zombie", "minecraft:skeleton"), 25.0, 0.05, 0.5, List.of());
         MonopolyConfig config = configWith(entry);
         withMonopoly(config, 0, (monopoly, economy, server) -> {
             monopoly.setRng(() -> 0.0);
@@ -265,7 +316,7 @@ class MonopolyManagerTest {
     @Test
     void invalidEntriesAreIgnoredByTheRoll() throws Exception {
         MonopolyEventEntry broken = new MonopolyEventEntry("roto", "SALARY_MULTIPLIER", true, 10,
-                List.of(), List.of(), 0.0, 0.05, 0.5, "");
+                List.of(), List.of(), 0.0, 0.05, 0.5, List.of());
         MonopolyConfig config = configWith(broken);
         withMonopoly(config, 0, (monopoly, economy, server) -> {
             monopoly.tick(server);
