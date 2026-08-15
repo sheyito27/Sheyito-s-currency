@@ -10,7 +10,7 @@ Al completar e implementar y validar un punto, se marca `[X]` aquí (y también 
 - [X] Peaje de waystones: Usar un waystone cobra SC (100 por defecto), bloqueando el teletransporte si no alcanza.
 - [X] Desbloqueo de dimensiones: Entrar a Nether/End/dimensión modded cuesta SC una vez, para siempre.
 - [ ] Peajes de movilidad restantes: /home, /back y /tpa aún no cobran SC.
-- [X] Renta de chunks: SC por reclamar un chunk con FTB Chunks, pago único (sin renta periódica todavía - ver "Día de Renta").
+- [X] Renta de chunks: Reclamar con FTB Chunks cuesta 1.000·n² SC (n = chunk que reclamás), pago único, no configurable (sin renta periódica todavía - ver "Día de Renta").
 - [X] Muerte: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
 - [ ] Embargo silencioso y brutal: Deuda impaga roba activos valiosos, anuncio público y subasta.
 - [ ] Día de Renta: Cada 7 días cobra chunks, cuotas, suscripciones y deudas con countdown.
