@@ -89,7 +89,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 Sheyito's currency **no depende en tiempo de compilación** de FTB Quests de forma dura: se compila contra sus clases con `compileOnly` (nunca se empaqueta ni se exige), y todo el código que las referencia vive aislado en una sola clase que solo se toca si `ModList` detecta `ftbquests` cargado al arrancar — si no está instalado, el mod funciona exactamente igual sin él.
 
-Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si querés que pague un importe distinto al automático:
+Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si quieres que pague un importe distinto al automático:
 
 ```
 sheyitoscurrency reward @p 200
@@ -101,12 +101,12 @@ sheyitoscurrency reward @p 200
 
 ## Caza de mobs
 
-**Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si querés que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
+**Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si quieres que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
 
 ## Muerte
 
 Morir siempre tiene un coste económico: pierdes un porcentaje de tu saldo actual (`debt.json`,
-`penaltyPercent`, 50% por defecto). Al ser un porcentaje de lo que tenés en ese momento, nunca
+`penaltyPercent`, 50% por defecto). Al ser un porcentaje de lo que tienes en ese momento, nunca
 puede dejarte en negativo ni romper la banca.
 
 ## Peaje de movilidad (Waystones)
@@ -124,7 +124,7 @@ negativo; ese mecanismo queda reservado para una futura feature de pagos obligat
 Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded —
 se detectan todas automáticamente, nada hardcodeado) cuesta `price` Sheyicoins la primera vez
 (`dimension_unlock.json`, 5000 por defecto). Si no te alcanza, **el portal no te deja pasar** y te
-quedás en el Overworld. Si pagás, esa dimensión queda desbloqueada para siempre para vos — nunca
+quedas en el Overworld. Si pagas, esa dimensión queda desbloqueada para siempre para ti — nunca
 más se te vuelve a cobrar por entrar a ella. El mensaje siempre dice qué dimensión es, resaltada
 en morado. Un admin puede revertir el desbloqueo de un jugador con `/dimension lock` (ver
 comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
