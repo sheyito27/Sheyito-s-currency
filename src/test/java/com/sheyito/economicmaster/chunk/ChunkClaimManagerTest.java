@@ -68,6 +68,34 @@ class ChunkClaimManagerTest {
     }
 
     @Test
+    void resetDropsTheCountToZero() {
+        ChunkClaimManager manager = ChunkClaimManager.createForTesting();
+        UUID uuid = UUID.randomUUID();
+        manager.incrementClaimCount(uuid);
+        manager.incrementClaimCount(uuid);
+        manager.incrementClaimCount(uuid);
+
+        manager.resetClaimCount(uuid);
+
+        assertEquals(0, manager.getClaimCount(uuid));
+    }
+
+    @Test
+    void resetDoesNotAffectOtherPlayers() {
+        ChunkClaimManager manager = ChunkClaimManager.createForTesting();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        manager.incrementClaimCount(first);
+        manager.incrementClaimCount(second);
+        manager.incrementClaimCount(second);
+
+        manager.resetClaimCount(first);
+
+        assertEquals(0, manager.getClaimCount(first));
+        assertEquals(2, manager.getClaimCount(second));
+    }
+
+    @Test
     void claimingUnclaimingDownToOneThenClaimingAgainPricesLikeTheSecondChunk() {
         ChunkClaimManager manager = ChunkClaimManager.createForTesting();
         UUID uuid = UUID.randomUUID();
