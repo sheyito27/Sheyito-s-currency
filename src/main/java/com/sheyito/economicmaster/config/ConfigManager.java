@@ -25,6 +25,7 @@ public final class ConfigManager {
     private static volatile ChunkClaimConfig chunkClaim;
     private static volatile TransmissionTaxConfig transmissionTax;
     private static volatile EmbargoConfig embargo;
+    private static volatile RentConfig rent;
 
     private ConfigManager() {
     }
@@ -52,6 +53,7 @@ public final class ConfigManager {
         chunkClaim = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("chunk_claim.json"), ChunkClaimConfig.class, ChunkClaimConfig::defaults);
         transmissionTax = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("transmission_tax.json"), TransmissionTaxConfig.class, TransmissionTaxConfig::defaults);
         embargo = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("embargo.json"), EmbargoConfig.class, EmbargoConfig::defaults);
+        rent = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("rent.json"), RentConfig.class, RentConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -105,5 +107,9 @@ public final class ConfigManager {
 
     public static EmbargoConfig embargo() {
         return embargo;
+    }
+
+    public static RentConfig rent() {
+        return rent;
     }
 }
