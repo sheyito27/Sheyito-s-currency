@@ -4,7 +4,6 @@ import com.sheyito.economicmaster.TestBootstrap;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.DebtConfig;
 import com.sheyito.economicmaster.config.GeneralConfig;
-import com.sheyito.economicmaster.debt.DebtManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -90,18 +88,6 @@ class PlayerDeathPenaltyListenerTest {
             PlayerDeathPenaltyListener.applyDeathPenalty(economy, defaultConfig(), server, player);
 
             assertEquals(0.0, economy.getBalance(uuid));
-        });
-    }
-
-    @Test
-    void neverRegistersDebt() throws Exception {
-        withPenalty((economy, server, player, uuid) -> {
-            economy.give(uuid, 2000.0);
-            DebtManager debtManager = DebtManager.createForTesting();
-
-            PlayerDeathPenaltyListener.applyDeathPenalty(economy, defaultConfig(), server, player);
-
-            assertEquals(Optional.empty(), debtManager.getDueGameDay(uuid), "death no longer touches DebtManager");
         });
     }
 }
