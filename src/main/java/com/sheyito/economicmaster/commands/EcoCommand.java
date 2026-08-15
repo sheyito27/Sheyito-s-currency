@@ -36,10 +36,20 @@ public final class EcoCommand {
                         .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
                                 .then(Commands.argument("cantidad", DoubleArgumentType.doubleArg(0))
                                         .executes(ctx -> apply(ctx, Operation.SET)))))
+                .then(Commands.literal("charge")
+                        .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
+                                .then(Commands.argument("cantidad", DoubleArgumentType.doubleArg(0.01))
+                                        .executes(ctx -> apply(ctx, Operation.CHARGE)))))
                 .then(Commands.literal("reload").executes(EcoCommand::reload)));
     }
 
-    private enum Operation { GIVE, TAKE, SET }
+    /**
+     * {@code CHARGE} is the only admin-facing operation that can leave a player's balance
+     * negative. Nothing else in the mod uses this today - the waystone toll blocks instead of
+     * overdrawing (see {@code integration.WaystoneTollLogic}). Preserved for testing edge cases
+     * and for a future feature that needs negative balances (e.g. mandatory recurring payments).
+     */
+    private enum Operation { GIVE, TAKE, SET, CHARGE }
 
     private static int apply(CommandContext<CommandSourceStack> ctx, Operation op) throws CommandSyntaxException {
         Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
@@ -52,6 +62,7 @@ public final class EcoCommand {
         switch (op) {
             case GIVE -> economy.give(uuid, amount);
             case SET -> economy.setBalance(uuid, amount);
+            case CHARGE -> economy.charge(uuid, amount);
             case TAKE -> {
                 if (!economy.take(uuid, amount)) {
                     ctx.getSource().sendFailure(Component.literal("§c" + target.getName() + " no tiene saldo suficiente."));

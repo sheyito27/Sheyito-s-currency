@@ -19,6 +19,11 @@ repositories {
     // never requires either of these to be present at runtime.
     maven { url = "https://maven.ftb.dev/releases" }
     maven { url = "https://maven.architectury.dev" }
+    // Only used for the compileOnly Waystones/Balm soft-dependency below - never required at runtime.
+    maven {
+        url = "https://maven.twelveiterations.com/repository/maven-public/"
+        content { includeGroup "net.blay09.mods" }
+    }
 }
 
 base {
@@ -70,6 +75,14 @@ dependencies {
     // FTBQuestsCompat, so the mod works identically with or without FTB Quests installed.
     compileOnly "dev.ftb.mods:ftb-quests-neoforge:2101.1.30"
     compileOnly "dev.architectury:architectury-neoforge:13.0.8"
+
+    // Soft-dependency only (compileOnly, never implementation): lets WaystonesIntegration compile
+    // against Waystones' WaystoneTeleportEvent so using a waystone costs a configurable toll.
+    // balm-common is required too because that event extends Balm's BalmEvent and registration
+    // goes through Balm.getEvents(). Never packaged into our jar and never required at runtime -
+    // gated behind ModList.get().isLoaded("waystones") in WaystonesCompat.
+    compileOnly "net.blay09.mods:waystones-common:21.1.41+1.21.1"
+    compileOnly "net.blay09.mods:balm-common:21.0.65+1.21.1"
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
