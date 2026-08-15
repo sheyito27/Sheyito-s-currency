@@ -7,7 +7,8 @@ Al completar e implementar y validar un punto, se marca `[X]` aquí (y también 
 
 ## Presión
 
-- [ ] Peajes de movilidad: /home, /back, /tpa, waystones y desbloquear dimensión cobran SC.
+- [X] Peaje de waystones: Usar un waystone cobra SC (100 por defecto), sin bloquear el teletransporte.
+- [ ] Peajes de movilidad restantes: /home, /back, /tpa y desbloquear dimensión aún no cobran SC.
 - [ ] Renta de chunks: SC por reclamar chunks.
 - [X] Muerte: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
 - [ ] Embargo silencioso y brutal: Deuda impaga roba activos valiosos, anuncio público y subasta.
