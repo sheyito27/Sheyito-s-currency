@@ -2,7 +2,7 @@
 
 Usado por: `GeneralConfig`, `MobRewardsConfig`, `SalaryConfig`, `QuestRewardsConfig`,
 `SubscriptionsConfig`, `ShopConfig`, `XpShopConfig`, `DebtConfig`, `WaystoneTollConfig`,
-`DimensionUnlockConfig`, `ChunkClaimConfig`, `TransmissionTaxConfig`.
+`DimensionUnlockConfig`, `ChunkClaimConfig`, `TransmissionTaxConfig`, `EmbargoConfig`.
 
 ## Qué resuelve
 
