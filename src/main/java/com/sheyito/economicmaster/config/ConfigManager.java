@@ -24,6 +24,7 @@ public final class ConfigManager {
     private static volatile DimensionUnlockConfig dimensionUnlock;
     private static volatile ChunkClaimConfig chunkClaim;
     private static volatile TransmissionTaxConfig transmissionTax;
+    private static volatile EmbargoConfig embargo;
 
     private ConfigManager() {
     }
@@ -50,6 +51,7 @@ public final class ConfigManager {
         dimensionUnlock = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("dimension_unlock.json"), DimensionUnlockConfig.class, DimensionUnlockConfig::defaults);
         chunkClaim = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("chunk_claim.json"), ChunkClaimConfig.class, ChunkClaimConfig::defaults);
         transmissionTax = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("transmission_tax.json"), TransmissionTaxConfig.class, TransmissionTaxConfig::defaults);
+        embargo = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("embargo.json"), EmbargoConfig.class, EmbargoConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -99,5 +101,9 @@ public final class ConfigManager {
 
     public static TransmissionTaxConfig transmissionTax() {
         return transmissionTax;
+    }
+
+    public static EmbargoConfig embargo() {
+        return embargo;
     }
 }
