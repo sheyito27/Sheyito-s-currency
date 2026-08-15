@@ -16,10 +16,10 @@ import java.util.List;
  *       {@link #maxKills} (0 = sin límite) — se elige un mob al azar de la lista y matarlo otorga
  *       la recompensa hasta que se agote el cupo.</li>
  *   <li>{@code HOUSE_COINFLIP}: usa {@link #commission} (comision de La Casa) y {@link #winChance}.</li>
+ *   <li>{@code WINDFALL}: usa {@link #effects} (lista de ids de efecto de poción),
+ *       {@link #effectDurationSeconds} y {@link #effectAmplifier} — se elige un efecto al azar y se
+ *       aplica al instante a todos los jugadores conectados.</li>
  * </ul>
- *
- * <p>WINDFALL (lluvia de dinero a todos los jugadores conectados) está planeado pero todavía
- * no implementado — se deja solo como referencia para no perder la idea.
  */
 public class MonopolyEventEntry {
 
@@ -55,10 +55,19 @@ public class MonopolyEventEntry {
 
     /**
      * Lista de mensajes de chat posibles al activarse el evento: el sorteo elige uno al azar.
-     * Tokens (en cada mensaje): %multiplier%, %mob%, %bounty%, %commission%. Si la lista está
-     * vacía se usa el mensaje por defecto del tipo de evento.
+     * Tokens (en cada mensaje): %multiplier%, %mob%, %bounty%, %commission%, %effect%, %duration%.
+     * Si la lista está vacía se usa el mensaje por defecto del tipo de evento.
      */
     public List<String> messages = List.of();
+
+    /** Lista de ids de efecto de poción de la que se elige uno al azar (tipo WINDFALL). */
+    public List<String> effects = List.of();
+
+    /** Duración en segundos del efecto de poción aplicado por el evento (tipo WINDFALL). */
+    public int effectDurationSeconds = 60;
+
+    /** Amplificador del efecto de poción (0 = nivel 1) aplicado por el evento (tipo WINDFALL). */
+    public int effectAmplifier = 0;
 
     public MonopolyEventEntry() {
     }
