@@ -4,56 +4,49 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
+import com.sheyito.economicmaster.chunk.ChunkClaimManager;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.DimensionArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
 
 import java.util.Collection;
 import java.util.UUID;
 
 /**
- * Admin-only testing tool for {@link com.sheyito.economicmaster.events.DimensionUnlockListener}:
- * resets a player's unlock state for a dimension so the paywall can be re-triggered without a
- * fresh world. Does not refund the price they paid - see {@link DimensionUnlockManager#lock}.
+ * Admin-only testing tool for the renta de chunks feature (see {@code ChunkClaimManager}):
+ * drops a player's live claim count back to 0 so the `n^1.5` pricing curve can be re-tested from
+ * the start without unclaiming every chunk one by one. Does not refund anything - see
+ * {@link ChunkClaimManager#resetClaimCount}.
  *
  * <p>Lives under {@code /sc}, the shared root for every admin/dev command in this mod (see also
- * {@code EconomicMasterCommand}, {@code ChunkCommand}) - Brigadier merges multiple
+ * {@code EconomicMasterCommand}, {@code DimensionCommand}) - Brigadier merges multiple
  * {@code register(Commands.literal("sc")...)} calls from different classes into one command
  * tree, so each class can keep owning its own subcommand independently.
  */
-public final class DimensionCommand {
+public final class ChunkCommand {
 
-    private DimensionCommand() {
+    private ChunkCommand() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
-                .then(Commands.literal("dimension")
-                        .then(Commands.literal("lock")
+                .then(Commands.literal("chunk")
+                        .then(Commands.literal("reset")
                                 .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
-                                        .then(Commands.argument("dimension", DimensionArgument.dimension())
-                                                .executes(DimensionCommand::lock))))));
+                                        .executes(ChunkCommand::reset)))));
     }
 
-    private static int lock(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int reset(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
         GameProfile target = profiles.iterator().next();
         UUID uuid = target.getId();
 
-        ServerLevel level = DimensionArgument.getDimension(ctx, "dimension");
-        ResourceKey<Level> dimension = level.dimension();
-
-        DimensionUnlockManager.get().lock(uuid, dimension);
+        ChunkClaimManager.get().resetClaimCount(uuid);
 
         ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §f" + target.getName()
-                + " ya no tiene desbloqueada esa dimension."), true);
+                + " ya tiene su recuento de chunks a 0."), true);
         return 1;
     }
 }

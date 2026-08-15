@@ -6,6 +6,7 @@ import com.sheyito.economicmaster.events.DimensionUnlockListener;
 import com.sheyito.economicmaster.events.MobKillListener;
 import com.sheyito.economicmaster.events.PlayerDeathPenaltyListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
+import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
 import com.sheyito.economicmaster.integration.WaystonesCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
@@ -45,6 +46,7 @@ public class EconomicMaster {
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
         modEventBus.addListener((FMLCommonSetupEvent event) -> WaystonesCompat.logDetection());
+        modEventBus.addListener((FMLCommonSetupEvent event) -> FTBChunksCompat.logDetection());
 
         LOGGER.info("Sheyito's currency inicializado (server-side).");
     }

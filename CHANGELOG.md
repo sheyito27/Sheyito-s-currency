@@ -2,6 +2,32 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.8
+
+### Nuevo: IVA de transmisión
+- `/pay`, el dinero de `/trade`, comprar/vender en tiendas de cartel y cada cobro de una suscripción (inicial y renovaciones) queman un porcentaje configurable (`taxPercent`, 10% por defecto, `transmission_tax.json`) en ambos lados a la vez: el pagador paga de más, el receptor recibe de menos. Con el 10% por defecto, una transacción de 100 SC hace que el pagador pague 110 y el receptor reciba 90. No afecta a `/eco`, `/sc reward`, salario, caza de mobs, ni a los peajes de waystones/dimensiones/chunks.
+
+### Arreglado
+- El README describía el precio de reclamar un chunk como "escala al cuadrado" - la fórmula real es `n^1.5`.
+
+## Versión 1.0.7
+
+### Arreglado: recuento de chunks reclamados
+- Desreclamar un chunk ahora sí baja el recuento (antes solo subía, así que el precio del siguiente reclamo se calculaba sobre un total histórico en vez de los chunks que tenías reclamados en ese momento).
+
+### Nuevo: `/sc chunk reset <jugador>`
+- Comando de dev (OP) para poner a 0 el recuento de chunks reclamados de un jugador, sin reembolsar nada - para reprobar la curva de precio sin desreclamar chunk a chunk.
+
+### Cambiado: comandos de administración/dev bajo `/sc`
+- `/sheyitoscurrency reward` pasa a ser `/sc reward`.
+- `/dimension lock` pasa a ser `/sc dimension lock`.
+- Todo comando de administración/dev de este mod vive ahora bajo la raíz compartida `/sc`.
+
+## Versión 1.0.6
+
+### Nuevo: renta de chunks (FTB Chunks)
+- Si tienes instalado el mod FTB Chunks, reclamar un chunk cuesta Sheyicoins - una sola vez por chunk, sin renta periódica todavía. El precio no es un valor fijo: escala como `n^1.5` con cada chunk que tengas reclamado *ahora mismo* (1.000 el primero, ~2.828 el segundo, ~5.196 el tercero, ~31.623 el décimo...) y no es configurable, a propósito, para desincentivar acaparar territorio sin volverse inalcanzable. Desreclamar un chunk baja el recuento (sin reembolso), así que el precio del siguiente reclamo refleja lo que tenés en ese momento, no un total histórico. No hace falta FTB Chunks para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, el reclamo se bloquea - no se cobra nada. Este mod no protege ni reclama chunks, eso lo hace FTB Chunks; solo cobra y lleva la cuenta.
+
 ## Versión 1.0.5
 
 ### Nuevo: peaje de movilidad (Waystones)

@@ -59,7 +59,7 @@ como key (`Map<UUID, Set<String>>`); la conversión a `String` (el id de la dime
 
 ## Comandos
 
-- `/dimension lock <jugador> <dimension>` (OP nivel 2) — revierte el desbloqueo de esa dimensión
+- `/sc dimension lock <jugador> <dimension>` (OP nivel 2) — revierte el desbloqueo de esa dimensión
   para ese jugador, sin reembolsar el precio pagado. Es una herramienta de pruebas: deja re-probar
   el flujo de bloqueo/cobro sin tener que reiniciar el mundo. Usa `DimensionArgument` (el mismo
   argumento vanilla que `/execute in <dimension>`), así que autocompleta con las dimensiones

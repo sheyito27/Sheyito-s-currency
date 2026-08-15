@@ -1,0 +1,128 @@
+# Renta de chunks (FTB Chunks)
+
+**Estado:** implementado.
+**Código relacionado:** `FTBChunksCompat.java`, `FtbChunksIntegration.java`, `ChunkClaimLogic.java`, `ChunkClaimManager.java`, `ChunkClaimConfig.java`, `ChunkCommand.java`.
+**Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md); ver también [integración FTB Quests](integracionFtbQuests.md) y [peaje de movilidad (Waystones)](peajeMovilidadWaystones.md), de los que copia el mecanismo de soft-dependency.
+
+## Qué es esto
+
+Reclamar un chunk con el mod FTB Chunks (si está instalado) cuesta Sheyicoins — pero a diferencia
+de cualquier otro cobro de este mod, **el precio no es fijo ni configurable**: escala como `n^1.5`
+por jugador. El chunk número `n` que reclamás (1º, 2º, 3º...) cuesta `1000 * n^1.5`:
+
+| Chunk # | Coste |
+|---|---|
+| 1º | 1.000 |
+| 2º | ~2.828 |
+| 3º | ~5.196 |
+| 5º | ~11.180 |
+| 10º | ~31.623 |
+| 20º | ~89.443 |
+
+Se probaron dos exponentes antes de llegar a este: una cuadrática pura (`n²`) escalaba demasiado
+rápido (10º chunk 100.000, 100º 10.000.000); una raíz cuadrada (`n^0.5`) apenas crecía (10º chunk
+solo ~3.162, se sentía casi plano). `1.5` es el punto intermedio: cada chunk adicional cuesta
+proporcionalmente más que el anterior (a diferencia de una lineal `n^1`, que sube parejo) sin
+volverse inalcanzable en las primeras decenas de chunks.
+
+Si no tienes saldo suficiente para el siguiente chunk, **el reclamo se bloquea** — FTB Chunks
+muestra un mensaje explicando por qué y el chunk no queda reclamado. Por eso el precio vive
+hardcodeado en `ChunkClaimLogic` en vez de en el JSON de config: solo `enabled` es ajustable.
+
+Este mod **no implementa nada de protección ni de reclamo en sí** — eso es enteramente trabajo de
+FTB Chunks. Aquí solo se cobra y se lleva la cuenta. No hay renta periódica: eso queda para la
+futura feature separada "Día de Renta" (`docs/proposals.md`), que cobraría chunks + cuotas +
+suscripciones + deudas juntos con una cuenta regresiva — sin construirse todavía.
+
+## Cómo funciona
+
+**Dependencia opcional sin crash**, mismo mecanismo que FTB Quests/Waystones: todo tipo de FTB
+Chunks/FTB Library referenciado en el mod vive aislado en `FtbChunksIntegration` (paquete-privada),
+solo tocada tras confirmar `ModList.get().isLoaded("ftbchunks")` en `FTBChunksCompat.logDetection()`
+(enganchado a `FMLCommonSetupEvent`). La dependencia es `compileOnly` en `build.gradle`.
+
+**Los eventos de FTB Chunks van por Architectury** (`dev.architectury.event.Event`), el mismo
+sistema que ya usa la integración de FTB Quests — no hace falta añadir esa dependencia de nuevo.
+
+**Aviso crítico de la propia documentación de FTB Chunks**: los eventos `BEFORE_*`
+pueden dispararse para una operación **simulada** (por ejemplo, una comprobación en la UI de "¿se
+podría reclamar esto?" sin que se llegue a reclamar de verdad) — su javadoc dice explícitamente
+que el handler no debe mutar estado ahí. Por eso toda mutación (cobrar, incrementar o decrementar
+el contador) pasa en los eventos `AFTER_*`, que solo se disparan cuando la operación fue real:
+
+```java
+// BEFORE_CLAIM: solo comprueba contra el recuento actual, nunca cobra ni lo modifica
+private static CompoundEventResult<ClaimResult> onBeforeClaim(CommandSourceStack source, ClaimedChunk chunk) {
+    ServerPlayer player = source.getPlayer();
+    int alreadyClaimed = claims.getClaimCount(player.getUUID());
+    if (!ChunkClaimLogic.canAfford(economy, config, player.getUUID(), alreadyClaimed)) {
+        return CompoundEventResult.interruptTrue(ClaimResult.customProblem("Saldo insuficiente..."));
+    }
+    return CompoundEventResult.pass();
+}
+
+// AFTER_CLAIM: cobra segun el recuento actual, y solo si cobro bien, lo incrementa
+private static void onAfterClaim(CommandSourceStack source, ClaimedChunk chunk) {
+    int alreadyClaimed = claims.getClaimCount(player.getUUID());
+    if (ChunkClaimLogic.chargeClaim(economy, config, player.getUUID(), alreadyClaimed)) {
+        claims.incrementClaimCount(player.getUUID());
+    }
+}
+
+// AFTER_UNCLAIM: decrementa el mismo recuento, sin reembolso
+private static void onAfterUnclaim(CommandSourceStack source, ClaimedChunk chunk) {
+    claims.decrementClaimCount(player.getUUID());
+}
+```
+
+Mismo patrón de dos fases (comprobar/cobrar) que el peaje de Waystones (`Prepare`/`Complete`), con
+`AFTER_UNCLAIM` sumado para mantener el recuento honesto.
+
+**Bug corregido:** en la primera versión, el recuento solo subía — desreclamar un chunk no lo
+bajaba. Un jugador que reclamaba y liberaba chunks repetidamente veía que el precio seguía
+calculándose sobre el total histórico ("llevo 34 en total") en vez de los que tiene ahora mismo
+("tengo 1"), así que podían cobrarle el precio del 35º chunk por algo que era, en la práctica, su
+2º chunk activo. `AFTER_UNCLAIM` + `decrementClaimCount` lo arregla: el recuento es "cuántos chunks
+tenés reclamados ahora", no un contador de por vida.
+
+**Verificado contra el código real que consume el resultado** (no solo la documentación pública,
+para no adivinar mal): `ChunkTeamDataImpl.claim()` de FTB Chunks hace
+`ClaimedChunkEvent.BEFORE_CLAIM.invoker().before(source, chunk).object()` y solo mira
+`result.isSuccess()` — el valor booleano de `interruptTrue`/`interruptFalse` no importa en
+absoluto, solo el `ClaimResult` envuelto en el `CompoundEventResult`. `ClaimResult.customProblem(String)`
+técnicamente espera una translation key, pero como el resto de este mod nunca usó lang files, se
+le pasa directamente el mensaje en español — Minecraft muestra el texto crudo cuando no encuentra
+traducción registrada (mismo truco que el nombre de dimensión en morado).
+
+**El mensaje de bloqueo se mantiene deliberadamente corto** (`"Saldo insuficiente (2828 SC)."`, sin
+pasar por `Money.format()` ni su nombre de moneda completo): ese texto se renderiza dentro del
+propio panel de reclamo de FTB Chunks, que tiene muy poco ancho y no hace wrap — un mensaje largo
+se corta a mitad de frase. El mensaje de cobro exitoso (chat normal, con mucho más espacio) sí usa
+`Money.format()` completo.
+
+**`ChunkClaimManager`** sigue el [patrón de manager con ciclo de vida](patronManager.md): persiste,
+por jugador, cuántos chunks tiene reclamados **ahora mismo** (`chunk_claim_data.json`, dentro del
+save del mundo) — un `Map<UUID, Integer>` simple, mismo criterio que `SalaryManager` (conversión a
+`String` solo en `load()`/`save()`, nunca la ve Gson directamente). `decrementClaimCount` tiene
+piso en 0, así que desreclamar de más (o desreclamar algo que este mod nunca vio reclamarse) nunca
+deja el recuento en negativo.
+
+Toda la decisión de negocio (`costFor`, `canAfford`, `chargeClaim`) vive en `ChunkClaimLogic` — sin
+imports de FTB Chunks/FTB Library ni del manager — para poder testearla pasando el recuento como un
+`int` cualquiera, sin depender de esas clases en el classpath de test.
+
+## Comandos
+
+Para reclamar/liberar chunks, ninguno propio — FTB Chunks ya tiene los suyos; el único ajuste
+posible es `enabled` en `config/sheyitoscurrency/chunk_claim.json`, el precio en sí no es
+configurable, a propósito.
+
+- `/sc chunk reset <jugador>` (OP nivel 2) — pone el recuento de ese jugador a 0, sin reembolsar
+  nada. Herramienta de pruebas (`ChunkCommand.java`) para re-probar la curva de precio desde el
+  principio sin tener que desreclamar chunk a chunk; vive bajo la raíz compartida `/sc` (ver
+  [patrón de comandos](patronComandos.md)).
+
+## Cómo se conecta con otras features
+
+Usa `take()`, igual que el peaje de Waystones o el desbloqueo de dimensiones: bloquea la acción si
+no hay fondos, nunca deja saldo negativo. Queda fuera del circuito de XP.
