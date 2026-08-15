@@ -49,3 +49,13 @@ description='''${mod_description}'''
     versionRange="[0,)"
     ordering="AFTER"
     side="SERVER"
+
+# Soft-dependency: EconomicMaster works completely standalone. If FTB Chunks happens to be
+# installed, reclaiming a chunk costs a configurable one-time charge (chunk_claim.json) - there
+# is no compile-time or hard runtime coupling, so declaring it here is purely informational/ordering.
+[[dependencies.${mod_id}]]
+    modId="ftbchunks"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="SERVER"
