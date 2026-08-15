@@ -21,11 +21,27 @@ final class WaystoneTollLogic {
     }
 
     /**
-     * Deducts the toll via {@link EconomyManager#charge(UUID, double)}, which never checks
-     * funds first - the balance can go negative. There is no separate "debt" tracking for that,
-     * a negative balance is just a negative balance, visible via /bal.
+     * Read-only check, never mutates the balance - used to decide whether to block the
+     * teleport before it happens. When the toll is disabled, everything is "affordable".
      */
-    static void applyToll(EconomyManager economy, WaystoneTollConfig config, UUID uuid) {
-        economy.charge(uuid, config.cost);
+    static boolean canAfford(EconomyManager economy, WaystoneTollConfig config, UUID uuid) {
+        if (!isEnabled(config)) {
+            return true;
+        }
+        return economy.getBalance(uuid) >= config.cost;
+    }
+
+    /**
+     * Deducts the toll via {@link EconomyManager#take(UUID, double)}, which requires sufficient
+     * funds and never leaves the balance negative - only ever called after {@link #canAfford}
+     * confirmed the player can pay.
+     *
+     * @return true if the toll was deducted (or the toll is disabled/free)
+     */
+    static boolean chargeToll(EconomyManager economy, WaystoneTollConfig config, UUID uuid) {
+        if (!isEnabled(config)) {
+            return true;
+        }
+        return economy.take(uuid, config.cost);
     }
 }
