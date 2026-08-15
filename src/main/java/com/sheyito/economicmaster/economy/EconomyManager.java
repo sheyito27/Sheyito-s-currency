@@ -1,6 +1,7 @@
 package com.sheyito.economicmaster.economy;
 
 import com.sheyito.economicmaster.config.ConfigManager;
+import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.DataPaths;
 import com.sheyito.economicmaster.data.EconomyData;
 import com.sheyito.economicmaster.util.JsonFileUtil;
@@ -168,12 +169,47 @@ public class EconomyManager {
         return true;
     }
 
+    /**
+     * The peer-to-peer payment primitive - always taxed (see {@link #grossWithTax}/
+     * {@link #netAfterTax}), unlike {@link #give}/{@link #take} which admin adjustments,
+     * shops and subscriptions call directly where they need untaxed control of their own
+     * gross/net math.
+     */
     public boolean pay(UUID from, UUID to, double amount) {
-        if (amount <= 0 || !take(from, amount)) {
+        if (amount <= 0 || !take(from, grossWithTax(amount))) {
             return false;
         }
-        give(to, amount);
+        give(to, netAfterTax(amount));
         return true;
+    }
+
+    /**
+     * What a payer must have available to move {@code price} through a taxed transaction -
+     * "doble corte": {@link TransmissionTaxConfig#taxPercent} extra on top of the sticker
+     * price, burned. Returns {@code price} unchanged when the tax is disabled.
+     */
+    public double grossWithTax(double price) {
+        TransmissionTaxConfig config = ConfigManager.transmissionTax();
+        if (!config.enabled) {
+            return price;
+        }
+        return Money.round(price * (1 + config.taxPercent));
+    }
+
+    /**
+     * What a receiver actually gets from a taxed transaction - the same percentage taken off
+     * the sticker price, burned. The gap between {@link #grossWithTax} and this is destroyed,
+     * never credited to anyone. Backs {@link #pay}, the money leg of a trade
+     * ({@code TradeSession#complete}), shop buy/sell ({@code ShopTransactionService}), and
+     * subscription charges ({@code SubscriptionManager}); admin adjustments ({@code /eco}),
+     * quest rewards, salary and mob-kill income are never taxed.
+     */
+    public double netAfterTax(double price) {
+        TransmissionTaxConfig config = ConfigManager.transmissionTax();
+        if (!config.enabled) {
+            return price;
+        }
+        return Money.round(price * (1 - config.taxPercent));
     }
 
     public List<Map.Entry<UUID, Double>> top(int limit) {
