@@ -3,6 +3,7 @@ package com.sheyito.economicmaster.economy;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.GeneralConfig;
 import com.sheyito.economicmaster.config.SalaryConfig;
+import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
@@ -28,8 +29,25 @@ class EconomyManagerTest {
 
     /** Every balance mutation rounds via Money, which reads ConfigManager.general(), and
      * giveEarned() additionally reads ConfigManager.salary() - both are stubbed here so the
-     * whole manager can be exercised without a running server. */
+     * whole manager can be exercised without a running server. The transmission tax is
+     * disabled by default so existing tests can keep asserting exact amounts; tests that care
+     * about the tax use {@link #withTaxedEconomy} instead. */
     private void withEconomy(WithConfig test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = false;
+        withEconomy(tax, test);
+    }
+
+    /** Same as {@link #withEconomy(WithConfig)} but with the transmission tax enabled at
+     * {@code taxPercent}, for tests that specifically exercise pay()'s doble-corte math. */
+    private void withTaxedEconomy(double taxPercent, WithConfig test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = true;
+        tax.taxPercent = taxPercent;
+        withEconomy(tax, test);
+    }
+
+    private void withEconomy(TransmissionTaxConfig tax, WithConfig test) throws Exception {
         GeneralConfig general = new GeneralConfig();
         general.decimals = 2;
         general.startingBalance = 0.0;
@@ -42,6 +60,7 @@ class EconomyManagerTest {
         try (MockedStatic<ConfigManager> mocked = mockStatic(ConfigManager.class)) {
             mocked.when(ConfigManager::general).thenReturn(general);
             mocked.when(ConfigManager::salary).thenReturn(salary);
+            mocked.when(ConfigManager::transmissionTax).thenReturn(tax);
             test.run(EconomyManager.createForTesting());
         }
     }
@@ -158,6 +177,40 @@ class EconomyManagerTest {
             assertFalse(economy.pay(sender, recipient, 0.0));
             assertFalse(economy.pay(sender, recipient, -5.0));
             assertEquals(100.0, economy.getBalance(sender));
+        });
+    }
+
+    @Test
+    void payChargesGrossAndCreditsNetWhenTaxIsEnabled() throws Exception {
+        withTaxedEconomy(0.10, (economy) -> {
+            UUID sender = UUID.randomUUID();
+            UUID recipient = UUID.randomUUID();
+            economy.give(sender, 200.0);
+
+            assertTrue(economy.pay(sender, recipient, 100.0));
+            assertEquals(90.0, economy.getBalance(sender), "sender pays the 100 sticker price plus 10% tax on top (110), starting from 200");
+            assertEquals(90.0, economy.getBalance(recipient), "recipient gets the 100 sticker price minus 10% tax (90)");
+        });
+    }
+
+    @Test
+    void payFailsWhenSenderCannotAffordTheGrossAmount() throws Exception {
+        withTaxedEconomy(0.10, (economy) -> {
+            UUID sender = UUID.randomUUID();
+            UUID recipient = UUID.randomUUID();
+            economy.give(sender, 105.0);
+
+            assertFalse(economy.pay(sender, recipient, 100.0), "105 covers the 100 sticker price but not the 110 gross with tax");
+            assertEquals(105.0, economy.getBalance(sender));
+            assertEquals(0.0, economy.getBalance(recipient));
+        });
+    }
+
+    @Test
+    void grossWithTaxAndNetAfterTaxAreNoOpsWhenDisabled() throws Exception {
+        withEconomy((economy) -> {
+            assertEquals(100.0, economy.grossWithTax(100.0));
+            assertEquals(100.0, economy.netAfterTax(100.0));
         });
     }
 
