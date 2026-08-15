@@ -102,10 +102,12 @@ public class EconomyManager {
     }
 
     /**
-     * No floor at 0 here on purpose: a negative result is what lets a player end up in debt
-     * (see {@code DebtManager}). Every caller that must never go negative enforces that itself
-     * - {@link #take} validates funds before calling this, and {@code /eco set} restricts its
-     * Brigadier argument to non-negative values - so this stays a plain, unclamped setter.
+     * No floor at 0 here on purpose: a negative result is what lets a player end up owing
+     * money, which is simply a negative balance visible via {@code /bal} - there is no separate
+     * tracked "debt" state anywhere in this mod. Every caller that must never go negative
+     * enforces that itself - {@link #take} validates funds before calling this, and
+     * {@code /eco set} restricts its Brigadier argument to non-negative values - so this stays
+     * a plain, unclamped setter.
      */
     public void setBalance(UUID uuid, double amount) {
         balances.put(uuid, Money.round(amount));
