@@ -2,6 +2,26 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.5.0
+
+### Nuevo: peaje de movilidad (Waystones)
+- Si tienes instalado el mod Waystones, usar un waystone cuesta 100 Sheyicoins por defecto (configurable en `waystone_toll.json`). No hace falta Waystones para nada más - sin él, el mod funciona exactamente igual. Si no te alcanza el saldo, se bloquea el teletransporte - no se cobra nada.
+
+### Nuevo: desbloqueo de dimensiones
+- Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded - se detectan todas solas) cuesta 5000 Sheyicoins por defecto la primera vez (configurable en `dimension_unlock.json`). Si no te alcanza, el portal no te deja pasar y te quedas en el Overworld. Una vez pagas, esa dimensión queda desbloqueada para siempre. El mensaje dice qué dimensión es, en morado.
+- `/dimension lock <jugador> <dimension>` (OP): revierte el desbloqueo de un jugador para poder reprobar el flujo sin reiniciar el mundo.
+
+### Arreglado
+- Los mensajes del peaje de Waystones y del desbloqueo de dimensiones repetían "Sheyicoins" dos veces (`Money.format()` ya lo incluye).
+
+### Quitado: `/debt` y la deuda con plazo
+- Se eliminó el comando `/debt` y toda la infraestructura que llevaba la cuenta de un plazo para pagar. Un saldo negativo (hoy solo posible vía `/eco charge`, herramienta de admin) ya no es un estado aparte con vencimiento - es simplemente saldo negativo, y se consulta con `/bal` como cualquier otro.
+
+## Versión 1.0.4
+
+### Nuevo: penalización por muerte
+- Morir te hace perder automáticamente el 50% de tu Sheyicoins actuales (configurable en `debt.json`, `penaltyPercent`). Al ser un porcentaje de tu propio saldo, nunca te deja en negativo ni rompe la banca.
+
 ## Versión 1.0.3
 
 ### Nuevo: comprar experiencia (`/buy xp`)
@@ -15,24 +35,6 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 
 ### Arreglado
 - Solucionado un cuelgue que le pasaba a algún jugador al matar mobs, si tenía el mod instalado también por su cuenta en el cliente (no hace falta, el mod solo va en el servidor).
-
-## Versión 1.0.0 - Lanzamiento inicial
-
-- Saldo por jugador, con `/bal`, `/baltop` y ver el saldo/nivel de otros jugadores.
-- Salario automático que sube con tu nivel.
-- Recompensas por matar mobs (configurable).
-- Suscripciones entre jugadores.
-- `/trade`: intercambio seguro de items entre dos jugadores con ventana tipo cofre.
-- Tiendas con cartel + cofre: coloca un cartel con el precio y la gente puede comprar/vender directamente.
-- Todo en español.
-
-## Versión 1.0.1
-
-- La moneda se llama **Sheyicoins**.
-- Las misiones de FTB Quests dan dinero automáticamente al completarse, sin tener que configurar nada misión por misión.
-- Sonidos nuevos: uno cuando una compra/venta/intercambio sale bien, otro cuando falla.
-- Matar mobs ya no da dinero por defecto (se puede activar en la configuración).
-
 
 ## Versión 1.0.2
 
@@ -55,3 +57,20 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ### Otros
 - El mensaje de intercambio completado también dice cuánto dinero se incluyó.
 - Corregido un fallo de ortografía: "Sheyicoins añadidas" (antes decía "añadido").
+
+## Versión 1.0.1
+
+- La moneda se llama **Sheyicoins**.
+- Las misiones de FTB Quests dan dinero automáticamente al completarse, sin tener que configurar nada misión por misión.
+- Sonidos nuevos: uno cuando una compra/venta/intercambio sale bien, otro cuando falla.
+- Matar mobs ya no da dinero por defecto (se puede activar en la configuración).
+
+## Versión 1.0.0 - Lanzamiento inicial
+
+- Saldo por jugador, con `/bal`, `/baltop` y ver el saldo/nivel de otros jugadores.
+- Salario automático que sube con tu nivel.
+- Recompensas por matar mobs (configurable).
+- Suscripciones entre jugadores.
+- `/trade`: intercambio seguro de items entre dos jugadores con ventana tipo cofre.
+- Tiendas con cartel + cofre: coloca un cartel con el precio y la gente puede comprar/vender directamente.
+- Todo en español.

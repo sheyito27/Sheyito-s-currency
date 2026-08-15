@@ -2,9 +2,12 @@ package com.sheyito.economicmaster;
 
 import com.mojang.logging.LogUtils;
 import com.sheyito.economicmaster.commands.CommandRegistrar;
+import com.sheyito.economicmaster.events.DimensionUnlockListener;
 import com.sheyito.economicmaster.events.MobKillListener;
+import com.sheyito.economicmaster.events.PlayerDeathPenaltyListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
+import com.sheyito.economicmaster.integration.WaystonesCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
 import com.sheyito.economicmaster.shop.ShopCreationTracker;
 import com.sheyito.economicmaster.shop.ShopProtectionListener;
@@ -31,6 +34,8 @@ public class EconomicMaster {
     public EconomicMaster(IEventBus modEventBus, ModContainer modContainer) {
         NeoForge.EVENT_BUS.register(new ServerLifecycleHandler());
         NeoForge.EVENT_BUS.register(new MobKillListener());
+        NeoForge.EVENT_BUS.register(new PlayerDeathPenaltyListener());
+        NeoForge.EVENT_BUS.register(new DimensionUnlockListener());
         NeoForge.EVENT_BUS.register(new EconomicMasterScheduler());
         NeoForge.EVENT_BUS.register(new TradeScheduler());
         NeoForge.EVENT_BUS.register(new CommandRegistrar());
@@ -39,6 +44,7 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
+        modEventBus.addListener((FMLCommonSetupEvent event) -> WaystonesCompat.logDetection());
 
         LOGGER.info("Sheyito's currency inicializado (server-side).");
     }

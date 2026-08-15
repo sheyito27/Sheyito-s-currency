@@ -101,13 +101,32 @@ public class EconomyManager {
         return balances.getOrDefault(uuid, ConfigManager.general().startingBalance);
     }
 
+    /**
+     * No floor at 0 here on purpose: a negative result is what lets a player end up owing
+     * money, which is simply a negative balance visible via {@code /bal} - there is no separate
+     * tracked "debt" state anywhere in this mod. Every caller that must never go negative
+     * enforces that itself - {@link #take} validates funds before calling this, and
+     * {@code /eco set} restricts its Brigadier argument to non-negative values - so this stays
+     * a plain, unclamped setter.
+     */
     public void setBalance(UUID uuid, double amount) {
-        balances.put(uuid, Money.round(Math.max(0.0, amount)));
+        balances.put(uuid, Money.round(amount));
         dirty.set(true);
     }
 
     public void give(UUID uuid, double amount) {
         setBalance(uuid, getBalance(uuid) + amount);
+    }
+
+    /**
+     * Unlike {@link #give}/{@link #take}, this never validates funds and can leave the balance
+     * negative - the sole overdraft entry point in the economy, used by the death-penalty debt
+     * mechanic and by {@code /eco charge} for admin testing. Every other transaction path
+     * ({@code /pay}, {@code /trade}, shops, salary) keeps going through {@link #take}, which
+     * still refuses to go negative.
+     */
+    public void charge(UUID uuid, double amount) {
+        setBalance(uuid, getBalance(uuid) - amount);
     }
 
     /**

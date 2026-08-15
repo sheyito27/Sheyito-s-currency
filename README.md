@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -16,7 +16,10 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [tiendas](docs/features/tiendasAutomaticas.md),
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
-[compra de XP](docs/features/compraXP.md).
+[compra de XP](docs/features/compraXP.md),
+[penalización por muerte](docs/features/penalizacionPorMuerte.md),
+[peaje de movilidad (Waystones)](docs/features/peajeMovilidadWaystones.md),
+[desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -49,7 +52,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
-- **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
+  - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
+  - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
+  - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
+- **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
 
@@ -72,8 +78,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
+- `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
 - `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
+- `/dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 
 ## Integración con FTB Quests
 
@@ -81,7 +89,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 
 Sheyito's currency **no depende en tiempo de compilación** de FTB Quests de forma dura: se compila contra sus clases con `compileOnly` (nunca se empaqueta ni se exige), y todo el código que las referencia vive aislado en una sola clase que solo se toca si `ModList` detecta `ftbquests` cargado al arrancar — si no está instalado, el mod funciona exactamente igual sin él.
 
-Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si querés que pague un importe distinto al automático:
+Como alternativa/complemento manual sigue disponible el comando administrativo `/sheyitoscurrency reward <jugador> [monto]`, pensado para llamarse desde una **Recompensa de tipo "Command"** en una misión puntual si quieres que pague un importe distinto al automático:
 
 ```
 sheyitoscurrency reward @p 200
@@ -93,7 +101,33 @@ sheyitoscurrency reward @p 200
 
 ## Caza de mobs
 
-**Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si querés que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
+**Desactivado por defecto** (`enabled: false` en `mobs.json`) — actívalo si quieres que matar mobs también dé dinero. `config/sheyitoscurrency/mobs.json` define qué entidades (por id de registro, p. ej. `minecraft:zombie`) dan dinero al morir a manos de un jugador. `requireDirectPlayerKill: false` permite que también cuenten las muertes causadas por mascotas domesticadas (lobos, gatos) del jugador.
+
+## Muerte
+
+Morir siempre tiene un coste económico: pierdes un porcentaje de tu saldo actual (`debt.json`,
+`penaltyPercent`, 50% por defecto). Al ser un porcentaje de lo que tienes en ese momento, nunca
+puede dejarte en negativo ni romper la banca.
+
+## Peaje de movilidad (Waystones)
+
+**Integración opcional, sin dependencia dura** — si el mod [Waystones](https://modrinth.com/mod/waystones)
+está instalado, usar un waystone cobra `cost` Sheyicoins (`waystone_toll.json`, 100 por defecto).
+Si no está instalado, el mod funciona igual, solo que sin esta feature.
+
+Si no te alcanza el saldo, **se bloquea el teletransporte** — no se cobra nada y Waystones muestra
+un aviso. A diferencia de `/eco charge` (herramienta de admin), este peaje nunca deja el saldo en
+negativo; ese mecanismo queda reservado para una futura feature de pagos obligatorios.
+
+## Desbloqueo de dimensiones
+
+Viajar a cualquier dimensión que no sea el Overworld (Nether, End, o cualquier dimensión modded —
+se detectan todas automáticamente, nada hardcodeado) cuesta `price` Sheyicoins la primera vez
+(`dimension_unlock.json`, 5000 por defecto). Si no te alcanza, **el portal no te deja pasar** y te
+quedas en el Overworld. Si pagas, esa dimensión queda desbloqueada para siempre para ti — nunca
+más se te vuelve a cobrar por entrar a ella. El mensaje siempre dice qué dimensión es, resaltada
+en morado. Un admin puede revertir el desbloqueo de un jugador con `/dimension lock` (ver
+comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 
 ## Salario diario y niveles
 
@@ -153,15 +187,16 @@ com.sheyito.economicmaster
 ├── EconomicMaster.java           punto de entrada del mod (MODID = "sheyitoscurrency")
 ├── config/                       esquemas + carga/recarga de config/sheyitoscurrency/*.json
 ├── data/                         esquemas de los JSON de datos por-mundo
-├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned
+├── economy/EconomyManager        saldos + XP/nivel: dar/quitar/fijar/pagar/top/giveEarned/charge (sobregiro)
 ├── salary/SalaryManager          salario diario (días de juego) según nivel
 ├── subscription/SubscriptionManager  ofertas y suscripciones jugador-a-jugador
+├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones + autoguardado
-├── events/                       LivingDeathEvent (caza), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade
+├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
+├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /dimension
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
-├── integration/                  FTBQuestsCompat (deteccion) + FtbQuestsIntegration (recompensa automatica, compileOnly)
+├── integration/                  FTBQuestsCompat/FtbQuestsIntegration (recompensa) + WaystonesCompat/WaystonesIntegration (peaje) - ambas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
 

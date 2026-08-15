@@ -81,11 +81,44 @@ class EconomyManagerTest {
     }
 
     @Test
-    void setBalanceNeverGoesNegative() throws Exception {
+    void setBalanceAllowsNegativeValues() throws Exception {
         withEconomy(economy -> {
             UUID player = UUID.randomUUID();
             economy.setBalance(player, -50.0);
-            assertEquals(0.0, economy.getBalance(player));
+            assertEquals(-50.0, economy.getBalance(player), "debt requires setBalance to not clamp at 0");
+        });
+    }
+
+    @Test
+    void chargeCanPushBalanceNegative() throws Exception {
+        withEconomy(economy -> {
+            UUID player = UUID.randomUUID();
+            economy.give(player, 200.0);
+            economy.charge(player, 500.0);
+            assertEquals(-300.0, economy.getBalance(player));
+        });
+    }
+
+    @Test
+    void giveAfterChargeRepaysDebtWithoutClampingEarly() throws Exception {
+        withEconomy(economy -> {
+            UUID player = UUID.randomUUID();
+            economy.charge(player, 500.0);
+            economy.give(player, 200.0);
+            assertEquals(-300.0, economy.getBalance(player), "partial repayment must not be forgiven by a floor at 0");
+
+            economy.give(player, 300.0);
+            assertEquals(0.0, economy.getBalance(player), "fully repaying the debt lands back at exactly 0");
+        });
+    }
+
+    @Test
+    void takeStillRefusesToGoNegative() throws Exception {
+        withEconomy(economy -> {
+            UUID player = UUID.randomUUID();
+            economy.charge(player, 100.0);
+            assertFalse(economy.take(player, 1.0), "take() must keep refusing spends while already in debt");
+            assertEquals(-100.0, economy.getBalance(player));
         });
     }
 
