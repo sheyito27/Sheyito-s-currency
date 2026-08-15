@@ -33,21 +33,24 @@ por construcción menor o igual al saldo disponible; nunca falla por fondos insu
 No añade comandos propios; el único ajuste posible es `penaltyPercent` en
 `config/sheyitoscurrency/debt.json`.
 
-## La deuda queda diferida, no eliminada
+## La deuda trackeada se eliminó del todo
 
 Esta feature nació con un diseño de dos ramas (penalización fija + deuda con plazo si el saldo
 era bajo). Se simplificó a una sola rama porcentual porque generar deuda automática por morir
-resultó una mecánica demasiado punitiva para el ritmo del servidor. Toda la infraestructura de
-negativos sigue intacta y sin usar por esta feature, a la espera de una futura mecánica que sí la
-necesite:
+resultó una mecánica demasiado punitiva para el ritmo del servidor.
 
-- `EconomyManager.charge(uuid, amount)` — resta sin comprobar fondos, puede dejar saldo negativo.
-- `DebtManager` — trackea plazos de pago (`debt_data.json`) y expone `isOverdue`.
-- `/debt` y `/debt player <jugador>` — consultan la deuda actual.
-- `/eco charge <jugador> <cantidad>` (OP) — fuerza saldo negativo para pruebas.
+En ese momento se dejó `EconomyManager.charge(uuid, amount)` (resta sin comprobar fondos) y todo
+`DebtManager`/`/debt` sin usar, "por si una futura feature los necesitaba". Esa futura feature
+llegó con el [peaje de movilidad de Waystones](peajeMovilidadWaystones.md), que sí usa `charge()`
+— pero al investigar cómo mostraba `/debt` un saldo negativo (con `-balance` en vivo, sin importar
+si alguna vez se llamó `incurDebt`), quedó claro que dejar `DebtManager` vivo solo iba a mostrar un
+"sin plazo registrado" que nunca cambiaría. Se decidió borrar `DebtManager`, `DebtData` y `/debt`
+por completo: la deuda deja de ser un estado trackeado con plazo, es simplemente saldo negativo,
+y eso ya se consulta con `/bal`.
 
-La propuesta "Deuda con plazo estricto" en `docs/proposals.md` sigue pendiente como el lugar
-natural para retomar esa mecánica cuando se diseñe de nuevo.
+La propuesta "Deuda con plazo estricto" en `docs/proposals.md` queda descartada tal como estaba
+planteada — si algún día se retoma, sería una feature nueva desde cero, no una reactivación de
+esta infraestructura.
 
 ## Cómo se conecta con otras features
 
