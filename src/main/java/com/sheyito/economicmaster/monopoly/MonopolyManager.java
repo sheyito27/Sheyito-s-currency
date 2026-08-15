@@ -65,6 +65,7 @@ public class MonopolyManager {
     private String currentEventId = null;
     private Double currentMultiplier = null;
     private String currentMob = null;
+    private String currentMessage = null;
 
     /** Muertes del mob buscado que ya pagaron bounty en el evento activo (tipo MOB_WANTED). */
     private int mobWantedKills = 0;
@@ -119,6 +120,7 @@ public class MonopolyManager {
         currentEventId = data.currentEventId;
         currentMultiplier = data.currentMultiplier;
         currentMob = data.currentMob;
+        currentMessage = data.currentMessage;
         mobWantedKills = Math.max(0, data.currentMobKills);
     }
 
@@ -134,6 +136,7 @@ public class MonopolyManager {
         data.currentEventId = currentEventId;
         data.currentMultiplier = currentMultiplier;
         data.currentMob = currentMob;
+        data.currentMessage = currentMessage;
         data.currentMobKills = mobWantedKills;
         JsonFileUtil.save(file, data);
     }
@@ -192,6 +195,11 @@ public class MonopolyManager {
     /** Id de entidad del mob buscado, o {@code null}. */
     public String wantedMob() {
         return currentMob;
+    }
+
+    /** El mensaje ya sorteado para el evento activo (template en bruto, sin sustituir), o {@code null} si se usa el default. */
+    public String currentMessage() {
+        return currentMessage;
     }
 
     /** Recompensa extra configurada por cada kill del mob buscado. */
@@ -363,6 +371,7 @@ public class MonopolyManager {
         currentEventId = chosen.id;
         currentMultiplier = resolveMultiplier(chosen);
         currentMob = resolveMob(chosen);
+        currentMessage = resolveMessage(chosen);
         mobWantedKills = 0;
         dirty.set(true);
 
@@ -395,7 +404,7 @@ public class MonopolyManager {
     }
 
     private void clearEvent() {
-        if (currentEventId == null && currentMultiplier == null && currentMob == null) {
+        if (currentEventId == null && currentMultiplier == null && currentMob == null && currentMessage == null) {
             damageContributors.clear();
             mobWantedKills = 0;
             return;
@@ -403,6 +412,7 @@ public class MonopolyManager {
         currentEventId = null;
         currentMultiplier = null;
         currentMob = null;
+        currentMessage = null;
         mobWantedKills = 0;
         damageContributors.clear();
         dirty.set(true);
@@ -456,8 +466,21 @@ public class MonopolyManager {
         return null;
     }
 
+    /**
+     * Elige al azar uno de los mensajes configurados del evento; {@code null} si la lista está
+     * vacía (entonces el broadcast usa el mensaje por defecto del tipo). Se guarda el template en
+     * bruto: la sustitución de tokens ocurre en {@link #formatMessage} al anunciar.
+     */
+    private String resolveMessage(MonopolyEventEntry e) {
+        if (e.messages == null || e.messages.isEmpty()) {
+            return null;
+        }
+        int index = Math.min(e.messages.size() - 1, (int) (rng.get() * e.messages.size()));
+        return e.messages.get(index);
+    }
+
     private String formatMessage(MonopolyEventEntry e) {
-        String msg = e.message == null || e.message.isBlank() ? defaultMessage(e) : e.message;
+        String msg = currentMessage == null ? defaultMessage(e) : currentMessage;
         if (currentMultiplier != null) {
             msg = msg.replace("%multiplier%", formatMultiplier(currentMultiplier));
         }
