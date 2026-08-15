@@ -87,4 +87,15 @@ public class DimensionUnlockManager {
         unlockedDimensions.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet()).add(dimension.location().toString());
         dirty.set(true);
     }
+
+    /**
+     * Admin-only reverse of {@link #unlock} - lets {@code /dimension lock} reset a player's
+     * unlock state for testing without a fresh world. Does not refund the price they paid.
+     */
+    public void lock(UUID uuid, ResourceKey<Level> dimension) {
+        Set<String> unlocked = unlockedDimensions.get(uuid);
+        if (unlocked != null && unlocked.remove(dimension.location().toString())) {
+            dirty.set(true);
+        }
+    }
 }
