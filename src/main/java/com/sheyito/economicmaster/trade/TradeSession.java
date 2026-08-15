@@ -2,6 +2,7 @@ package com.sheyito.economicmaster.trade;
 
 import com.sheyito.economicmaster.EconomicMaster;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.embargo.EmbargoManager;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.core.component.DataComponents;
@@ -198,6 +199,10 @@ public class TradeSession {
      */
     private void complete(MinecraftServer server) {
         if (finished.get()) {
+            return;
+        }
+        if (moneyPledged > 0 && EmbargoManager.get() != null && EmbargoManager.get().isInGracePeriod(uuidB)) {
+            abort(server, EconomyManager.get().getName(uuidB) + " esta en periodo de gracia por deuda y no puede recibir dinero de otros jugadores.");
             return;
         }
         double grossFromA = EconomyManager.get().grossWithTax(moneyPledged);
