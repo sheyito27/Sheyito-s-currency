@@ -24,6 +24,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Every player with a tracked balance is a candidate ({@link EconomyManager#top} enumerates all
  * of them without needing a new getter on EconomyManager); a player's first appearance only
  * records a baseline, it never charges for time before they were being tracked.
+ *
+ * <p>Unlike every other sink in this mod, this one uses {@link EconomyManager#charge} - not
+ * {@link EconomyManager#take} - so it can genuinely push a player into a negative balance
+ * instead of just being skipped when they can't afford it. That is the point, confirmed with the
+ * user: this is meant to be able to end in "banca rota", and {@code setBalance}'s own
+ * >=0-to-negative hook already wires that straight into the embargo grace period - the first
+ * real, organic trigger for it, no changes needed on that side.
  */
 public class RentManager {
 
@@ -154,18 +161,23 @@ public class RentManager {
         dirty.set(true);
     }
 
+    /**
+     * The gain measured here is strictly period-over-period against {@link Record#balanceSnapshot}
+     * - a loss is never "banked" as a credit against a future gain (confirmed with the user: a
+     * loss is just spending, unrelated to this tax, so it never offsets a later profit). Whatever
+     * the player earned since last time is what gets taxed here, full stop.
+     */
     private void chargeAndAdvance(MinecraftServer server, EconomyManager economy, RentConfig config,
                                    UUID uuid, Record record, long currentDay) {
         double balance = economy.getBalance(uuid);
         double profit = Math.max(0.0, balance - record.balanceSnapshot);
         if (profit > 0) {
             double tax = RentLogic.taxFor(profit, config.profitBrackets);
-            if (economy.take(uuid, tax)) {
-                ServerPlayer player = server.getPlayerList().getPlayer(uuid);
-                if (player != null) {
-                    player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §fRenta semanal: -"
-                            + Money.format(tax) + " sobre " + Money.format(profit) + " de ganancias."));
-                }
+            economy.charge(uuid, tax);
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §fRenta semanal: -"
+                        + Money.format(tax) + " sobre " + Money.format(profit) + " de ganancias."));
             }
         }
 
