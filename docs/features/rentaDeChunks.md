@@ -7,21 +7,26 @@
 ## Qué es esto
 
 Reclamar un chunk con el mod FTB Chunks (si está instalado) cuesta Sheyicoins — pero a diferencia
-de cualquier otro cobro de este mod, **el precio no es fijo ni configurable**: escala
-cuadráticamente por jugador. El chunk número `n` que reclamás (1º, 2º, 3º...) cuesta `1000 * n²`:
+de cualquier otro cobro de este mod, **el precio no es fijo ni configurable**: escala con la raíz
+cuadrada del número de chunk por jugador. El chunk número `n` que reclamás (1º, 2º, 3º...) cuesta
+`1000 * √n`:
 
 | Chunk # | Coste |
 |---|---|
 | 1º | 1.000 |
-| 2º | 4.000 |
-| 3º | 9.000 |
-| 10º | 100.000 |
+| 2º | ~1.414 |
+| 3º | ~1.732 |
+| 4º | 2.000 |
+| 10º | ~3.162 |
+| 100º | 10.000 |
+
+(Se probó primero una cuadrática pura, `1000 * n²` — el 10º chunk salía 100.000 y el 100º
+10.000.000, demasiado agresivo. La raíz cuadrada mantiene la fricción anti-acaparamiento sin
+volverse inalcanzable a partir de unos pocos chunks.)
 
 Si no tienes saldo suficiente para el siguiente chunk, **el reclamo se bloquea** — FTB Chunks
-muestra un mensaje explicando por qué y el chunk no queda reclamado. La curva es intencional: es
-una fricción anti-acaparamiento, no un simple sink lineal — cuantos más chunks tenés, más caro se
-vuelve seguir expandiéndote. Por eso el precio vive hardcodeado en `ChunkClaimLogic` en vez de en
-el JSON de config: solo `enabled` es ajustable.
+muestra un mensaje explicando por qué y el chunk no queda reclamado. Por eso el precio vive
+hardcodeado en `ChunkClaimLogic` en vez de en el JSON de config: solo `enabled` es ajustable.
 
 Este mod **no implementa nada de protección ni de reclamo en sí** — eso es enteramente trabajo de
 FTB Chunks. Aquí solo se cobra y se lleva la cuenta. No hay renta periódica: eso queda para la
@@ -75,6 +80,12 @@ absoluto, solo el `ClaimResult` envuelto en el `CompoundEventResult`. `ClaimResu
 técnicamente espera una translation key, pero como el resto de este mod nunca usó lang files, se
 le pasa directamente el mensaje en español — Minecraft muestra el texto crudo cuando no encuentra
 traducción registrada (mismo truco que el nombre de dimensión en morado).
+
+**El mensaje de bloqueo se mantiene deliberadamente corto** (`"Saldo insuficiente (1414 SC)."`, sin
+pasar por `Money.format()` ni su nombre de moneda completo): ese texto se renderiza dentro del
+propio panel de reclamo de FTB Chunks, que tiene muy poco ancho y no hace wrap — un mensaje largo
+se corta a mitad de frase. El mensaje de cobro exitoso (chat normal, con mucho más espacio) sí usa
+`Money.format()` completo.
 
 **`ChunkClaimManager`** sigue el [patrón de manager con ciclo de vida](patronManager.md): persiste,
 por jugador, cuántos chunks lleva reclamados (`chunk_claim_data.json`, dentro del save del mundo) —
