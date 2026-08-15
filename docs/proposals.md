@@ -14,7 +14,8 @@
 ## Presión
 
 - [x] **Peaje de waystones**: Usar un waystone cobra SC (100 por defecto), bloqueando el teletransporte si no alcanza.
-- [ ] **Peajes de movilidad restantes**: /home, /back, /tpa y desbloquear dimensión aún no cobran SC.
+- [x] **Desbloqueo de dimensiones**: Entrar a Nether/End/dimensión modded cuesta SC una vez, para siempre.
+- [ ] **Peajes de movilidad restantes**: /home, /back y /tpa aún no cobran SC.
 - [ ] **Renta de chunks**: SC por reclamar chunks.
 - [x] **Muerte**: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
 - [ ] **Embargo silencioso y brutal**: Deuda impaga roba activos valiosos, anuncio público y subasta.
