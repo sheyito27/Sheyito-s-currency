@@ -93,6 +93,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
 - `/sc embargo retirar` — saca el ítem más antiguo de la pool de subastas y lo entrega al admin que lo ejecuta (ver más abajo). Es la única forma de que un ítem salga de la pool.
+- `/sc rent forzar <jugador>` — fuerza un cobro inmediato de la renta progresiva sobre ganancias y de la renta de force-load de chunks de ese jugador, ignorando si ya pasaron los días de intervalo de verdad (ver más abajo).
 
 Todos los comandos de administración/pruebas viven bajo la raíz compartida `/sc` (Brigadier fusiona los subcomandos de cada clase en un único árbol).
 
@@ -264,7 +265,7 @@ com.sheyito.economicmaster
 ├── auction/AuctionPoolManager    pool de subastas: solo almacenamiento, /sc embargo retirar la vacía
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones/rentas + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /trade /embargo + /sc (reward, dimension lock, chunk reset, embargo retirar - admin/dev)
+├── commands/                     /bal /baltop /pay /subscribe /eco /trade /embargo + /sc (reward, dimension lock, chunk reset, embargo retirar, rent forzar - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo/force-load de chunk) - todas compileOnly
