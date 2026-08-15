@@ -84,6 +84,10 @@ Detalles de diseño:
   de dinero). El evento sigue "activo" hasta el siguiente sorteo, pero ya no vuelve a aplicar nada.
 - El id de cada efecto es un id de registro vanilla, p. ej. `minecraft:regeneration`,
   `minecraft:speed` o `minecraft:absorption`. Si el id no existe, se avisa por log y no se aplica nada.
+- Nada impide usar **efectos negativos** (debuffs): el motor aplica cualquier efecto registrado. Los
+  defaults incluyen el evento `golpe_de_suerte` (efectos positivos) y `mala_suerte` (efectos
+  negativos como `minecraft:poison`, `minecraft:slowness` o `minecraft:wither`, con su propia
+  duración de 10 segundos y sus mensajes).
 - `applyWindfall` se ejecuta dentro de `roll` (MonopolyManager.java), justo después del broadcast.
 
 ## Reparto del bounty del mob buscado
