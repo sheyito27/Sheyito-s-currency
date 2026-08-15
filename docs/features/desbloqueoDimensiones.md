@@ -1,8 +1,8 @@
 # Desbloqueo de dimensiones
 
 **Estado:** implementado.
-**Código relacionado:** `DimensionUnlockListener.java`, `DimensionUnlockManager.java`, `DimensionUnlockData.java`, `DimensionUnlockConfig.java`.
-**Patrones:** [manager](patronManager.md), [config](patronConfig.md).
+**Código relacionado:** `DimensionUnlockListener.java`, `DimensionUnlockManager.java`, `DimensionUnlockData.java`, `DimensionUnlockConfig.java`, `DimensionCommand.java`.
+**Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md).
 
 ## Qué es esto
 
@@ -45,6 +45,12 @@ Para un portal Nether/End estándar el jugador ya está parado en el Overworld a
 así que cancelar el evento lo deja exactamente ahí — no hace falta teletransportarlo de vuelta a
 mano.
 
+**El mensaje muestra qué dimensión es, en color morado**, sin hardcodear nombres: usa la clave de
+traducción vanilla `dimension.<namespace>.<path>` (ej. `dimension.minecraft.the_nether` → "The
+Nether"), coloreada con `ChatFormatting.LIGHT_PURPLE`. Cualquier dimensión modded que registre esa
+misma clave en su lang file también sale con nombre bonito; si no la registra, el cliente cae de
+vuelta a mostrar la clave cruda en vez de romper algo.
+
 **`DimensionUnlockManager`** sigue el [patrón de manager con ciclo de vida](patronManager.md):
 persiste, por jugador, el conjunto de dimensiones ya pagadas (`dimension_unlocks.json`, dentro del
 save del mundo). Igual que el resto de managers de este mod, el mapa en memoria usa `UUID` real
@@ -53,8 +59,13 @@ como key (`Map<UUID, Set<String>>`); la conversión a `String` (el id de la dime
 
 ## Comandos
 
-No añade comandos propios; el único ajuste posible es `price` (y `enabled`) en
-`config/sheyitoscurrency/dimension_unlock.json`.
+- `/dimension lock <jugador> <dimension>` (OP nivel 2) — revierte el desbloqueo de esa dimensión
+  para ese jugador, sin reembolsar el precio pagado. Es una herramienta de pruebas: deja re-probar
+  el flujo de bloqueo/cobro sin tener que reiniciar el mundo. Usa `DimensionArgument` (el mismo
+  argumento vanilla que `/execute in <dimension>`), así que autocompleta con las dimensiones
+  cargadas.
+
+El único ajuste de config es `price` (y `enabled`) en `config/sheyitoscurrency/dimension_unlock.json`.
 
 ## Cómo se conecta con otras features
 
