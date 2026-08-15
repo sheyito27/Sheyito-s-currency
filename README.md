@@ -1,6 +1,6 @@
 # Sheyito's currency
 
-Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
+Mod **100% server-side** para NeoForge 1.21.1: economía virtual (moneda "Sheyicoins") basada en comandos, `/baltop`, suscripciones jugador-a-jugador, salario diario con sistema de niveles, caza de mobs con whitelist configurable (desactivada por defecto), intercambio seguro `/trade` con GUI tipo cofre donde el dinero se deposita como ítems, tiendas de cartel+cofre, penalización por muerte, peaje de movilidad opcional con **Waystones**, desbloqueo de pago por dimensión (Nether, End y cualquier dimensión modded), cobro por reclamar chunks con **FTB Chunks**, e integración **automática** con **FTB Quests** (toda misión completada paga sola, sin configurar nada por misión).
 
 No registra bloques, ítems, pantallas ni nada renderizado en cliente: los clientes pueden conectarse al servidor sin instalar el mod.
 
@@ -19,7 +19,8 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [compra de XP](docs/features/compraXP.md),
 [penalización por muerte](docs/features/penalizacionPorMuerte.md),
 [peaje de movilidad (Waystones)](docs/features/peajeMovilidadWaystones.md),
-[desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md).
+[desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md),
+[renta de chunks (FTB Chunks)](docs/features/rentaDeChunks.md).
 
 Varias features comparten los mismos patrones estructurales; cada uno está documentado una sola
 vez en su propia ficha en vez de repetido en cada feature que lo usa:
@@ -55,6 +56,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
   - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
+  - `chunk_claim.json` — coste en Sheyicoins de reclamar un chunk con el mod FTB Chunks, 200 por defecto (ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -129,6 +131,16 @@ más se te vuelve a cobrar por entrar a ella. El mensaje siempre dice qué dimen
 en morado. Un admin puede revertir el desbloqueo de un jugador con `/dimension lock` (ver
 comandos más abajo) para volver a probar el flujo sin reiniciar el mundo.
 
+## Renta de chunks (FTB Chunks)
+
+**Integración opcional, sin dependencia dura** — si el mod [FTB Chunks](https://www.curseforge.com/minecraft/mc-mods/ftb-chunks-forge)
+está instalado, reclamar un chunk cobra `cost` Sheyicoins (`chunk_claim.json`, 200 por defecto),
+**una sola vez por chunk**. Si no está instalado, el mod funciona igual, solo que sin esta feature.
+
+Este mod no implementa protección ni reclamo de chunks — eso lo hace FTB Chunks enteramente. Si no
+te alcanza el saldo, **el reclamo se bloquea** y FTB Chunks muestra el motivo. No hay renta
+periódica todavía; eso queda para la futura feature "Día de Renta" del roadmap.
+
 ## Salario diario y niveles
 
 El salario se paga cada `intervalGameDays` **días de juego** (no minutos reales — 1 día de juego son 24000 ticks del mundo, así que si el servidor está apagado el reloj no corre y no hay pagos "atrasados" que recuperar). Por defecto es 1 día de juego.
@@ -196,7 +208,7 @@ com.sheyito.economicmaster
 ├── commands/                     /bal /baltop /pay /subscribe /eco /sheyitoscurrency /trade /dimension
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
-├── integration/                  FTBQuestsCompat/FtbQuestsIntegration (recompensa) + WaystonesCompat/WaystonesIntegration (peaje) - ambas compileOnly
+├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo de chunk) - todas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve)
 ```
 
