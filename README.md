@@ -112,9 +112,9 @@ puede dejarte en negativo ni romper la banca.
 está instalado, usar un waystone cobra `cost` Sheyicoins (`waystone_toll.json`, 100 por defecto).
 Si no está instalado, el mod funciona igual, solo que sin esta feature.
 
-A diferencia de la muerte, este peaje **no se limita a tu saldo**: si no te alcanza, se cobra igual
-y el saldo queda negativo — no se bloquea el teletransporte. Un saldo negativo se consulta con
-`/bal`, no hay un comando ni un estado de deuda separado.
+Si no te alcanza el saldo, **se bloquea el teletransporte** — no se cobra nada y Waystones muestra
+un aviso. A diferencia de `/eco charge` (herramienta de admin), este peaje nunca deja el saldo en
+negativo; ese mecanismo queda reservado para una futura feature de pagos obligatorios.
 
 ## Salario diario y niveles
 
