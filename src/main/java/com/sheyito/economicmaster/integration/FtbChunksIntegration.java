@@ -21,11 +21,13 @@ import net.minecraft.server.level.ServerPlayer;
  * verified/loaded by the JVM when FTB Chunks is actually present.
  *
  * <p>FTB Chunks' events go through Architectury (same event system FTB Quests uses), not
- * NeoForge's. Two phases are hooked, per {@code ClaimedChunkEvent}'s own javadoc warning that
- * {@code BEFORE_CLAIM} may fire for a <em>simulated</em> operation and must never mutate state:
+ * NeoForge's. Three phases are hooked, per {@code ClaimedChunkEvent}'s own javadoc warning that
+ * "before" events may fire for a <em>simulated</em> operation and must never mutate state:
  * {@code BEFORE_CLAIM} only checks affordability (blocks the claim if insufficient); the actual
  * charge - and the {@link ChunkClaimManager} count increment that drives next time's price -
  * happens in {@code AFTER_CLAIM}, which only fires once the claim is confirmed real.
+ * {@code AFTER_UNCLAIM} decrements that same count, so releasing a chunk brings the price of the
+ * next claim back down - the count is a live "chunks held now", not a lifetime total.
  *
  * <p>Verified against FTB Chunks' own consuming code ({@code ChunkTeamDataImpl.claim()}): only
  * {@code CompoundEventResult#object()} is read (the wrapped {@link ClaimResult}, via its
@@ -43,6 +45,7 @@ final class FtbChunksIntegration {
     static void register() {
         ClaimedChunkEvent.BEFORE_CLAIM.register(FtbChunksIntegration::onBeforeClaim);
         ClaimedChunkEvent.AFTER_CLAIM.register(FtbChunksIntegration::onAfterClaim);
+        ClaimedChunkEvent.AFTER_UNCLAIM.register(FtbChunksIntegration::onAfterUnclaim);
         EconomicMaster.LOGGER.info("Sheyito's currency: integracion con FTB Chunks activada - reclamar un chunk cobra un importe creciente por jugador.");
     }
 
@@ -84,5 +87,21 @@ final class FtbChunksIntegration {
             player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f-" + Money.format(ChunkClaimLogic.costFor(alreadyClaimed))
                     + " (chunk #" + (alreadyClaimed + 1) + " reclamado)."));
         }
+    }
+
+    /**
+     * Brings the count back down when a chunk is genuinely unclaimed, so the next claim is
+     * priced off how many chunks the player holds now, not a lifetime total that only grows.
+     * No refund - releasing a chunk is free, same as {@code /dimension lock} doesn't refund.
+     */
+    private static void onAfterUnclaim(CommandSourceStack source, ClaimedChunk chunk) {
+        ServerPlayer player = source.getPlayer();
+        ChunkClaimConfig config = ConfigManager.chunkClaim();
+        ChunkClaimManager claims = ChunkClaimManager.get();
+        if (player == null || claims == null || !ChunkClaimLogic.isEnabled(config)) {
+            return;
+        }
+
+        claims.decrementClaimCount(player.getUUID());
     }
 }
