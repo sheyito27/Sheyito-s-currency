@@ -50,7 +50,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
-  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad y mensaje de chat).
+  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad y una lista `messages` de anuncios de los que el sorteo elige uno al azar).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
