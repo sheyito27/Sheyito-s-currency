@@ -153,6 +153,21 @@ class RentManagerTest {
     }
 
     @Test
+    void chargingTheTaxCanPushTheBalanceNegativeOnPurpose() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.setBalance(uuid, -1_000.0); // already in debt from something unrelated to rent
+            rent.forceProcess(server, uuid); // first sighting - only seeds the baseline at -1,000
+
+            economy.give(uuid, 1_100.0); // balance now 100 -> profit = 100 - (-1,000) = 1,100
+            rent.forceProcess(server, uuid); // bracket 10% -> tax 110, more than the 100 they have
+
+            assertEquals(-10.0, economy.getBalance(uuid), 0.001,
+                    "unlike every other sink in this mod, this one uses charge() not take() - it's meant to be able to cause banca rota");
+        });
+    }
+
+    @Test
     void higherBracketAppliesForLargerProfits() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
