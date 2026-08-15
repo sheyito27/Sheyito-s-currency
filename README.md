@@ -56,7 +56,8 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
   - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
-  - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala al cuadrado por jugador y no es configurable (ver más abajo).
+  - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala como `n^1.5` por jugador y no es configurable (ver más abajo).
+  - `transmission_tax.json` — porcentaje de IVA que se quema en `/pay`, el dinero de `/trade`, las tiendas de cartel y las suscripciones (`taxPercent`, 10% por defecto, ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
 ## Comandos
@@ -66,7 +67,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/bal player <jugador>` — consulta el saldo de cualquier otro jugador.
 - `/bal level [jugador]` — muestra nivel, XP actual/necesaria para el siguiente nivel y tu salario diario actual (el tuyo o el de otro jugador).
 - `/baltop [pagina]` — ranking de saldos con el dinero de cada uno, top 10 por página.
-- `/pay <jugador> <cantidad>` — transfiere saldo a otro jugador.
+- `/pay <jugador> <cantidad>` — transfiere saldo a otro jugador. Quema IVA de transmisión (ver más abajo): el emisor paga de más, el receptor recibe de menos.
 - `/buy xp <cantidad>` — compra puntos de experiencia vanilla de Minecraft con Sheyicoins (no tiene relación con el nivel de salario).
 - `/subscribe offer <precio>` — te conviertes en vendedor: ofreces un servicio de suscripción a tu propio precio.
 - `/subscribe <jugador>` — te suscribes al servicio de ese jugador (te cobra el primer periodo al instante).
@@ -146,6 +147,17 @@ Este mod no implementa protección ni reclamo de chunks — eso lo hace FTB Chun
 te alcanza el saldo para el siguiente chunk, **el reclamo se bloquea** y FTB Chunks muestra el
 motivo. No hay renta periódica todavía; eso queda para la futura feature "Día de Renta" del roadmap.
 
+## IVA de transmisión
+
+Toda transacción de compraventa entre jugadores — `/pay`, el dinero de `/trade`, comprar o vender en
+una tienda de cartel, y cada cobro de una suscripción — quema un porcentaje configurable
+(`taxPercent`, 10% por defecto, `transmission_tax.json`) **en ambos lados a la vez**: el pagador paga
+de más, el receptor recibe de menos. Con el 10% por defecto, una transacción de 100 SC hace que el
+pagador pague 110 y el receptor reciba 90 — un 20% del valor nominal se quema en total. El importe
+pactado (lo que escribís en `/pay` o el precio del cartel) nunca cambia; el IVA se calcula en el
+momento del cobro. No afecta a `/eco`, `/sc reward`, el salario, la caza de mobs, ni a los peajes de
+waystones/dimensiones/chunks — ninguno de esos es una compraventa entre jugadores.
+
 ## Salario diario y niveles
 
 El salario se paga cada `intervalGameDays` **días de juego** (no minutos reales — 1 día de juego son 24000 ticks del mundo, así que si el servidor está apagado el reloj no corre y no hay pagos "atrasados" que recuperar). Por defecto es 1 día de juego.
@@ -156,7 +168,7 @@ La XP necesaria para pasar del nivel L-1 al L es `levelCurveBaseXp * fibonacci(L
 
 ## Suscripciones (100% entre jugadores)
 
-No hay planes predefinidos: cualquier jugador puede vender su propio servicio de suscripción a su propio precio (`/subscribe offer <precio>`), y cualquier otro jugador puede suscribirse (`/subscribe <jugador>`). El precio queda fijado en el momento de suscribirse — si el vendedor lo cambia después, no afecta a quienes ya estaban suscritos. El único ajuste global es cada cuántos días de juego se cobra la renovación (`subscriptions.json`, `intervalGameDays`, 5 por defecto). Si al suscriptor le faltan fondos en el momento del cobro, la suscripción se cancela automáticamente y se le avisa por chat.
+No hay planes predefinidos: cualquier jugador puede vender su propio servicio de suscripción a su propio precio (`/subscribe offer <precio>`), y cualquier otro jugador puede suscribirse (`/subscribe <jugador>`). El precio queda fijado en el momento de suscribirse — si el vendedor lo cambia después, no afecta a quienes ya estaban suscritos. El único ajuste global es cada cuántos días de juego se cobra la renovación (`subscriptions.json`, `intervalGameDays`, 5 por defecto). Si al suscriptor le faltan fondos en el momento del cobro (precio pactado + IVA de transmisión, ver más abajo), la suscripción se cancela automáticamente y se le avisa por chat.
 
 ## Intercambio seguro (/trade)
 
@@ -177,7 +189,7 @@ Como reutiliza un tipo de menú vainilla (`GENERIC_9x5`, el mismo que un cofre g
 
 ## Tiendas de cartel + cofre
 
-Sistema tipo "ChestShop": un cartel sobre o al lado de un cofre vende o compra ítems automáticamente, sin que el dueño tenga que estar conectado.
+Sistema tipo "ChestShop": un cartel sobre o al lado de un cofre vende o compra ítems automáticamente, sin que el dueño tenga que estar conectado. Cada compra/venta quema el IVA de transmisión (ver más abajo): quien paga paga de más, quien recibe recibe de menos.
 
 **Formato del cartel** (4 líneas, sin comandos, solo texto):
 ```
