@@ -194,8 +194,14 @@ Cada `intervalGameDays` días de juego (7 por defecto, `rent.json`), se mira cu�
 ese periodo (no tu patrimonio total) y se cobra un porcentaje según el tramo: 1-10K → 10%,
 10K-100K → 20%, 100K-1M → 30%, 1M en adelante → 40% (tope). El tipo es **plano por tramo**, no
 marginal: toda la ganancia se grava al porcentaje de su tramo final. Si tu saldo bajó en el
-periodo, no se cobra nada, y el punto de partida del siguiente periodo se ajusta hacia abajo. Nunca
-se grava el saldo que ya tenías acumulado de antes, solo lo nuevo.
+periodo, no se cobra nada — y esa pérdida no se compensa después, es un gasto ajeno a la renta — y
+el punto de partida del siguiente periodo se ajusta hacia abajo. Nunca se grava el saldo que ya
+tenías acumulado de antes, solo lo nuevo.
+
+**A diferencia de cualquier otro cobro del mod, esta renta sí puede dejarte en saldo negativo**: es
+la única feature (aparte de `/eco charge`, de admin) que no bloquea el cobro si no te alcanza. Es
+la primera vía de gameplay real capaz de disparar el plazo de gracia del
+[embargo por deuda](#embargo-silencioso-y-brutal).
 
 ## Salario diario y niveles
 
