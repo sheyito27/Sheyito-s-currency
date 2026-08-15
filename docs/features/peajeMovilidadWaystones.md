@@ -7,9 +7,9 @@
 ## Qué es esto
 
 Usar un waystone del mod Waystones (si está instalado) cuesta `cost` Sheyicoins (100 por defecto).
-Si no tienes saldo suficiente, **no se bloquea el teletransporte** — se cobra igual y el saldo
-puede quedar negativo. No hay un estado de "deuda" separado para eso: un saldo negativo es
-simplemente eso, se consulta con `/bal` igual que uno positivo.
+Si no tienes saldo suficiente, **se bloquea el teletransporte** — no se cobra nada y Waystones
+muestra un error explicando por qué. El saldo negativo queda reservado para una futura feature de
+pagos obligatorios; esta no lo usa.
 
 ## Cómo funciona
 
@@ -22,22 +22,41 @@ igual que `FTBQuestsCompat`) — si falta el mod, esa clase nunca se referencia 
 cargarla. La dependencia es `compileOnly` en `build.gradle` (nunca `implementation`): compila
 contra las clases reales de Waystones/Balm pero no se empaqueta ni se exige en runtime.
 
-**Un solo evento, sin bloquear nada:** `WaystonesIntegration.register()` se suscribe a
-`WaystoneTeleportEvent.Complete` vía `Balm.getEvents().onEvent(...)` — llega después de cada
-intento de teletransporte, con el resultado de si tuvo éxito. Si `getPrimaryResult()` indica éxito
-y la víctima es un `ServerPlayer`, se delega en `WaystoneTollLogic.applyToll`:
+**Dos fases, para bloquear sin arriesgar el cobro de XP vanilla:** Waystones no expone un
+`setCanceled(true)` simple en sus eventos. La única forma documentada de fallar un
+teletransporte es `WaystoneTeleportEvent.Prepare#addPreparationTask`, una tarea asíncrona que
+puede resolver en un `WaystoneTeleportError`. Se usa esa fase solo para **comprobar** (nunca
+cobra):
 
 ```java
-static void applyToll(EconomyManager economy, WaystoneTollConfig config, UUID uuid) {
-    economy.charge(uuid, config.cost);
+event.addPreparationTask(prior -> {
+    if (prior.right().isPresent()) {
+        return CompletableFuture.completedFuture(prior); // ya fallo por otra razon, no pisarlo
+    }
+    if (WaystoneTollLogic.canAfford(economy, config, player.getUUID())) {
+        return CompletableFuture.completedFuture(Either.left(null));
+    }
+    return CompletableFuture.completedFuture(Either.right(new WaystoneTeleportError(mensaje)));
+});
+```
+
+El cobro real pasa en `WaystoneTeleportEvent.Complete`, y solo si `getPrimaryResult()` confirma
+que el teletransporte tuvo éxito — así un jugador que podía pagar en el momento de `Prepare` nunca
+queda cobrado por un teletransporte que termina fallando por otra razón (chunk que no carga, etc.):
+
+```java
+static boolean chargeToll(EconomyManager economy, WaystoneTollConfig config, UUID uuid) {
+    return economy.take(uuid, config.cost); // requiere fondos suficientes, nunca deja saldo negativo
 }
 ```
 
-Se usa `charge()` — el mismo método sin comprobación de fondos que ya usa `/eco charge` — a
-propósito: a diferencia de `take()` (que usan `/pay`, `/trade` o las tiendas), `charge()` nunca
-falla por fondos insuficientes, así que el teletransporte de Waystones nunca queda a medias ni
-bloqueado por el mod. La lógica de cobro vive en `WaystoneTollLogic` (sin imports de
-Waystones/Balm) para poder testearla sin esas clases en el classpath de test.
+Se evitó a propósito la API de `WarpRequirement` de Waystones (el mecanismo "nativo" para costes
+de teletransporte): es una composición no documentada y arriesgaba pisar el requisito de XP
+vanilla si no se combinaba bien. El combo `Prepare` (chequear) + `Complete` (cobrar solo si hubo
+éxito) es más simple y usa únicamente API pública documentada.
+
+Toda la decisión de negocio (`canAfford`, `chargeToll`) vive en `WaystoneTollLogic` — sin imports
+de Waystones/Balm — para poder testearla sin esas clases en el classpath de test.
 
 ## Comandos
 
@@ -46,9 +65,8 @@ No añade comandos propios; el único ajuste posible es `cost` (y `enabled`) en
 
 ## Cómo se conecta con otras features
 
-Usa `charge()`, no `take()`, así que igual que la [penalización por muerte](penalizacionPorMuerte.md)
-queda fuera del circuito de XP. Es el primer consumidor real de `EconomyManager.charge()` desde
-que se simplificó esa penalización — toda la infraestructura de deuda trackeada que existía antes
-(`DebtManager`, `/debt`) se borró por completo al construir esta feature: mostraba cualquier saldo
-negativo como "deuda" sin plazo real, así que se decidió no reactivarla y dejar que un saldo
-negativo sea, sin más, saldo negativo.
+Usa `take()`, igual que `/pay`, `/trade` o las tiendas: bloquea la acción si no hay fondos, en vez
+de dejarla pasar con saldo negativo. Queda fuera del circuito de XP, igual que la
+[penalización por muerte](penalizacionPorMuerte.md). `EconomyManager.charge()` (sin comprobar
+fondos) sigue sin un consumidor real en el mod — `/eco charge` la mantiene viva para pruebas y
+para una futura feature de pagos obligatorios.
