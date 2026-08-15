@@ -2,6 +2,14 @@
 
 Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antiguo.
 
+## Versión 1.0.8
+
+### Nuevo: IVA de transmisión
+- `/pay`, el dinero de `/trade`, comprar/vender en tiendas de cartel y cada cobro de una suscripción (inicial y renovaciones) queman un porcentaje configurable (`taxPercent`, 10% por defecto, `transmission_tax.json`) en ambos lados a la vez: el pagador paga de más, el receptor recibe de menos. Con el 10% por defecto, una transacción de 100 SC hace que el pagador pague 110 y el receptor reciba 90. No afecta a `/eco`, `/sc reward`, salario, caza de mobs, ni a los peajes de waystones/dimensiones/chunks.
+
+### Arreglado
+- El README describía el precio de reclamar un chunk como "escala al cuadrado" - la fórmula real es `n^1.5`.
+
 ## Versión 1.0.7
 
 ### Arreglado: recuento de chunks reclamados
