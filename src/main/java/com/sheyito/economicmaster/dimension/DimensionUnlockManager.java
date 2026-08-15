@@ -89,7 +89,7 @@ public class DimensionUnlockManager {
     }
 
     /**
-     * Admin-only reverse of {@link #unlock} - lets {@code /dimension lock} reset a player's
+     * Admin-only reverse of {@link #unlock} - lets {@code /sc dimension lock} reset a player's
      * unlock state for testing without a fresh world. Does not refund the price they paid.
      */
     public void lock(UUID uuid, ResourceKey<Level> dimension) {
