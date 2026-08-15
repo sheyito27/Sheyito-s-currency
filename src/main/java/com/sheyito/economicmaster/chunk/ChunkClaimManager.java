@@ -90,4 +90,15 @@ public class ChunkClaimManager {
         claimCount.merge(uuid, 0, (current, unused) -> Math.max(0, current - 1));
         dirty.set(true);
     }
+
+    /**
+     * Admin-only testing tool for {@code /sc chunk reset} - drops a player's count straight to
+     * 0, for when repeated {@link #decrementClaimCount} calls (or a world where chunks were
+     * unclaimed before this fix existed) would be tedious. Same no-refund rule as everything
+     * else here: only the count changes, never the player's balance.
+     */
+    public void resetClaimCount(UUID uuid) {
+        claimCount.remove(uuid);
+        dirty.set(true);
+    }
 }
