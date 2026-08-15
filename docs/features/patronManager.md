@@ -1,8 +1,7 @@
 # Patrón: manager con ciclo de vida y autoguardado perezoso
 
-Usado por: `EconomyManager`, `SalaryManager`, `SubscriptionManager`, `ShopManager`,
-`DebtManager` — y parcialmente `TradeManager` (mismo ciclo de vida, pero sin persistencia, ver
-más abajo).
+Usado por: `EconomyManager`, `SalaryManager`, `SubscriptionManager`, `ShopManager` — y
+parcialmente `TradeManager` (mismo ciclo de vida, pero sin persistencia, ver más abajo).
 
 ## Qué resuelve
 
