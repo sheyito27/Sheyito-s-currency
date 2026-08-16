@@ -1,7 +1,9 @@
 package com.sheyito.economicmaster.embargo;
 
+import com.sheyito.economicmaster.EconomicMaster;
 import com.sheyito.economicmaster.config.ConfigManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -11,10 +13,10 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.pattern.BlockInWorld;
 import net.minecraft.world.level.block.state.pattern.BlockPattern;
 import net.minecraft.world.level.block.state.pattern.BlockPatternBuilder;
@@ -24,6 +26,9 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -56,9 +61,12 @@ public class AuctionStandListener {
             return;
         }
 
-        BlockPattern pattern = buildPattern(resolveStandBlock());
+        Block standBlock = resolveStandBlock();
+        BlockPattern pattern = buildPattern(standBlock);
         BlockPattern.BlockPatternMatch match = pattern.find(level, event.getPos());
+        EconomicMaster.LOGGER.info("[puesto de subastas] atril colocado en {}, encaja={}", event.getPos(), match != null);
         if (match == null) {
+            logDiagnostics(level, event.getPos(), standBlock);
             return;
         }
 
@@ -94,6 +102,69 @@ public class AuctionStandListener {
             return;
         }
         AuctionStandSelectionMenu.open(player);
+    }
+
+    /**
+     * TEMPORARY debugging aid, not part of the permanent design - {@link BlockPattern#find} just
+     * returns null on any mismatch, with no way to ask it *what* failed. This re-checks every
+     * required cell directly (bypassing {@code BlockPattern} entirely) against all 4 horizontal
+     * orientations, logs whichever orientation has the fewest mismatches, and lists exactly which
+     * positions/blocks are wrong - so a failed build can be diagnosed from the server log instead
+     * of guessing blind.
+     */
+    private static void logDiagnostics(ServerLevel level, BlockPos lecternPos, Block standBlock) {
+        record Cell(int right, int back, int up, char type) {
+        }
+        String[] frontAisle = {"SSS", "S S", "S S", "WLW"};
+        String[] backAisle = {"?S?", "?S?", "?S?", "???"};
+        List<Cell> cells = new ArrayList<>();
+        for (int row = 0; row < 4; row++) {
+            int up = 3 - row;
+            for (int col = 0; col < 3; col++) {
+                int right = col - 1;
+                char front = frontAisle[row].charAt(col);
+                if (front != '?') {
+                    cells.add(new Cell(right, 0, up, front));
+                }
+                char back = backAisle[row].charAt(col);
+                if (back != '?') {
+                    cells.add(new Cell(right, 1, up, back));
+                }
+            }
+        }
+
+        int bestMismatches = Integer.MAX_VALUE;
+        Direction bestRight = null;
+        List<String> bestDetails = List.of();
+        for (Direction right : new Direction[]{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST}) {
+            Direction back = right.getClockWise();
+            List<String> details = new ArrayList<>();
+            for (Cell cell : cells) {
+                BlockPos pos = lecternPos.relative(right, cell.right()).relative(back, cell.back()).above(cell.up());
+                BlockState actual = level.getBlockState(pos);
+                boolean ok = switch (cell.type()) {
+                    case 'S' -> actual.is(standBlock);
+                    case 'W' -> actual.is(Blocks.RED_WOOL);
+                    case 'L' -> actual.is(Blocks.LECTERN);
+                    case ' ' -> actual.isAir();
+                    default -> true;
+                };
+                if (!ok) {
+                    details.add(pos + " esperaba '" + cell.type() + "' pero hay " + actual.getBlock());
+                }
+            }
+            if (details.size() < bestMismatches) {
+                bestMismatches = details.size();
+                bestRight = right;
+                bestDetails = details;
+            }
+        }
+
+        EconomicMaster.LOGGER.info("[puesto de subastas] mejor orientacion probada: right={} - {} fallo(s) de {} celdas requeridas",
+                bestRight, bestMismatches, cells.size());
+        for (String detail : bestDetails) {
+            EconomicMaster.LOGGER.info("[puesto de subastas]   {}", detail);
+        }
     }
 
     private static Block resolveStandBlock() {
