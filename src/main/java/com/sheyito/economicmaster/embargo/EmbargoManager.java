@@ -216,11 +216,11 @@ public class EmbargoManager {
      * somewhere the player has to check. */
     private void announceCountdown(ServerPlayer player, int remaining, int graceSeconds) {
         if (remaining == graceSeconds) {
-            player.sendSystemMessage(Component.literal("§c§l[Sheyito's currency] §r§cEstas en banca rota. Tienes "
+            player.sendSystemMessage(Component.literal("§c§l[Sheyito's currency] §r§cEstás en banca rota. Tienes "
                     + remaining + " segundos para saldar tu deuda."));
         } else if (remaining == 10) {
             player.sendSystemMessage(Component.literal(
-                    "§c[Sheyito's currency] §fEn 10 segundos el estado embargara tus objetos mas valiosos."));
+                    "§c[Sheyito's currency] §fEn 10 segundos el estado embargará tus objetos más valiosos."));
         } else if (remaining > 10 && remaining % 10 == 0) {
             player.sendSystemMessage(Component.literal(
                     "§c[Sheyito's currency] §fTe quedan " + remaining + " segundos para saldar tu deuda."));
@@ -236,12 +236,12 @@ public class EmbargoManager {
         dirty.set(true);
 
         if (seized.isEmpty()) {
-            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo tenías nada incautable (armadura/armas/herramientas) encima. Tu saldo volvió a 0. No hay vuelta atrás."));
             return;
         }
-        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe te incauto "
-                + describeItems(stacksOf(seized)) + ", y tu saldo volvio a 0. No hay vuelta atras."));
-        player.sendSystemMessage(Component.literal("§7[Sheyito's currency] Quien avisa no es traidor. Mas suerte para la proxima."));
+        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe te incautó "
+                + describeItems(stacksOf(seized)) + ", y tu saldo volvió a 0. No hay vuelta atrás."));
+        player.sendSystemMessage(Component.literal("§7[Sheyito's currency] Quien avisa no es traidor. Más suerte para la próxima."));
 
         long id = nextAuctionId.getAndIncrement();
         AuctionVote vote = AuctionVote.fromSeizure(id, player.getUUID(), seized, GameTime.currentDay(server));
@@ -349,10 +349,10 @@ public class EmbargoManager {
         // mutates each ItemStack in place (splits it down to empty as it inserts), so reading
         // these same stacks for the message AFTER returning them showed "Air x0" instead of the
         // real item - the item was already gone from the stack object by the time we described it.
-        String message = "§6[Sheyito's currency] §fLa votacion sobre el embargo de " + victimName
-                + " termino: " + winner.getHoverName().getString() + " x" + winner.getCount()
+        String message = "§6[Sheyito's currency] §fLa votación sobre el embargo de " + victimName
+                + " terminó: " + winner.getHoverName().getString() + " x" + winner.getCount()
                 + " pasa a la pool de subastas."
-                + (returned.isEmpty() ? " Era el unico objeto incautado." : " El resto (" + describeItems(stacksOf(returned)) + ") se devolvio.");
+                + (returned.isEmpty() ? " Era el único objeto incautado." : " El resto (" + describeItems(stacksOf(returned)) + ") se devolvió.");
 
         returnItems(vote.victimUuid, returned, server);
         dirty.set(true);
@@ -415,7 +415,7 @@ public class EmbargoManager {
             giveBack(player, item);
         }
         dirty.set(true);
-        player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSe te devolvieron los objetos incautados que no fueron elegidos en la votacion del embargo."));
+        player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSe te devolvieron los objetos incautados que no fueron elegidos en la votación del embargo."));
     }
 
     private void announceIfEligible(AuctionVote vote, MinecraftServer server) {
@@ -438,7 +438,7 @@ public class EmbargoManager {
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             if (!p.getUUID().equals(vote.victimUuid)) {
                 p.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f" + victimName
-                        + " entro en embargo - vota que objeto se subasta: ").append(button));
+                        + " entró en embargo - vota qué objeto se subasta: ").append(button));
             }
         }
     }
