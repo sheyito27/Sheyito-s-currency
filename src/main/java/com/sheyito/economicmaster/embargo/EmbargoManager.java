@@ -18,6 +18,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -281,6 +282,26 @@ public class EmbargoManager {
                 closeVote(vote, server);
             }
         }
+    }
+
+    /**
+     * Admin-only testing tool for {@code /sc embargo cerrar} - force-closes {@code victim}'s
+     * oldest active vote right now, ignoring both {@code minVotersToClose} and
+     * {@code minVoteGameDays}. Needed because {@link #tickVoteClosing}'s day requirement is
+     * measured in real server uptime (see {@link com.sheyito.economicmaster.util.GameTime}), so a
+     * short dev session may never accumulate enough of it no matter how many people vote.
+     * A no-op (returns false) if {@code victim} has no active vote at all.
+     */
+    public boolean forceCloseOldestVote(UUID victim, MinecraftServer server) {
+        AuctionVote vote = activeVotes.values().stream()
+                .filter(v -> v.victimUuid.equals(victim))
+                .min(Comparator.comparingLong(v -> v.id))
+                .orElse(null);
+        if (vote == null) {
+            return false;
+        }
+        closeVote(vote, server);
+        return true;
     }
 
     private void closeVote(AuctionVote vote, MinecraftServer server) {
