@@ -3,7 +3,6 @@ package com.sheyito.economicmaster.embargo;
 import com.sheyito.economicmaster.EconomicMaster;
 import com.sheyito.economicmaster.config.ConfigManager;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -27,8 +26,6 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -66,7 +63,7 @@ public class AuctionStandListener {
         BlockPattern.BlockPatternMatch match = pattern.find(level, event.getPos());
         EconomicMaster.LOGGER.info("[puesto de subastas] atril colocado en {}, encaja={}", event.getPos(), match != null);
         if (match == null) {
-            logDiagnostics(level, event.getPos(), standBlock);
+            dumpSurroundings(level, event.getPos(), standBlock);
             return;
         }
 
@@ -105,66 +102,47 @@ public class AuctionStandListener {
     }
 
     /**
-     * TEMPORARY debugging aid, not part of the permanent design - {@link BlockPattern#find} just
-     * returns null on any mismatch, with no way to ask it *what* failed. This re-checks every
-     * required cell directly (bypassing {@code BlockPattern} entirely) against all 4 horizontal
-     * orientations, logs whichever orientation has the fewest mismatches, and lists exactly which
-     * positions/blocks are wrong - so a failed build can be diagnosed from the server log instead
-     * of guessing blind.
+     * TEMPORARY debugging aid, not part of the permanent design. Makes ZERO assumptions about
+     * rotation/offset math (that logic lives in {@link #buildPattern} and could itself be the bug)
+     * - just prints the raw block at every position in a 5x5 box around the lectern, one line per
+     * height layer, dy=-1 (below the lectern) through dy=4 (above the roof). Read bottom-to-top:
+     * dy=0 should show the lectern ('L') with wool ('W') on both sides on the same line; dy=1/dy=2
+     * should show the stand block ('S') framing an empty gap ('.') where the lectern column is;
+     * dy=3 should be a solid block of 'S'. Anything else prints the real block's registry name.
      */
-    private static void logDiagnostics(ServerLevel level, BlockPos lecternPos, Block standBlock) {
-        record Cell(int right, int back, int up, char type) {
-        }
-        String[] frontAisle = {"SSS", "S S", "S S", "WLW"};
-        String[] backAisle = {"?S?", "?S?", "?S?", "???"};
-        List<Cell> cells = new ArrayList<>();
-        for (int row = 0; row < 4; row++) {
-            int up = 3 - row;
-            for (int col = 0; col < 3; col++) {
-                int right = col - 1;
-                char front = frontAisle[row].charAt(col);
-                if (front != '?') {
-                    cells.add(new Cell(right, 0, up, front));
+    private static void dumpSurroundings(ServerLevel level, BlockPos lecternPos, Block standBlock) {
+        EconomicMaster.LOGGER.info("[puesto de subastas] volcado alrededor de {} (bloque de pie configurado: {})",
+                lecternPos, BuiltInRegistries.BLOCK.getKey(standBlock));
+        for (int dy = -1; dy <= 4; dy++) {
+            StringBuilder line = new StringBuilder();
+            for (int dz = -2; dz <= 2; dz++) {
+                for (int dx = -2; dx <= 2; dx++) {
+                    BlockState state = level.getBlockState(lecternPos.offset(dx, dy, dz));
+                    line.append(abbreviate(state, standBlock)).append(' ');
                 }
-                char back = backAisle[row].charAt(col);
-                if (back != '?') {
-                    cells.add(new Cell(right, 1, up, back));
-                }
+                line.append("| ");
             }
+            EconomicMaster.LOGGER.info("[puesto de subastas] dy={}: {}", dy, line.toString().trim());
         }
+        EconomicMaster.LOGGER.info(
+                "[puesto de subastas] cada bloque de las 5 columnas es dx=-2..2 (eje X); cada grupo separado por '|' es dz=-2..2 (eje Z)");
+    }
 
-        int bestMismatches = Integer.MAX_VALUE;
-        Direction bestRight = null;
-        List<String> bestDetails = List.of();
-        for (Direction right : new Direction[]{Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST}) {
-            Direction back = right.getClockWise();
-            List<String> details = new ArrayList<>();
-            for (Cell cell : cells) {
-                BlockPos pos = lecternPos.relative(right, cell.right()).relative(back, cell.back()).above(cell.up());
-                BlockState actual = level.getBlockState(pos);
-                boolean ok = switch (cell.type()) {
-                    case 'S' -> actual.is(standBlock);
-                    case 'W' -> actual.is(Blocks.RED_WOOL);
-                    case 'L' -> actual.is(Blocks.LECTERN);
-                    case ' ' -> actual.isAir();
-                    default -> true;
-                };
-                if (!ok) {
-                    details.add(pos + " esperaba '" + cell.type() + "' pero hay " + actual.getBlock());
-                }
-            }
-            if (details.size() < bestMismatches) {
-                bestMismatches = details.size();
-                bestRight = right;
-                bestDetails = details;
-            }
+    private static String abbreviate(BlockState state, Block standBlock) {
+        if (state.isAir()) {
+            return "....";
         }
-
-        EconomicMaster.LOGGER.info("[puesto de subastas] mejor orientacion probada: right={} - {} fallo(s) de {} celdas requeridas",
-                bestRight, bestMismatches, cells.size());
-        for (String detail : bestDetails) {
-            EconomicMaster.LOGGER.info("[puesto de subastas]   {}", detail);
+        if (state.is(standBlock)) {
+            return "STND";
         }
+        if (state.is(Blocks.RED_WOOL)) {
+            return "WOOL";
+        }
+        if (state.is(Blocks.LECTERN)) {
+            return "LECT";
+        }
+        String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+        return path.length() > 4 ? path.substring(0, 4).toUpperCase() : path.toUpperCase();
     }
 
     private static Block resolveStandBlock() {
