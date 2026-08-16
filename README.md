@@ -190,13 +190,16 @@ saca con `/sc embargo retirar` y la comunidad decide qué hacer con ella.
 
 ## Renta progresiva sobre ganancias
 
-Cada `intervalGameDays` días de juego (7 por defecto, `rent.json`), se mira cuánto **ganaste** en
-ese periodo (no tu patrimonio total) y se cobra un porcentaje según el tramo: 1-10K → 10%,
-10K-100K → 20%, 100K-1M → 30%, 1M en adelante → 40% (tope). El tipo es **plano por tramo**, no
-marginal: toda la ganancia se grava al porcentaje de su tramo final. Si tu saldo bajó en el
-periodo, no se cobra nada — y esa pérdida no se compensa después, es un gasto ajeno a la renta — y
-el punto de partida del siguiente periodo se ajusta hacia abajo. Nunca se grava el saldo que ya
-tenías acumulado de antes, solo lo nuevo.
+Cada `intervalGameDays` días de juego (7 por defecto, `rent.json`), se cobra un porcentaje sobre lo
+que **ganaste** en ese periodo — no tu patrimonio total, y no un balance neto — según el tramo:
+1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M en adelante → 40% (tope). El tipo es **plano por
+tramo**, no marginal: toda la ganancia se grava al porcentaje de su tramo final.
+
+**Es ganancia bruta, no neta**: cada ingreso (venta, `/pay` recibido, salario, recompensas...) se
+va sumando a una cuenta aparte a medida que ocurre; lo que gastes o pierdas mientras tanto nunca se
+resta de esa cuenta. Si ganás 10.000 en la semana pero por separado perdés 20.000, igual se te
+cobra el 10% de los 10.000 ganados (1.000) — perder saldo es gasto, ajeno a esta renta, nunca un
+"crédito" contra una ganancia.
 
 **A diferencia de cualquier otro cobro del mod, esta renta sí puede dejarte en saldo negativo**: es
 la única feature (aparte de `/eco charge`, de admin) que no bloquea el cobro si no te alcanza. Es
