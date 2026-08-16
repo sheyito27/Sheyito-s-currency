@@ -1,7 +1,7 @@
 # Embargo silencioso y brutal
 
 **Estado:** implementado.
-**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `EmbargoData.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `AuctionPoolData.java`, `LiquidationAuctionMenu.java`, `ItemStackJson.java`.
+**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `EmbargoData.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `AuctionPoolData.java`, `LiquidationAuctionMenu.java`, `AuctionStandListener.java`, `AuctionStandSelectionMenu.java`, `ItemStackJson.java`.
 **Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md).
 
 ## Qué es esto
@@ -168,24 +168,52 @@ vez del ítem real. Se corrigió construyendo el texto del mensaje **antes** de 
 
 ### La subasta con pujas
 
-`AuctionPoolManager` es una cola FIFO persistida donde **un ítem a la vez** (el de la cabeza de la
-cola, índice 0) está en puja activa — mismo espíritu de "una cosa activa a la vez" que ya usa
-`AuctionVote` para la votación de qué se incauta. En cuanto un ítem gana esa votación
-(`EmbargoManager.closeVote` → `AuctionPoolManager.add`), si la pool estaba vacía se abre puja sobre
-él al instante; si no, simplemente hace cola detrás del que ya está en juego.
+`AuctionPoolManager` es una lista persistida donde **un ítem a la vez** está en puja activa
+(`FrontAuction`, siempre `items.get(0)`) — mismo espíritu de "una cosa activa a la vez" que ya usa
+`AuctionVote` para la votación de qué se incauta. A diferencia de esa votación, **nada se abre
+solo**: cuando un ítem gana la votación (`EmbargoManager.closeVote` → `AuctionPoolManager.add`),
+simplemente se suma a la pool y ahí se queda - la única forma de que empiece a pujarse es que
+alguien lo elija en el puesto de subastas (ver más abajo). Se descartó a propósito un diseño
+anterior donde `add()` abría puja sola en cuanto la pool dejaba de estar vacía - el usuario quería
+poder **elegir** qué se subasta, no que el orden de incautación decidiera por él.
 
-**Interfaz - GUI, no comando de chat con una cifra.** El usuario pidió explícitamente que pujar
-fuera "algo dinámico", no escribir un número: `/liquidation auction` abre `LiquidationAuctionMenu`
-(calcado de `EmbargoVoteMenu`: chest `MenuType` vanilla, un `SimpleContainer` de 27 slots
-reconstruido en cada apertura, sin sincronización en vivo entre varios jugadores mirando a la vez —
-mismo trade-off "snapshot, no push" que ya acepta la votación). Fila 0 muestra el ítem en subasta,
-fila 1 la puja más alta actual y quién va ganando (o "Sin pujas todavía"), fila 2 un botón por cada
-incremento de `EmbargoConfig.bidIncrements` (puja `pujaActual + incremento` al clicarlo) más un
-botón "puja tu saldo máximo". Cada click llama a `AuctionPoolManager.placeBid` con la cantidad
-calculada **en el momento del click** (nunca con una etiqueta cacheada), así que aunque la vista de
-alguien esté un pelín desactualizada, nunca puede pujar por accidente una cantidad distinta de la
-que ve. La víctima original del ítem (`PooledItem.seizedFromUuid`) no puede ni abrir el menú para
-su propio ítem - mismo criterio que ya bloquea que la víctima vote en su propio embargo.
+**El "puesto de subastas" - multibloque + aldeano, no un comando.** Estructura confirmada con el
+usuario (`AuctionStandListener`, mismo truco que usa vanilla para el Iron Golem/Snow Golem -
+`CarvedPumpkinBlock`, verificado decompilándolo): un atril + 3 columnas del bloque configurado
+(`EmbargoConfig.auctionStandBlockId`, por defecto `polished_andesite`) formando un hueco de 2
+bloques de alto con un techo encima. Al colocar el atril (la pieza que completa la estructura) se
+comprueba la forma con un `BlockPatternBuilder` (prueba todas las rotaciones/posiciones sola, igual
+que el propio patrón vanilla) - si encaja, aparece un `Villager` real dentro:
+- `setNoAi(true)` para que no se mueva, `setInvulnerable(true)` para que no lo puedan matar,
+  `setPersistenceRequired()` para que nunca desaparezca por estar lejos - sin necesidad de una
+  entidad custom, todo lo demás (render, guardado, ...) lo sigue llevando vanilla.
+- Se marca con una etiqueta en `getPersistentData()` (`sheyito_auction_stand`) para reconocerlo -
+  así `onVillagerInteract` (enganchado a `PlayerInteractEvent.EntityInteract`, cancelable,
+  confirmado que se dispara sea cual sea el aldeano) puede cancelar su comercio vanilla solo para
+  este aldeano concreto y abrir el menú de selección en su lugar, sin tocar ningún otro aldeano del
+  mundo.
+- Suenan partículas (`ParticleTypes.HAPPY_VILLAGER`) y un sonido (`SoundEvents.VILLAGER_CELEBRATE`)
+  al crearse, pedido explícito del usuario. La estructura **no se consume** al crear el aldeano (a
+  diferencia de un golem vanilla) - el puesto se queda en pie.
+
+Hablar con ese aldeano abre `AuctionStandSelectionMenu` (chest `MenuType`, calcado de
+`EmbargoVoteMenu`): lista todo lo que hay en `AuctionPoolManager.list()`, un click sobre cualquier
+ítem llama a `AuctionPoolManager.startAuction` - lo mueve a la cabeza de la lista (el resto se
+reordena sin perder nada) y abre `FrontAuction` sobre él. Rechaza con un mensaje si ya hay una
+subasta en curso (una a la vez) o si el ítem elegido ya no está en la pool (menú desactualizado).
+
+**Pujar - GUI, no comando de chat con una cifra.** El usuario pidió explícitamente que pujar fuera
+"algo dinámico", no escribir un número: `/liquidation auction` abre `LiquidationAuctionMenu`
+(mismo patrón de chest menu, un `SimpleContainer` de 27 slots reconstruido en cada apertura, sin
+sincronización en vivo entre varios jugadores mirando a la vez — mismo trade-off "snapshot, no
+push" que ya acepta la votación). Fila 0 muestra el ítem en subasta, fila 1 la puja más alta actual
+y quién va ganando (o "Sin pujas todavía"), fila 2 un botón por cada incremento de
+`EmbargoConfig.bidIncrements` (puja `pujaActual + incremento` al clicarlo) más un botón "puja tu
+saldo máximo". Cada click llama a `AuctionPoolManager.placeBid` con la cantidad calculada **en el
+momento del click** (nunca con una etiqueta cacheada), así que aunque la vista de alguien esté un
+pelín desactualizada, nunca puede pujar por accidente una cantidad distinta de la que ve. La
+víctima original del ítem (`PooledItem.seizedFromUuid`) no puede ni abrir el menú para su propio
+ítem - mismo criterio que ya bloquea que la víctima vote en su propio embargo.
 
 **Pujar retiene el dinero al instante** (`EconomyManager.take`, rechaza la puja si no llega el
 saldo) - si luego alguien puja más, se devuelve íntegro al pujador anterior
@@ -199,21 +227,25 @@ original - encaja con el "no hay reembolso ni marcha atrás" de todo el embargo)
 a `EmbargoManager.tickVoteClosing`, cadencia ~30s): cuando pasan `auctionDurationGameDays` desde que
 se abrió la puja actual (ajuste propio, independiente de `minVoteGameDays` - son dos fases
 distintas con duraciones que no tienen por qué coincidir):
-- **Con pujador**: el ítem sale de la cola y se entrega al ganador - directo al inventario si está
+- **Con pujador**: el ítem sale de la pool y se entrega al ganador - directo al inventario si está
   online, o a una lista de entregas pendientes si no (mismo patrón que
   `EmbargoManager`/`deliverPendingReturns`, replicado dentro de `AuctionPoolManager` porque es un
   concepto propio de la pool - se entrega en `ServerLifecycleHandler.onPlayerLoggedIn` vía
   `deliverPending`).
-- **Sin pujas**: el ítem no se destruye ni repite la puja sobre sí mismo indefinidamente (eso
-  dejaría un ítem impopular bloqueando la cola para siempre) - se manda al final de la cola y
-  vuelve a intentarlo cuando le toque el turno otra vez.
+- **Sin pujas**: el ítem no se destruye - se manda al final de la lista, a la espera de que alguien
+  vuelva a elegirlo en el puesto de subastas.
 
-En ambos casos se abre puja fresca sobre lo que quede en la cabeza de la cola (si queda algo).
+En ningún caso se abre puja fresca sola - cerrar deja `FrontAuction` en `null` hasta la próxima
+visita al puesto, sea sobre el mismo ítem o cualquier otro de la pool.
 
 `/sc liquidation withdraw` (OP) sigue existiendo como válvula de escape de admin - saca el ítem de
-la cabeza de la cola pase lo que pase con la subasta, pero si ese ítem tenía una puja activa,
+la cabeza de la lista pase lo que pase con la subasta, pero si ese ítem tenía una puja activa,
 primero le devuelve el dinero retenido al pujador (mismo `EconomyManager.give` que un "outbid") para
 no dejar dinero atrapado sin ítem ni reembolso.
+
+**No verificable en este entorno:** la detección de la estructura y la posición exacta donde
+aparece el aldeano (`AuctionStandListener`) necesitan probarse construyendo el puesto de verdad en
+el juego - no hay forma de levantar un `ServerLevel` real en los tests unitarios de este mod.
 
 ### Persistencia de ítems reales
 
@@ -235,6 +267,9 @@ en sí, aunque todos los mensajes al jugador siguen en español) — el nombre i
   hay una activa.
 - `/liquidation auction` (cualquier jugador - no la víctima del ítem actual) — abre
   `LiquidationAuctionMenu` para pujar por el ítem en cabeza de la pool, si hay alguno.
+- **No hay comando para elegir qué se subasta** - eso es a propósito del "puesto de subastas"
+  (atril + 3 columnas + techo, ver más arriba): hablar con el aldeano que aparece dentro abre
+  `AuctionStandSelectionMenu`.
 - `/sc liquidation withdraw` (OP nivel 2) — saca el siguiente ítem de la pool de subastas y lo
   entrega al admin que lo ejecuta, reembolsando primero cualquier puja activa sobre él.
 - `/sc liquidation close <player>` (OP nivel 2) — fuerza el cierre de la votación **más antigua**
@@ -246,7 +281,8 @@ en sí, aunque todos los mensajes al jugador siguen en español) — el nombre i
   tiene ninguna votación activa.
 
 El único ajuste de config es `config/sheyitoscurrency/embargo.json` (`enabled`, `graceSeconds`,
-`minVotersToClose`, `minVoteGameDays`, `auctionDurationGameDays`, `bidIncrements`).
+`minVotersToClose`, `minVoteGameDays`, `auctionDurationGameDays`, `bidIncrements`,
+`auctionStandBlockId`).
 
 ## Cómo se conecta con otras features
 
