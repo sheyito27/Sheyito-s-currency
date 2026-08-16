@@ -18,8 +18,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-/** Covers RentManager's billing pass: baseline seeding on first sighting, the 7-day cadence, and
- * that only PROFIT (not total balance) ever gets taxed. */
+/** Covers RentManager's billing pass: gains accumulate gross (via EconomyManager.give(), never
+ * netted against spending), a brand new record is immediately due, and charging always resets
+ * the accumulator and the 7-day clock. */
 class RentManagerTest {
 
     private interface WithRent {
@@ -63,92 +64,82 @@ class RentManagerTest {
     }
 
     @Test
-    void firstSightingSeedsABaselineWithoutCharging() throws Exception {
+    void aBrandNewRecordIsImmediatelyDueAndGetsCharged() throws Exception {
+        // No pre-existing balance to worry about double-counting - gains only ever accumulate
+        // from give() onward, so there is no reason to wait a full interval before the first
+        // bill the way the old net-worth-snapshot design needed to.
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 5_000.0);
+            economy.give(uuid, 1_000.0); // tracked as a gain automatically by EconomyManager.give()
 
             rent.processDueRent(server);
 
-            assertEquals(5_000.0, economy.getBalance(uuid), "no charge on the very first pass - nothing to compare profit against yet");
+            assertEquals(1_000.0 - 100.0, economy.getBalance(uuid), "10% of the 1,000 gained, charged on the very first pass");
         });
     }
 
     @Test
-    void noChargeBeforeTheIntervalElapses() throws Exception {
+    void noChargeAgainBeforeTheIntervalElapses() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 5_000.0);
-            rent.processDueRent(server); // seeds baseline at day 0
+            economy.give(uuid, 1_000.0);
+            rent.processDueRent(server); // charges 100, resets the accumulator, lastRentDay = 0
 
-            economy.give(uuid, 1_000.0); // now 6,000, "profit" of 1,000 - but only 0 days have passed
+            economy.give(uuid, 500.0); // still day 0 - not due again yet
             rent.processDueRent(server);
 
-            assertEquals(6_000.0, economy.getBalance(uuid), "still day 0 - not due for another 7 days");
+            assertEquals(1_000.0 - 100.0 + 500.0, economy.getBalance(uuid), "not due yet, nothing charged");
         });
     }
 
     @Test
-    void chargesTheBracketPercentOnlyOnProfitOnceTheIntervalElapses() throws Exception {
+    void chargesTheBracketPercentOfAccumulatedGainsOnceTheIntervalElapses() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 5_000.0);
-            rent.processDueRent(server); // baseline = 5,000 at day 0
+            economy.give(uuid, 1_000.0);
+            rent.processDueRent(server); // charges 100, resets, lastRentDay = 0
 
-            economy.give(uuid, 5_000.0); // balance now 10,000 -> profit 5,000, bracket 10% -> tax 500
+            economy.give(uuid, 5_000.0); // 5,000 earned this period -> bracket 10% -> tax 500
             when(server.overworld().getGameTime()).thenReturn(7L * 24000L);
             rent.processDueRent(server);
 
-            assertEquals(9_500.0, economy.getBalance(uuid), "10,000 - 500 (10% of the 5,000 profit)");
+            assertEquals(1_000.0 - 100.0 + 5_000.0 - 500.0, economy.getBalance(uuid));
         });
     }
 
     @Test
-    void aLossInThePeriodIsNeverTaxedAndResetsTheBaselineDownward() throws Exception {
+    void losingMoneyInThePeriodDoesNotOffsetGainsAtAll() throws Exception {
+        // The exact scenario the user described: earn some money, separately lose more than
+        // that in the same period - still taxed on what was earned, even though the player is
+        // down overall. A loss is spending, unrelated to this tax.
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 10_000.0);
-            rent.processDueRent(server); // baseline = 10,000 at day 0
+            economy.give(uuid, 5_000.0);
+            rent.processDueRent(server); // charges 500 (10% of 5,000), balance now 4,500, accumulator cleared
 
-            economy.take(uuid, 3_000.0); // balance now 7,000 - a loss, not a profit
+            economy.give(uuid, 3_000.0); // earned 3,000 this period
+            economy.take(uuid, 4_000.0); // separately lost 4,000 - more than was earned, net down overall
+            when(server.overworld().getGameTime()).thenReturn(7L * 24000L);
+            rent.processDueRent(server); // taxed on the 3,000 earned (10% = 300); the 4,000 loss is irrelevant
+
+            assertEquals(4_500.0 + 3_000.0 - 4_000.0 - 300.0, economy.getBalance(uuid), 0.001);
+        });
+    }
+
+    @Test
+    void chargingResetsAccumulatedGainsSoTheNextPeriodStartsFromZero() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.give(uuid, 15_000.0); // bracket 20% (>= 10,000) -> tax 3,000
+            rent.processDueRent(server);
+            assertEquals(15_000.0 - 3_000.0, economy.getBalance(uuid));
+
+            // second period: only the NEW 500 earned counts, not the whole balance again.
+            economy.give(uuid, 500.0);
             when(server.overworld().getGameTime()).thenReturn(7L * 24000L);
             rent.processDueRent(server);
 
-            assertEquals(7_000.0, economy.getBalance(uuid), "a loss is never taxed - balance untouched");
-
-            // next period: any recovery back up counts as fresh profit against the lower baseline.
-            economy.give(uuid, 1_000.0); // 8,000, profit of 1,000 against the 7,000 baseline
-            when(server.overworld().getGameTime()).thenReturn(14L * 24000L);
-            rent.processDueRent(server);
-
-            assertEquals(7_900.0, economy.getBalance(uuid), "8,000 - 100 (10% of the 1,000 profit)");
-        });
-    }
-
-    @Test
-    void forceProcessSeedsABaselineOnFirstSightingJustLikeTheNormalPass() throws Exception {
-        withRent(7, 0, (rent, economy, server) -> {
-            UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 5_000.0);
-
-            rent.forceProcess(server, uuid);
-
-            assertEquals(5_000.0, economy.getBalance(uuid), "first sighting via forceProcess only seeds a baseline too");
-        });
-    }
-
-    @Test
-    void forceProcessChargesImmediatelyIgnoringTheInterval() throws Exception {
-        withRent(7, 0, (rent, economy, server) -> {
-            UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 5_000.0);
-            rent.forceProcess(server, uuid); // seeds baseline = 5,000 at day 0
-
-            economy.give(uuid, 5_000.0); // balance now 10,000 -> profit 5,000, bracket 10% -> tax 500
-            // still day 0 - a normal processDueRent pass would skip this, forceProcess must not
-            rent.forceProcess(server, uuid);
-
-            assertEquals(9_500.0, economy.getBalance(uuid), "charged immediately despite 0 days having elapsed");
+            assertEquals(15_000.0 - 3_000.0 + 500.0 - 50.0, economy.getBalance(uuid), 0.001);
         });
     }
 
@@ -156,29 +147,54 @@ class RentManagerTest {
     void chargingTheTaxCanPushTheBalanceNegativeOnPurpose() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.setBalance(uuid, -1_000.0); // already in debt from something unrelated to rent
-            rent.forceProcess(server, uuid); // first sighting - only seeds the baseline at -1,000
+            economy.give(uuid, 5_000.0);
+            rent.processDueRent(server); // charges 500 (10% of 5,000), balance now 4,500
 
-            economy.give(uuid, 1_100.0); // balance now 100 -> profit = 100 - (-1,000) = 1,100
-            rent.forceProcess(server, uuid); // bracket 10% -> tax 110, more than the 100 they have
+            economy.give(uuid, 1_000.0); // fresh gain of 1,000 -> next tax will be 100 (10%)
+            economy.charge(uuid, 5_490.0); // spend almost everything right before the bill lands - balance now 10
+            when(server.overworld().getGameTime()).thenReturn(7L * 24000L);
+            rent.processDueRent(server); // still charges the full 100 regardless - balance goes negative
 
-            assertEquals(-10.0, economy.getBalance(uuid), 0.001,
+            assertEquals(-90.0, economy.getBalance(uuid), 0.001,
                     "unlike every other sink in this mod, this one uses charge() not take() - it's meant to be able to cause banca rota");
         });
     }
 
     @Test
-    void higherBracketAppliesForLargerProfits() throws Exception {
+    void forceProcessIsANoOpWithNoTrackedGainsAtAll() throws Exception {
         withRent(7, 0, (rent, economy, server) -> {
             UUID uuid = UUID.randomUUID();
-            economy.give(uuid, 100.0);
-            rent.processDueRent(server); // baseline = 100 at day 0
 
-            economy.give(uuid, 149_900.0); // balance now 150,000 -> profit 149,900, bracket 100K -> 30%
-            when(server.overworld().getGameTime()).thenReturn(7L * 24000L);
+            rent.forceProcess(server, uuid);
+
+            assertEquals(0.0, economy.getBalance(uuid));
+        });
+    }
+
+    @Test
+    void forceProcessChargesImmediatelyIgnoringTheInterval() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.give(uuid, 1_000.0);
+            rent.forceProcess(server, uuid); // charges 100, resets the accumulator
+            // still day 0 - a normal processDueRent pass would refuse this, forceProcess must not
+
+            economy.give(uuid, 2_000.0); // fresh gain since the last force
+            rent.forceProcess(server, uuid); // charges 200 (10% of 2,000)
+
+            assertEquals(1_000.0 - 100.0 + 2_000.0 - 200.0, economy.getBalance(uuid));
+        });
+    }
+
+    @Test
+    void higherBracketAppliesForLargerGains() throws Exception {
+        withRent(7, 0, (rent, economy, server) -> {
+            UUID uuid = UUID.randomUUID();
+            economy.give(uuid, 150_000.0); // bracket 100K (>= 100,000) -> 30%
+
             rent.processDueRent(server);
 
-            assertEquals(150_000.0 - 149_900.0 * 0.30, economy.getBalance(uuid), 0.001);
+            assertEquals(150_000.0 - 45_000.0, economy.getBalance(uuid), 0.001);
         });
     }
 }
