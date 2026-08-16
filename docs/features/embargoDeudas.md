@@ -7,11 +7,13 @@
 ## Qué es esto
 
 Cuando el saldo de un jugador se vuelve negativo, empieza a correr un plazo de gracia real (30
-segundos por defecto, `graceSeconds`) para saldarlo. Si no lo hace a tiempo, el mod le **incauta**
-del inventario todo lo que sea armadura, arma o herramienta (equipada y suelta), le devuelve el
-saldo a exactamente 0, y guarda lo incautado hasta que la comunidad vota **una sola pieza** para
-mandar a una pool de subastas — el resto se le devuelve. No hay reembolso ni marcha atrás: pagar
-después de que se ejecute el embargo no recupera nada.
+segundos por defecto, `graceSeconds`) para saldarlo, con avisos por chat en cuenta atrás para que
+se note de verdad. Si no lo hace a tiempo, el mod le **incauta** del inventario todo lo que sea
+armadura, arma o herramienta (equipada y suelta), le devuelve el saldo a exactamente 0, y guarda lo
+incautado hasta que la comunidad vota **una sola pieza** para mandar a una pool de subastas — el
+resto se le devuelve. Lo que llevaba **equipado** nunca puede ser esa pieza: se le devuelve directo,
+sin pasar por la votación — solo lo que tenía suelto en el inventario está realmente en juego. No
+hay reembolso ni marcha atrás: pagar después de que se ejecute el embargo no recupera nada.
 
 **Historia:** cuando se construyó esta feature, la única vía real para caer en saldo negativo era
 el admin-only `/eco charge` — el enganche a `EconomyManager.setBalance()` se hizo genérico a
@@ -38,6 +40,16 @@ ticks (1s), y es no-op instantáneo si nadie está en gracia.
 1s solo avanza el contador de un jugador si `server.getPlayerList().getPlayer(uuid)` no es null. Si
 está offline, ese segundo simplemente no cuenta — nada que guardar ni restaurar.
 
+**Cuenta atrás por chat** (`announceCountdown`, checkpoints fijos en tiempo real, no un mensaje por
+segundo): al entrar en gracia, el tiempo completo ("Estas en banca rota. Tienes 30 segundos para
+saldar tu deuda."); cada 10s a partir de ahí ("Te quedan 20 segundos..."); a los 10s exactos un
+aviso dedicado ("En 10 segundos el estado embargara tus objetos mas valiosos."); y del segundo 5 al
+1, un mensaje por segundo con solo el número. Los checkpoints se calculan sobre `remaining =
+graceSeconds - elapsedBefore` tomado **antes** de incrementar el contador de ese tick, así que la
+cuenta atrás final (5→1) siempre cae justo antes de que se ejecute la incautación en el mismo
+segundo que llega a 0 - funciona igual con cualquier `graceSeconds` configurado, no solo con 30
+(con un plazo corto de pruebas simplemente no le da tiempo a disparar todos los checkpoints).
+
 Si el saldo vuelve a ≥0 antes de que se cumpla `graceSeconds`, el plazo se cancela sin más. Si se
 agota, `EmbargoSeizureLogic.collectSeizable` recorre las 6 ranuras de equipo
 (`LivingEntity#getItemBySlot`/`setItemSlot` — API estable independientemente de cómo el
@@ -47,10 +59,15 @@ algunos layouts también exponen ahí), incautando todo lo que sea `ArmorItem`, 
 `AxeItem`, `PickaxeItem`, `ShovelItem`, `HoeItem`, `BowItem`, `CrossbowItem`, `TridentItem`,
 `ShieldItem` o `MaceItem`. El saldo se fija a 0 exacto.
 
-El mensaje al jugador nombra exactamente lo incautado (`"Netherite Sword x1, Diamond Pickaxe x1"`,
-vía `describeItems`), no una frase genérica fija — antes decía siempre "tu armadura, armas y
-herramientas" aunque la víctima solo llevara encima un único ítem, lo que hacía parecer que se
-había perdido más de lo real.
+El resultado viene partido en `EmbargoSeizureLogic.SeizureResult(equipped, loose)` - **solo
+`loose` puede acabar en la pool de subastas**; `equipped` se devuelve de inmediato (mismo
+`returnItems` que usa el cierre de la votación, con el mismo online/offline) sin pasar nunca por
+`AuctionVote`. Si `loose` queda vacío no se abre ninguna votación - no hay nada en juego, aunque sí
+se haya incautado (y devuelto) algo. El mensaje al jugador nombra exactamente lo incautado
+(`"Netherite Sword x1, Diamond Pickaxe x1"`, vía `describeItems`), no una frase genérica fija —
+antes decía siempre "tu armadura, armas y herramientas" aunque la víctima solo llevara encima un
+único ítem, lo que hacía parecer que se había perdido más de lo real. Cierra con una línea de
+sabor fija ("Quien avisa no es traidor. Mas suerte para la proxima.").
 
 ### Bloqueos durante la gracia
 
