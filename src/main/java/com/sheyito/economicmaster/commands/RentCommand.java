@@ -35,13 +35,13 @@ public final class RentCommand {
         dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("rent")
-                        .then(Commands.literal("forzar")
-                                .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
-                                        .executes(RentCommand::forzar)))));
+                        .then(Commands.literal("force")
+                                .then(Commands.argument("player", GameProfileArgument.gameProfile())
+                                        .executes(RentCommand::force)))));
     }
 
-    private static int forzar(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
+    private static int force(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "player");
         GameProfile target = profiles.iterator().next();
         UUID uuid = target.getId();
 
