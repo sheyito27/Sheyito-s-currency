@@ -389,7 +389,7 @@ public class EmbargoManager {
 
         String victimName = EconomyManager.get().getName(vote.victimUuid);
         Component button = Component.literal("[Votar]").withStyle(style -> style.withColor(ChatFormatting.GREEN)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/embargo vote")));
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/liquidation vote")));
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             if (!p.getUUID().equals(vote.victimUuid)) {
                 p.sendSystemMessage(Component.literal("§6[Sheyito's currency] §f" + victimName
