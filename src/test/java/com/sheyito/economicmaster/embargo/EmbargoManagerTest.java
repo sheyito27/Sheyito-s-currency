@@ -330,17 +330,53 @@ class EmbargoManagerTest {
     }
 
     @Test
-    void equippedItemsAreCandidatesJustLikeLooseOnesAndOnlyComeBackIfTheyDontWin() throws Exception {
-        // Confirmed with the user against an earlier "equipped is always returned right away"
-        // design: that made it look like the seizure never really took the equipped item at all.
-        // Equipped and loose get no special treatment - both are just candidates in the same
-        // vote, exactly like before this was ever special-cased.
+    void closeVoteBroadcastNamesTheReturnedItemInsteadOfAir() throws Exception {
+        // Regression test: Inventory#placeItemBackInInventory mutates each ItemStack in place
+        // (splits it down to empty as it inserts), so the close message used to be built AFTER
+        // returnItems() already drained the stack it was describing - it announced "Air x0"
+        // instead of the real item.
         withEmbargo(1, 2, 2, (embargo, economy, server) -> {
             UUID victim = UUID.randomUUID();
             UUID voterA = UUID.randomUUID();
             UUID voterB = UUID.randomUUID();
-            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND,
-                    new ItemStack(Items.NETHERITE_SWORD), new ItemStack(Items.IRON_PICKAXE));
+            ServerPlayer player = mockPlayer(victim, new ItemStack(Items.IRON_SWORD), new ItemStack(Items.IRON_PICKAXE));
+            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
+            economy.setBalance(victim, -10.0);
+            tick(embargo, server, 20);
+            long voteId = embargo.openVoteFor(voterA).orElseThrow();
+
+            embargo.castVote(voteId, voterA, 0, server); // sword wins, pickaxe must return
+            embargo.castVote(voteId, voterB, 0, server);
+            when(server.overworld().getGameTime()).thenReturn(2L * 24000L);
+            embargo.tickVoteClosing(server);
+
+            org.mockito.ArgumentCaptor<net.minecraft.network.chat.Component> captor =
+                    org.mockito.ArgumentCaptor.forClass(net.minecraft.network.chat.Component.class);
+            org.mockito.Mockito.verify(player, org.mockito.Mockito.atLeastOnce()).sendSystemMessage(captor.capture());
+            boolean namesTheRealItem = captor.getAllValues().stream()
+                    .map(net.minecraft.network.chat.Component::getString)
+                    .anyMatch(text -> text.contains("Iron Pickaxe") && !text.contains("Air"));
+            assertTrue(namesTheRealItem, "the close broadcast must name the real returned item, not \"Air x0\"");
+        });
+    }
+
+    @Test
+    void equippedItemsAreCandidatesJustLikeLooseOnesAndAreReEquippedIfTheyDontWin() throws Exception {
+        // Confirmed with the user against an earlier "equipped is always returned right away"
+        // design: that made it look like the seizure never really took the equipped item at all.
+        // Equipped and loose get no special treatment as CANDIDATES - both are just entries in
+        // the same vote - but a losing candidate that WAS equipped goes back onto the body
+        // instead of landing as a loose stack, as long as that slot is still free.
+        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            UUID voterA = UUID.randomUUID();
+            UUID voterB = UUID.randomUUID();
+            ItemStack sword = new ItemStack(Items.NETHERITE_SWORD);
+            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND, sword, new ItemStack(Items.IRON_PICKAXE));
+            // First read (during seizure) sees the sword; by the time the vote closes the slot
+            // is still empty (nothing re-equipped there since) - every subsequent read reflects that.
+            when(player.getItemBySlot(EquipmentSlot.MAINHAND)).thenReturn(sword, ItemStack.EMPTY);
             when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
             when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
 
@@ -358,6 +394,41 @@ class EmbargoManagerTest {
             when(server.overworld().getGameTime()).thenReturn(2L * 24000L);
             embargo.tickVoteClosing(server);
 
+            org.mockito.Mockito.verify(player).setItemSlot(
+                    org.mockito.Mockito.eq(EquipmentSlot.MAINHAND),
+                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
+            org.mockito.Mockito.verify(player.getInventory(), org.mockito.Mockito.never()).placeItemBackInInventory(
+                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
+        });
+    }
+
+    @Test
+    void equippedItemFallsBackToLooseInventoryIfSomethingElseIsInThatSlotByReturnTime() throws Exception {
+        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            UUID voterA = UUID.randomUUID();
+            UUID voterB = UUID.randomUUID();
+            ItemStack originalSword = new ItemStack(Items.NETHERITE_SWORD);
+            ItemStack replacement = new ItemStack(Items.DIAMOND_SWORD);
+            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND, originalSword, new ItemStack(Items.IRON_PICKAXE));
+            // The player has already put something else in that slot by the time the vote closes -
+            // must never yank an item the player is actively wearing/holding to force the old one back.
+            when(player.getItemBySlot(EquipmentSlot.MAINHAND)).thenReturn(originalSword, replacement);
+            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
+
+            economy.setBalance(victim, -10.0);
+            tick(embargo, server, 20);
+            long voteId = embargo.openVoteFor(voterA).orElseThrow();
+
+            embargo.castVote(voteId, voterA, 1, server); // loose pickaxe wins, sword must return
+            embargo.castVote(voteId, voterB, 1, server);
+            when(server.overworld().getGameTime()).thenReturn(2L * 24000L);
+            embargo.tickVoteClosing(server);
+
+            org.mockito.Mockito.verify(player, org.mockito.Mockito.never()).setItemSlot(
+                    org.mockito.Mockito.eq(EquipmentSlot.MAINHAND),
+                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
             org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
                     org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
         });
