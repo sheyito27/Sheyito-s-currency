@@ -57,6 +57,9 @@ public class ServerLifecycleHandler {
         if (EmbargoManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
             EmbargoManager.get().deliverPendingReturns(player);
         }
+        if (AuctionPoolManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
+            AuctionPoolManager.get().deliverPending(player);
+        }
         if (event.getEntity() instanceof ServerPlayer player) {
             FTBChunksCompat.applyPendingForceUnload(player);
         }
