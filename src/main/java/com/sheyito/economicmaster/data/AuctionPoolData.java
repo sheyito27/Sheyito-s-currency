@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * On-disk shape of &lt;world&gt;/sheyitoscurrency/auction_pool_data.json - the items that won an
- * embargo vote, waiting for an admin to run "/sc embargo retirar" and actually hand them to a
+ * embargo vote, waiting for an admin to run "/sc liquidation withdraw" and actually hand them to a
  * player. Nothing here is automatic; the pool is purely storage.
  */
 public class AuctionPoolData {
