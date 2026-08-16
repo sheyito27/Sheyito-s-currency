@@ -194,11 +194,12 @@ public class EmbargoManager {
         EconomyManager.get().setBalance(player.getUUID(), 0.0);
         dirty.set(true);
 
-        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia: se incauto tu armadura, armas y herramientas, y tu saldo volvio a 0. No hay vuelta atras."));
-
         if (seized.isEmpty()) {
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia, pero no tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
             return;
         }
+        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia: se incauto "
+                + describeItems(seized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
         long id = nextAuctionId.getAndIncrement();
         AuctionVote vote = new AuctionVote(id, player.getUUID(), seized, GameTime.currentDay(server));
         activeVotes.put(id, vote);
@@ -277,10 +278,26 @@ public class EmbargoManager {
 
         String message = "§6[Sheyito's currency] §fLa votacion sobre el embargo de " + victimName
                 + " termino: " + winner.getHoverName().getString() + " x" + winner.getCount()
-                + " pasa a la pool de subastas. El resto se devolvio.";
+                + " pasa a la pool de subastas."
+                + (returned.isEmpty() ? " Era el unico objeto incautado." : " El resto (" + describeItems(returned) + ") se devolvio.");
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             p.sendSystemMessage(Component.literal(message));
         }
+    }
+
+    /** Human-readable "Nombre x1, Otro x2" list, used so seizure/return messages say exactly what
+     * happened instead of a generic "armadura, armas y herramientas" that may not match reality
+     * (e.g. a victim only carrying a single sword at the moment their grace period expired). */
+    private static String describeItems(List<ItemStack> items) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            ItemStack stack = items.get(i);
+            builder.append(stack.getHoverName().getString()).append(" x").append(stack.getCount());
+        }
+        return builder.toString();
     }
 
     private void returnItems(UUID victim, List<ItemStack> items, MinecraftServer server) {
