@@ -19,8 +19,8 @@ import java.util.UUID;
  * profit tax and {@code integration.FtbChunksIntegration}'s force-load rent): forces an
  * immediate billing pass for one player, ignoring whether {@code intervalGameDays} has actually
  * elapsed - saves waiting a real 7 game days to see a charge fire. No-op for whichever half
- * doesn't apply (no profit tax history yet just seeds a baseline like normal; no force-loaded
- * chunks means nothing to bill on that side).
+ * doesn't apply (no gains ever tracked for the profit tax, or no force-loaded chunks - nothing
+ * to bill on that side either way).
  *
  * <p>Lives under {@code /sc}, the shared root for every admin/dev command in this mod - Brigadier
  * merges multiple {@code register(Commands.literal("sc")...)} calls from different classes into
