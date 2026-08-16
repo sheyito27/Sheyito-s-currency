@@ -19,10 +19,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Two separate roots, on purpose: "embargo vote" is player-facing (anyone eligible can cast a
+ * Two separate roots, on purpose: "liquidation vote" is player-facing (anyone eligible can cast a
  * secret ballot on which of their own seized items - or someone else's - goes to auction), so it
- * does NOT live under the admin-only {@code /sc} root. "sc embargo retirar" and "sc embargo
- * cerrar" ARE admin tools, so they do.
+ * does NOT live under the admin-only {@code /sc} root. "sc liquidation withdraw" and "sc
+ * liquidation close" ARE admin tools, so they do. Command literals are English on purpose (the
+ * user does not want Spanish command words, even though every player-facing message stays in
+ * Spanish) - the internal "embargo" naming (classes, config, docs) is unaffected, only what
+ * players actually type changed.
  */
 public final class EmbargoCommand {
 
@@ -30,18 +33,18 @@ public final class EmbargoCommand {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("embargo")
+        dispatcher.register(Commands.literal("liquidation")
                 .then(Commands.literal("vote")
                         .executes(EmbargoCommand::vote)));
 
         dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
-                .then(Commands.literal("embargo")
-                        .then(Commands.literal("retirar")
-                                .executes(EmbargoCommand::retirar))
-                        .then(Commands.literal("cerrar")
-                                .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
-                                        .executes(EmbargoCommand::cerrar)))));
+                .then(Commands.literal("liquidation")
+                        .then(Commands.literal("withdraw")
+                                .executes(EmbargoCommand::withdraw))
+                        .then(Commands.literal("close")
+                                .then(Commands.argument("player", GameProfileArgument.gameProfile())
+                                        .executes(EmbargoCommand::close)))));
     }
 
     private static int vote(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -60,7 +63,7 @@ public final class EmbargoCommand {
         return 1;
     }
 
-    private static int retirar(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+    private static int withdraw(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer admin = ctx.getSource().getPlayerOrException();
         Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext();
         if (next.isEmpty()) {
@@ -76,8 +79,8 @@ public final class EmbargoCommand {
         return 1;
     }
 
-    private static int cerrar(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "jugador");
+    private static int close(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        Collection<GameProfile> profiles = GameProfileArgument.getGameProfiles(ctx, "player");
         GameProfile target = profiles.iterator().next();
         UUID uuid = target.getId();
 
