@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,7 +25,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Covers what counts as "armadura, arma o herramienta" and the equipped+loose-inventory scan
- * behind the embargo's item seizure. */
+ * behind the embargo's item seizure, including which equipment slot (if any) each seized item is
+ * tagged with so it can be re-equipped later instead of just dumped into the backpack. */
 class EmbargoSeizureLogicTest {
 
     @BeforeAll
@@ -72,15 +74,16 @@ class EmbargoSeizureLogicTest {
     }
 
     @Test
-    void collectsEquippedArmorAndClearsTheSlot() {
+    void collectsEquippedArmorAndClearsTheSlotTaggingItsOrigin() {
         LivingEntity owner = emptyEquipment();
         when(owner.getItemBySlot(EquipmentSlot.HEAD)).thenReturn(new ItemStack(Items.DIAMOND_HELMET));
         Inventory inventory = inventoryOf();
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(1, seized.size());
-        assertEquals(Items.DIAMOND_HELMET, seized.get(0).getItem());
+        assertEquals(Items.DIAMOND_HELMET, seized.get(0).stack().getItem());
+        assertEquals(EquipmentSlot.HEAD, seized.get(0).originSlot(), "must remember which slot it came from, to re-equip later");
         verify(owner).setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
     }
 
@@ -89,21 +92,22 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf();
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(owner, never()).setItemSlot(any(), any());
     }
 
     @Test
-    void collectsLooseWeaponsFromMainInventoryButLeavesEverythingElse() {
+    void collectsLooseWeaponsFromMainInventoryTaggedAsLoose() {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_SWORD), new ItemStack(Items.DIRT, 64));
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(1, seized.size());
-        assertEquals(Items.IRON_SWORD, seized.get(0).getItem());
+        assertEquals(Items.IRON_SWORD, seized.get(0).stack().getItem());
+        assertNull(seized.get(0).originSlot(), "loose inventory items have no equipment slot to return to");
         verify(inventory).setItem(0, ItemStack.EMPTY);
         verify(inventory, never()).setItem(eq(1), any());
     }
@@ -113,7 +117,7 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.DIRT, 64), new ItemStack(Items.DIAMOND, 5));
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(anyInt(), any());
@@ -131,20 +135,22 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(stacks);
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(eq(40), any());
     }
 
     @Test
-    void equippedAndLooseSeizuresCombineIntoOneList() {
+    void equippedAndLooseSeizuresCombineIntoOneListWithDistinctOrigins() {
         LivingEntity owner = emptyEquipment();
         when(owner.getItemBySlot(EquipmentSlot.MAINHAND)).thenReturn(new ItemStack(Items.NETHERITE_SWORD));
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_PICKAXE));
 
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(2, seized.size(), "equipped and loose items get no special treatment - both are seized the same way");
+        assertEquals(EquipmentSlot.MAINHAND, seized.get(0).originSlot());
+        assertNull(seized.get(1).originSlot());
     }
 }
