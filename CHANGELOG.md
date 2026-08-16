@@ -21,7 +21,7 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 - Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal.
 - Es ganancia bruta acumulada (cada ingreso vía `EconomyManager.give()`), no un balance neto: si ganas 10.000 en la semana pero por separado pierdes 20.000, igual se cobra el 10% de los 10.000 ganados - perder saldo es gasto, ajeno a esta renta, nunca compensa una ganancia.
 - A diferencia de cualquier otro cobro del mod, este puede dejarte con saldo negativo (usa `charge()`, no `take()`) - es la primera vía de gameplay real que dispara el plazo de gracia del embargo por deuda.
-- Comando de dev: `/sc rent forzar <jugador>` fuerza el cobro de ambas rentas (ganancias + force-load) sin esperar 7 días de juego reales.
+- Comando de dev: `/sc rent force <player>` fuerza el cobro de ambas rentas (ganancias + force-load) sin esperar 7 días de juego reales.
 
 ### Nuevo: renta de force-load de chunks (FTB Chunks)
 - Force-loadear un chunk sigue siendo gratis al activarlo, pero cada 7 días de juego se cobra `forceLoadRentBase * n^1.5` (base 10, `n` = chunks force-loaded ahora mismo) por jugador - también estando desconectado. Si no cubres el total, se descargan todos tus chunks force-loaded de golpe: inmediato si estás online, en cuanto te reconectes si no.
