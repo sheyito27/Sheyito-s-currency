@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Pure storage for items that won an embargo vote (see {@code EmbargoManager}) - a FIFO queue an
- * admin drains one at a time with "/sc embargo retirar". Nothing here is automatic: no auction
+ * admin drains one at a time with "/sc liquidation withdraw". Nothing here is automatic: no auction
  * logic, no expiry, no distribution - the community decides what to do with a retrieved item on
  * their own. Follows the manager-with-lifecycle pattern (docs/features/patronManager.md).
  */
@@ -101,7 +101,7 @@ public class AuctionPoolManager {
         return List.copyOf(items);
     }
 
-    /** Pops the oldest pooled item (FIFO), for "/sc embargo retirar". Empty if the pool is empty. */
+    /** Pops the oldest pooled item (FIFO), for "/sc liquidation withdraw". Empty if the pool is empty. */
     public Optional<PooledItem> retrieveNext() {
         if (items.isEmpty()) {
             return Optional.empty();
