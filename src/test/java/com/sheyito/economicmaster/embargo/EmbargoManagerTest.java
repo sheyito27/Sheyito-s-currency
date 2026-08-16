@@ -330,10 +330,15 @@ class EmbargoManagerTest {
     }
 
     @Test
-    void equippedItemsAreNeverAuctionCandidatesAndAreReturnedImmediately() throws Exception {
+    void equippedItemsAreCandidatesJustLikeLooseOnesAndOnlyComeBackIfTheyDontWin() throws Exception {
+        // Confirmed with the user against an earlier "equipped is always returned right away"
+        // design: that made it look like the seizure never really took the equipped item at all.
+        // Equipped and loose get no special treatment - both are just candidates in the same
+        // vote, exactly like before this was ever special-cased.
         withEmbargo(1, 2, 2, (embargo, economy, server) -> {
             UUID victim = UUID.randomUUID();
-            UUID bystander = UUID.randomUUID();
+            UUID voterA = UUID.randomUUID();
+            UUID voterB = UUID.randomUUID();
             ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND,
                     new ItemStack(Items.NETHERITE_SWORD), new ItemStack(Items.IRON_PICKAXE));
             when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
@@ -342,29 +347,17 @@ class EmbargoManagerTest {
             economy.setBalance(victim, -10.0);
             tick(embargo, server, 20);
 
-            long voteId = embargo.openVoteFor(bystander).orElseThrow();
+            long voteId = embargo.openVoteFor(voterA).orElseThrow();
             List<ItemStack> candidates = embargo.voteItems(voteId);
-            assertEquals(1, candidates.size(), "the equipped sword must not be a candidate");
-            assertEquals(Items.IRON_PICKAXE, candidates.get(0).getItem());
+            assertEquals(2, candidates.size(), "the equipped sword must be just as much a candidate as the loose pickaxe");
 
-            org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
-                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
-        });
-    }
+            // index 1 is the loose pickaxe (equipment slots are collected before the main
+            // inventory) - vote it the winner, so the equipped sword is the one that must return.
+            embargo.castVote(voteId, voterA, 1, server);
+            embargo.castVote(voteId, voterB, 1, server);
+            when(server.overworld().getGameTime()).thenReturn(2L * 24000L);
+            embargo.tickVoteClosing(server);
 
-    @Test
-    void seizingOnlyEquippedItemsReturnsThemImmediatelyAndOpensNoVote() throws Exception {
-        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
-            UUID victim = UUID.randomUUID();
-            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND, new ItemStack(Items.NETHERITE_SWORD));
-            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
-            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
-
-            economy.setBalance(victim, -10.0);
-            tick(embargo, server, 20);
-
-            assertTrue(embargo.openVoteFor(UUID.randomUUID()).isEmpty(),
-                    "nothing loose was seized, so there is nothing left to vote on");
             org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
                     org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
         });
