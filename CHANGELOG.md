@@ -13,16 +13,20 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 - El mensaje al intentar abrir cualquier contenedor en periodo de gracia mencionaba el "periodo de gracia" - ya no lo hace (el de tirar objetos sigue mencionándolo).
 
 ### Nuevo: subasta con pujas sobre la pool de subastas
-- El objeto que gana la votación de incautación entra en una subasta real con pujas
-  (`/liquidation auction`, menú tipo cofre con botones - nada de escribir cifras por chat). Un
-  botón por cada incremento configurado (`bidIncrements`) puja `pujaActual + incremento`, más un
-  botón para pujar el saldo máximo. Pujar retiene el dinero al instante; si te superan, se
-  devuelve íntegro.
+- El objeto que gana la votación de incautación entra en la pool, pero nada se subasta solo: hace
+  falta construir un **puesto de subastas** (atril + 3 columnas + techo, bloque configurable con
+  `auctionStandBlockId`) para que aparezca un aldeano fijo dentro (con partículas y sonido al
+  crearse) - hablar con él abre un menú con todo lo que hay en la pool, y elegir un objeto ahí es
+  la única forma de ponerlo en juego.
+- Esa subasta sí es real, con pujas (`/liquidation auction`, menú tipo cofre con botones - nada de
+  escribir cifras por chat). Un botón por cada incremento configurado (`bidIncrements`) puja
+  `pujaActual + incremento`, más un botón para pujar el saldo máximo. Pujar retiene el dinero al
+  instante; si te superan, se devuelve íntegro.
 - La puja se cierra pasados `auctionDurationGameDays` días de juego (ajuste independiente de
   `minVoteGameDays`). Si ganó alguien, se lleva el ítem y su dinero se queda quemado - nunca se
   redistribuye a nadie, ni siquiera a la víctima original, coherente con el "no hay reembolso ni
-  marcha atrás" de todo el embargo. Si nadie pujó, el ítem pasa al final de la cola en vez de
-  bloquearla para siempre.
+  marcha atrás" de todo el embargo. Si nadie pujó, el ítem vuelve a esperar en la pool - nada se
+  reabre solo, hay que volver a elegirlo en el puesto.
 - `/sc liquidation withdraw` sigue existiendo como válvula de escape de admin, ahora reembolsando
   primero cualquier puja activa sobre el ítem que saca.
 
