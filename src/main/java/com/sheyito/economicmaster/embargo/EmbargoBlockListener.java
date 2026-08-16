@@ -45,7 +45,7 @@ public class EmbargoBlockListener {
         ItemStack tossed = event.getEntity().getItem();
         event.getPlayer().getInventory().placeItemBackInInventory(tossed.copy());
         event.getPlayer().sendSystemMessage(Component.literal(
-                "§c[Sheyito's currency] §fNo puedes tirar objetos mientras estas en periodo de gracia por deuda."));
+                "§c[Sheyito's currency] §fNo puedes tirar objetos mientras estás en período de gracia por deuda."));
     }
 
     @SubscribeEvent
@@ -68,7 +68,7 @@ public class EmbargoBlockListener {
         }
         event.setCanceled(true);
         player.sendSystemMessage(Component.literal(
-                "§c[Sheyito's currency] §fNo puedes abrir nada mientras estas en periodo de gracia por deuda."));
+                "§c[Sheyito's currency] §fNo puedes abrir nada mientras tengas una deuda pendiente."));
     }
 
     @SubscribeEvent
@@ -82,6 +82,6 @@ public class EmbargoBlockListener {
         }
         player.closeContainer();
         player.sendSystemMessage(Component.literal(
-                "§c[Sheyito's currency] §fNo puedes abrir nada mientras estas en periodo de gracia por deuda."));
+                "§c[Sheyito's currency] §fNo puedes abrir nada mientras tengas una deuda pendiente."));
     }
 }
