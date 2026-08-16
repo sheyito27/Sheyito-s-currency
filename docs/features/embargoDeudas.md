@@ -1,7 +1,7 @@
 # Embargo silencioso y brutal
 
 **Estado:** implementado.
-**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `ItemStackJson.java`.
+**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `EmbargoData.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `ItemStackJson.java`.
 **Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md).
 
 ## Qué es esto
@@ -61,11 +61,16 @@ algunos layouts también exponen ahí), incautando todo lo que sea `ArmorItem`, 
 **Equipado y suelto van sin distinción a la misma lista de candidatos** de la votación - se
 consideró excluir lo equipado de la subasta y devolverlo de inmediato, pero eso hacía que la
 incautación de lo equipado fuera un ida-y-vuelta sin efecto real (se te quitaba y se te devolvía en
-el mismo instante); descartado explícitamente por el usuario. El mensaje al jugador nombra
+el mismo instante); descartado explícitamente por el usuario. Cada ítem incautado sí recuerda de
+dónde salió (`EmbargoSeizureLogic.SeizedItem(stack, originSlot)`, `originSlot` null si venía suelto
+del inventario) - eso no afecta a la votación (equipado y suelto compiten igual), pero significa que
+si un candidato equipado **no gana** la votación, vuelve directo a esa misma ranura de equipo en vez
+de caer como ítem suelto en la mochila (ver "reequipado" más abajo). El mensaje al jugador nombra
 exactamente lo incautado (`"Netherite Sword x1, Diamond Pickaxe x1"`, vía `describeItems`), no una
 frase genérica fija — antes decía siempre "tu armadura, armas y herramientas" aunque la víctima
-solo llevara encima un único ítem, lo que hacía parecer que se había perdido más de lo real. Cierra
-con una línea de sabor fija ("Quien avisa no es traidor. Mas suerte para la proxima.").
+solo llevara encima un único ítem, lo que hacía parecer que se había perdido más de lo real. Tampoco
+repite "se agotó tu plazo de gracia" (ya lo anunció de sobra la cuenta atrás) - va directo a los
+ítems. Cierra con una línea de sabor fija ("Quien avisa no es traidor. Mas suerte para la proxima.").
 
 ### Bloqueos durante la gracia
 
@@ -77,11 +82,25 @@ mientras `isInGracePeriod(uuid)`:
   `entity.player` — ojo con el paquete). Su propio javadoc avisa de que cancelar el evento **no**
   deshace que el ítem ya se sacó del inventario, así que además de `setCanceled(true)` hay que
   devolverlo a mano con `placeItemBackInInventory` o el jugador simplemente lo pierde.
-- **Abrir cofres o el ender chest**: se bloquea el acceso completo (no solo "meter cosas"), más
-  simple y robusto que intentar permitir sacar pero no depositar.
+- **Abrir cualquier contenedor** - dos capas, no una:
+  1. `onRightClickBlock` ya no comprueba una lista fija de clases (`ChestBlock`/`EnderChestBlock`
+     originalmente) - eso es una batalla perdida contra shulkers, barriles y cualquier bloque de
+     almacenamiento modded presente o futuro. En su lugar comprueba genéricamente
+     `state.getMenuProvider(level, pos) != null` (verificado contra el propio `ChestBlock`
+     decompilado: su `useWithoutItem` llama a `player.openMenu(menuProvider)` exactamente igual
+     que cualquier otro bloque con menú), así que cualquier bloque que abra un menú se cancela
+     antes de que el menú siquiera exista - sin parpadeo visual.
+  2. Eso no cubre inventarios basados en **ítem** (una mochila que se abre con clic derecho o un
+     keybind propio, sin pasar por un bloque) ni los menús propios de este mod (`/trade`, cuya
+     ventana compartida es tan buen escondite como un cofre). Para esos existe `onContainerOpen`,
+     enganchado a `PlayerContainerEvent.Open` - no cancelable, pero confirmado (decompilando
+     `ServerPlayer#openMenu` parcheado por NeoForge) que se dispara justo después de **cualquier**
+     `player.openMenu(...)`, venga de donde venga. Cierra el menú al instante con
+     `player.closeContainer()` - un parpadeo de un tick en vez de nada, pero universal: cualquier
+     mod que use la API estándar para abrir un menú queda cubierto sin necesitar conocerlo.
 
-Vender en tiendas, cobrar salario y completar misiones **siguen funcionando** — nada de eso pasa
-por ninguno de estos tres bloqueos.
+Vender en tiendas, cobrar salario y completar misiones **siguen funcionando** — las tiendas
+funcionan por cartel (nunca abren ningún menú), así que ninguno de estos bloqueos les afecta.
 
 ### La votación (secreta, cambiable, dos condiciones para cerrar)
 
@@ -108,8 +127,9 @@ El cierre exige **ambas** condiciones a la vez: `votantes >= minVotersToClose` *
 **Ojo en pruebas:** `openVoteFor` siempre da la votación activa **más antigua** sin cerrar. Una
 votación que nunca recibe votos (`votantes` se queda en 0) no cierra nunca — se queda ahí de por
 vida, y sigue colándose por delante de embargos más recientes del mismo jugador. Esto ya pasó en
-desarrollo: el botón `[Votar]` estuvo apuntando a `/sc liquidation vote` (comando inexistente) varias
-sesiones, así que ninguna votación de esa época pudo cerrarse nunca — al arreglar el botón, las
+desarrollo: el botón `[Votar]` estuvo apuntando a `/sc embargo vote` (comando inexistente en aquel
+momento - los literales todavía no eran "liquidation") varias sesiones, así que ninguna votación de
+esa época pudo cerrarse nunca — al arreglar el botón, las
 votaciones siguientes seguían enseñando esos objetos viejísimos primero, hasta limpiar a mano el
 `activeVotes` de `embargo_data.json`.
 
@@ -131,6 +151,20 @@ devoluciones pendientes que se entrega automáticamente la próxima vez que inic
 cierre solo dice "el resto se devolvió" si de verdad hubo más de un candidato incautado - si el
 único ítem incautado fue directamente el ganador, dice "era el único objeto incautado" en vez de
 insinuar una devolución que nunca existió.
+
+**Reequipado, no solo devuelto:** `EmbargoManager.giveBack` (compartido por el cierre de votación y
+por `deliverPendingReturns`) mira el `originSlot` de cada ítem devuelto - si venía de una ranura de
+equipo **y esa ranura sigue vacía**, lo pone ahí directamente (`player.setItemSlot`) en vez de
+soltarlo como ítem suelto en la mochila. Si la víctima ya se puso otra cosa en esa ranura mientras
+tanto, nunca se la quita - cae a la mochila igual que un ítem que nunca estuvo equipado. Sin esto,
+una armadura completa volvía como cuatro piezas sueltas en el inventario en vez de puesta.
+
+**Bug corregido - "Air x0" en el mensaje de cierre:** el mensaje de cierre se construía **después**
+de llamar a `returnItems`, pero `Inventory#placeItemBackInInventory` muta el propio `ItemStack` al
+insertarlo (lo va vaciando con `split()` a medida que lo coloca) - para cuando el mensaje leía esos
+mismos objetos para describirlos, ya estaban a 0, así que el resto devuelto salía como "Air x0" en
+vez del ítem real. Se corrigió construyendo el texto del mensaje **antes** de llamar a
+`returnItems`, sobre los `ItemStack` todavía intactos.
 
 ### La pool de subastas: solo almacenamiento, nada automático
 
