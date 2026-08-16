@@ -5,6 +5,7 @@ import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.DataPaths;
 import com.sheyito.economicmaster.embargo.EmbargoManager;
 import com.sheyito.economicmaster.data.EconomyData;
+import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.LevelCurve;
 import com.sheyito.economicmaster.util.Money;
@@ -128,8 +129,20 @@ public class EconomyManager {
         }
     }
 
+    /**
+     * The single choke point for money flowing IN to a player from anywhere ({@code /pay}
+     * received, shop sale proceeds, subscription income, salary, quest/kill rewards, admin
+     * {@code /eco give}...) - so it's also where {@link RentManager} tracks gross "ganancias"
+     * for the progressive profit tax. Deliberately gross, not net: what a player later spends
+     * or loses is never subtracted back out here (see {@link #take}/{@link #charge}, neither of
+     * which touches this tracking) - confirmed with the user, a loss is unrelated spending, not
+     * a credit against future gains.
+     */
     public void give(UUID uuid, double amount) {
         setBalance(uuid, getBalance(uuid) + amount);
+        if (amount > 0 && RentManager.get() != null) {
+            RentManager.get().trackGain(uuid, amount);
+        }
     }
 
     /**
