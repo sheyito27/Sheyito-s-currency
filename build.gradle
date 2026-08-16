@@ -45,6 +45,23 @@ runs {
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
     }
 
+    // Extra dev clients for local multiplayer testing (features like the embargo vote need
+    // 2+ voters online besides the victim). runClient always logs in as NeoGradle's "Dev"
+    // placeholder - these fix a distinct --username instead, so each one is a stable, separate
+    // player (runs/server has online-mode=false, so any username connects with no real account).
+    // Names don't match a built-in run type, so runType points them at the client type explicitly.
+    client2 {
+        runType 'client'
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        arguments '--username', 'Tester2', '--quickPlayMultiplayer', 'localhost:25565'
+    }
+
+    client3 {
+        runType 'client'
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        arguments '--username', 'Tester3', '--quickPlayMultiplayer', 'localhost:25565'
+    }
+
     server {
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         argument '--nogui'
