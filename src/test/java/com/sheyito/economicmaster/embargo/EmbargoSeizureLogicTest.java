@@ -77,11 +77,10 @@ class EmbargoSeizureLogicTest {
         when(owner.getItemBySlot(EquipmentSlot.HEAD)).thenReturn(new ItemStack(Items.DIAMOND_HELMET));
         Inventory inventory = inventoryOf();
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertEquals(1, result.equipped().size());
-        assertEquals(Items.DIAMOND_HELMET, result.equipped().get(0).getItem());
-        assertTrue(result.loose().isEmpty(), "equipped items must not also count as loose/auctionable");
+        assertEquals(1, seized.size());
+        assertEquals(Items.DIAMOND_HELMET, seized.get(0).getItem());
         verify(owner).setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
     }
 
@@ -90,9 +89,9 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf();
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertTrue(result.all().isEmpty());
+        assertTrue(seized.isEmpty());
         verify(owner, never()).setItemSlot(any(), any());
     }
 
@@ -101,11 +100,10 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_SWORD), new ItemStack(Items.DIRT, 64));
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertEquals(1, result.loose().size());
-        assertEquals(Items.IRON_SWORD, result.loose().get(0).getItem());
-        assertTrue(result.equipped().isEmpty());
+        assertEquals(1, seized.size());
+        assertEquals(Items.IRON_SWORD, seized.get(0).getItem());
         verify(inventory).setItem(0, ItemStack.EMPTY);
         verify(inventory, never()).setItem(eq(1), any());
     }
@@ -115,9 +113,9 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.DIRT, 64), new ItemStack(Items.DIAMOND, 5));
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertTrue(result.all().isEmpty());
+        assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(anyInt(), any());
     }
 
@@ -133,22 +131,20 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(stacks);
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertTrue(result.all().isEmpty());
+        assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(eq(40), any());
     }
 
     @Test
-    void equippedAndLooseSeizuresCombineInAll() {
+    void equippedAndLooseSeizuresCombineIntoOneList() {
         LivingEntity owner = emptyEquipment();
         when(owner.getItemBySlot(EquipmentSlot.MAINHAND)).thenReturn(new ItemStack(Items.NETHERITE_SWORD));
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_PICKAXE));
 
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
 
-        assertEquals(1, result.equipped().size());
-        assertEquals(1, result.loose().size());
-        assertEquals(2, result.all().size());
+        assertEquals(2, seized.size(), "equipped and loose items get no special treatment - both are seized the same way");
     }
 }
