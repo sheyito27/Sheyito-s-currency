@@ -10,6 +10,7 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 
 ### Cambiado: embargo con cuenta atrás real
 - El plazo de gracia ahora avisa por chat en cuenta atrás real: el tiempo completo al entrar en banca rota, cada 10 segundos, un aviso dedicado a los 10 segundos, y un mensaje por segundo del 5 al 1 justo antes de la incautación.
+- Nuevo comando de dev `/sc embargo cerrar <jugador>`: fuerza el cierre de la votación de embargo más antigua de ese jugador, saltándose el mínimo de votantes y de días de juego (que se miden en tiempo real de servidor acumulado - una sesión de pruebas corta puede no acumular suficiente aunque ya se haya votado).
 
 ### Nuevo: renta progresiva sobre ganancias
 - Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal.
