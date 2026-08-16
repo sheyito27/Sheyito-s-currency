@@ -7,6 +7,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sheyito.economicmaster.auction.AuctionPoolManager;
 import com.sheyito.economicmaster.embargo.EmbargoManager;
 import com.sheyito.economicmaster.embargo.EmbargoVoteMenu;
+import com.sheyito.economicmaster.embargo.LiquidationAuctionMenu;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -19,13 +20,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Two separate roots, on purpose: "liquidation vote" is player-facing (anyone eligible can cast a
- * secret ballot on which of their own seized items - or someone else's - goes to auction), so it
- * does NOT live under the admin-only {@code /sc} root. "sc liquidation withdraw" and "sc
- * liquidation close" ARE admin tools, so they do. Command literals are English on purpose (the
- * user does not want Spanish command words, even though every player-facing message stays in
- * Spanish) - the internal "embargo" naming (classes, config, docs) is unaffected, only what
- * players actually type changed.
+ * Two separate roots, on purpose: "liquidation vote"/"liquidation auction" are player-facing
+ * (anyone eligible can cast a secret ballot on which seized item goes to auction, or bid on
+ * whatever's currently up), so they do NOT live under the admin-only {@code /sc} root. "sc
+ * liquidation withdraw" and "sc liquidation close" ARE admin tools, so they do. Command literals
+ * are English on purpose (the user does not want Spanish command words, even though every
+ * player-facing message stays in Spanish) - the internal "embargo" naming (classes, config, docs)
+ * is unaffected, only what players actually type changed.
  */
 public final class EmbargoCommand {
 
@@ -35,7 +36,9 @@ public final class EmbargoCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("liquidation")
                 .then(Commands.literal("vote")
-                        .executes(EmbargoCommand::vote)));
+                        .executes(EmbargoCommand::vote))
+                .then(Commands.literal("auction")
+                        .executes(EmbargoCommand::auction)));
 
         dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
@@ -63,9 +66,28 @@ public final class EmbargoCommand {
         return 1;
     }
 
+    private static int auction(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        AuctionPoolManager pool = AuctionPoolManager.get();
+        Optional<AuctionPoolManager.PooledItem> current = pool == null ? Optional.empty() : pool.currentAuctionItem();
+        if (current.isEmpty()) {
+            ctx.getSource().sendFailure(Component.literal("§cNo hay ninguna subasta activa ahora mismo."));
+            return 0;
+        }
+        if (current.get().seizedFromUuid().equals(player.getUUID())) {
+            ctx.getSource().sendFailure(Component.literal("§cNo puedes pujar por tu propio objeto incautado."));
+            return 0;
+        }
+
+        player.openMenu(new SimpleMenuProvider(
+                (id, inv, p) -> new LiquidationAuctionMenu(id, inv, player.getUUID()),
+                Component.literal("Subasta")));
+        return 1;
+    }
+
     private static int withdraw(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer admin = ctx.getSource().getPlayerOrException();
-        Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext();
+        Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext(ctx.getSource().getServer());
         if (next.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal("§cLa pool de subastas está vacía."));
             return 0;
