@@ -140,7 +140,7 @@ public class RentManager {
     }
 
     /**
-     * Admin-only testing tool for {@code /sc rent forzar} - charges this one player's
+     * Admin-only testing tool for {@code /sc rent force} - charges this one player's
      * accumulated gains right now, ignoring whether {@code intervalGameDays} has actually
      * elapsed (and even whether they've ever been checkpointed at all). A no-op if they've never
      * earned anything tracked - nothing accumulated, nothing to force.
