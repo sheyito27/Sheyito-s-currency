@@ -366,7 +366,7 @@ class EmbargoManagerTest {
     @Test
     void forceCloseOldestVoteIgnoresVoterCountAndGameDayRequirements() throws Exception {
         // minVoteGameDays is measured in real server uptime (GameTime), which a short dev
-        // session may never accumulate - /sc embargo cerrar exists precisely to skip both
+        // session may never accumulate - /sc liquidation close exists precisely to skip both
         // conditions for testing, same spirit as /sc rent forzar.
         withEmbargo(1, 2, 2, (embargo, economy, server) -> {
             UUID victim = UUID.randomUUID();
