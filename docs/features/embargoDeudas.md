@@ -1,7 +1,7 @@
 # Embargo silencioso y brutal
 
 **Estado:** implementado.
-**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `EmbargoData.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `ItemStackJson.java`.
+**Código relacionado:** `EmbargoConfig.java`, `EmbargoManager.java`, `EmbargoData.java`, `AuctionVote.java`, `EmbargoScheduler.java`, `EmbargoSeizureLogic.java`, `EmbargoBlockListener.java`, `EmbargoVoteMenu.java`, `EmbargoCommand.java`, `AuctionPoolManager.java`, `AuctionPoolData.java`, `LiquidationAuctionMenu.java`, `ItemStackJson.java`.
 **Patrones:** [manager](patronManager.md), [config](patronConfig.md), [comandos](patronComandos.md).
 
 ## Qué es esto
@@ -166,12 +166,54 @@ mismos objetos para describirlos, ya estaban a 0, así que el resto devuelto sal
 vez del ítem real. Se corrigió construyendo el texto del mensaje **antes** de llamar a
 `returnItems`, sobre los `ItemStack` todavía intactos.
 
-### La pool de subastas: solo almacenamiento, nada automático
+### La subasta con pujas
 
-`AuctionPoolManager` es deliberadamente tonto: una cola FIFO persistida, sin lógica de subasta
-alguna. `/sc liquidation withdraw` (OP, bajo la raíz admin `/sc`) saca el ítem más antiguo y se lo da al
-admin que lo ejecuta — a partir de ahí, la comunidad decide qué hacer con él (montar una casa de
-subastas, repartirlo, lo que sea). Sin este comando el ítem quedaría atrapado para siempre.
+`AuctionPoolManager` es una cola FIFO persistida donde **un ítem a la vez** (el de la cabeza de la
+cola, índice 0) está en puja activa — mismo espíritu de "una cosa activa a la vez" que ya usa
+`AuctionVote` para la votación de qué se incauta. En cuanto un ítem gana esa votación
+(`EmbargoManager.closeVote` → `AuctionPoolManager.add`), si la pool estaba vacía se abre puja sobre
+él al instante; si no, simplemente hace cola detrás del que ya está en juego.
+
+**Interfaz - GUI, no comando de chat con una cifra.** El usuario pidió explícitamente que pujar
+fuera "algo dinámico", no escribir un número: `/liquidation auction` abre `LiquidationAuctionMenu`
+(calcado de `EmbargoVoteMenu`: chest `MenuType` vanilla, un `SimpleContainer` de 27 slots
+reconstruido en cada apertura, sin sincronización en vivo entre varios jugadores mirando a la vez —
+mismo trade-off "snapshot, no push" que ya acepta la votación). Fila 0 muestra el ítem en subasta,
+fila 1 la puja más alta actual y quién va ganando (o "Sin pujas todavía"), fila 2 un botón por cada
+incremento de `EmbargoConfig.bidIncrements` (puja `pujaActual + incremento` al clicarlo) más un
+botón "puja tu saldo máximo". Cada click llama a `AuctionPoolManager.placeBid` con la cantidad
+calculada **en el momento del click** (nunca con una etiqueta cacheada), así que aunque la vista de
+alguien esté un pelín desactualizada, nunca puede pujar por accidente una cantidad distinta de la
+que ve. La víctima original del ítem (`PooledItem.seizedFromUuid`) no puede ni abrir el menú para
+su propio ítem - mismo criterio que ya bloquea que la víctima vote en su propio embargo.
+
+**Pujar retiene el dinero al instante** (`EconomyManager.take`, rechaza la puja si no llega el
+saldo) - si luego alguien puja más, se devuelve íntegro al pujador anterior
+(`EconomyManager.give`). Si la puja ganadora se mantiene hasta el cierre, ese dinero retenido
+**se queda quemado tal cual** - `take()` ya lo sacó de la economía, no hace falta ningún paso
+extra para "quemarlo" (confirmado con el usuario: igual que el IVA de transmisión o la renta de
+force-load, el dinero de la subasta nunca se redistribuye a nadie, ni siquiera a la víctima
+original - encaja con el "no hay reembolso ni marcha atrás" de todo el embargo).
+
+**Cierre** (`AuctionPoolManager.tickAuctionClosing`, llamado desde `EconomicMasterScheduler` junto
+a `EmbargoManager.tickVoteClosing`, cadencia ~30s): cuando pasan `auctionDurationGameDays` desde que
+se abrió la puja actual (ajuste propio, independiente de `minVoteGameDays` - son dos fases
+distintas con duraciones que no tienen por qué coincidir):
+- **Con pujador**: el ítem sale de la cola y se entrega al ganador - directo al inventario si está
+  online, o a una lista de entregas pendientes si no (mismo patrón que
+  `EmbargoManager`/`deliverPendingReturns`, replicado dentro de `AuctionPoolManager` porque es un
+  concepto propio de la pool - se entrega en `ServerLifecycleHandler.onPlayerLoggedIn` vía
+  `deliverPending`).
+- **Sin pujas**: el ítem no se destruye ni repite la puja sobre sí mismo indefinidamente (eso
+  dejaría un ítem impopular bloqueando la cola para siempre) - se manda al final de la cola y
+  vuelve a intentarlo cuando le toque el turno otra vez.
+
+En ambos casos se abre puja fresca sobre lo que quede en la cabeza de la cola (si queda algo).
+
+`/sc liquidation withdraw` (OP) sigue existiendo como válvula de escape de admin - saca el ítem de
+la cabeza de la cola pase lo que pase con la subasta, pero si ese ítem tenía una puja activa,
+primero le devuelve el dinero retenido al pujador (mismo `EconomyManager.give` que un "outbid") para
+no dejar dinero atrapado sin ítem ni reembolso.
 
 ### Persistencia de ítems reales
 
@@ -191,8 +233,10 @@ en sí, aunque todos los mensajes al jugador siguen en español) — el nombre i
 
 - `/liquidation vote` (cualquier jugador elegible - no la víctima) — abre el menú de votación si
   hay una activa.
+- `/liquidation auction` (cualquier jugador - no la víctima del ítem actual) — abre
+  `LiquidationAuctionMenu` para pujar por el ítem en cabeza de la pool, si hay alguno.
 - `/sc liquidation withdraw` (OP nivel 2) — saca el siguiente ítem de la pool de subastas y lo
-  entrega al admin que lo ejecuta.
+  entrega al admin que lo ejecuta, reembolsando primero cualquier puja activa sobre él.
 - `/sc liquidation close <player>` (OP nivel 2) — fuerza el cierre de la votación **más antigua**
   de ese jugador ahora mismo, ignorando tanto `minVotersToClose` como `minVoteGameDays`
   (`EmbargoManager.forceCloseOldestVote`). Necesario porque `minVoteGameDays` se mide en tiempo
@@ -202,7 +246,7 @@ en sí, aunque todos los mensajes al jugador siguen en español) — el nombre i
   tiene ninguna votación activa.
 
 El único ajuste de config es `config/sheyitoscurrency/embargo.json` (`enabled`, `graceSeconds`,
-`minVotersToClose`, `minVoteGameDays`).
+`minVotersToClose`, `minVoteGameDays`, `auctionDurationGameDays`, `bidIncrements`).
 
 ## Cómo se conecta con otras features
 
