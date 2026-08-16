@@ -83,7 +83,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
-- `/embargo vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
+- `/liquidation vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
@@ -92,8 +92,8 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/sc reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
-- `/sc embargo retirar` — saca el ítem más antiguo de la pool de subastas y lo entrega al admin que lo ejecuta (ver más abajo). Es la única forma de que un ítem salga de la pool.
-- `/sc embargo cerrar <jugador>` — fuerza el cierre de la votación de embargo más antigua de ese jugador ya mismo, saltándose tanto el mínimo de votantes como los días de juego necesarios (que se miden en tiempo real de servidor acumulado, no en fecha - una sesión de pruebas corta puede no acumular suficiente aunque todo el mundo ya haya votado).
+- `/sc liquidation withdraw` — saca el ítem más antiguo de la pool de subastas y lo entrega al admin que lo ejecuta (ver más abajo). Es la única forma de que un ítem salga de la pool.
+- `/sc liquidation close <player>` — fuerza el cierre de la votación de embargo más antigua de ese jugador ya mismo, saltándose tanto el mínimo de votantes como los días de juego necesarios (que se miden en tiempo real de servidor acumulado, no en fecha - una sesión de pruebas corta puede no acumular suficiente aunque todo el mundo ya haya votado).
 - `/sc rent forzar <jugador>` — fuerza un cobro inmediato de la renta progresiva sobre ganancias y de la renta de force-load de chunks de ese jugador, ignorando si ya pasaron los días de intervalo de verdad (ver más abajo).
 
 Todos los comandos de administración/pruebas viven bajo la raíz compartida `/sc` (Brigadier fusiona los subcomandos de cada clase en un único árbol).
@@ -184,12 +184,12 @@ objetos al suelo, ni abrir cofres o el ender chest — para que no puedas escond
 Si se agota el plazo, se ejecuta todo de golpe: se te incauta del inventario (equipado y suelto, sin
 distinción entre ambos) toda armadura, arma o herramienta, tu saldo vuelve a exactamente 0, y no hay
 marcha atrás — pagar después no recupera nada. En cuanto haya suficientes jugadores conectados (sin
-contar a la víctima), se abre una votación secreta (`/embargo vote`, menú tipo cofre) sobre cuál de
-los objetos incautados se manda a la pool de subastas del servidor; el resto se te devuelve en
+contar a la víctima), se abre una votación secreta (`/liquidation vote`, menú tipo cofre) sobre cuál
+de los objetos incautados se manda a la pool de subastas del servidor; el resto se te devuelve en
 cuanto cierra. La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes
 días de juego a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace
-nada por sí sola — un admin la saca con `/sc embargo retirar` y la comunidad decide qué hacer con
-ella.
+nada por sí sola — un admin la saca con `/sc liquidation withdraw` y la comunidad decide qué hacer
+con ella.
 
 ## Renta progresiva sobre ganancias
 
@@ -274,10 +274,10 @@ com.sheyito.economicmaster
 ├── chunk/ChunkClaimRegistry      chunks reclamados (precio n^1.5) y force-loaded (renta n^1.5 base 10) por jugador
 ├── rent/                         RentManager/RentLogic - renta progresiva semanal sobre ganancias (tipo plano por tramo)
 ├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu - plazo de gracia, incautación y votación
-├── auction/AuctionPoolManager    pool de subastas: solo almacenamiento, /sc embargo retirar la vacía
+├── auction/AuctionPoolManager    pool de subastas: solo almacenamiento, /sc liquidation withdraw la vacía
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones/rentas + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /trade /embargo + /sc (reward, dimension lock, chunk reset, embargo retirar, rent forzar - admin/dev)
+├── commands/                     /bal /baltop /pay /subscribe /eco /trade /liquidation + /sc (reward, dimension lock, chunk reset, liquidation withdraw/close, rent forzar - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo/force-load de chunk) - todas compileOnly
