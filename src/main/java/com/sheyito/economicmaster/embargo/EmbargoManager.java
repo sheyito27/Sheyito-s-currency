@@ -211,30 +211,20 @@ public class EmbargoManager {
 
     private void executeSeizure(ServerPlayer player, MinecraftServer server) {
         graceSecondsElapsed.remove(player.getUUID());
-        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
-        List<ItemStack> allSeized = result.all();
+        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
         EconomyManager.get().setBalance(player.getUUID(), 0.0);
         dirty.set(true);
 
-        if (allSeized.isEmpty()) {
+        if (seized.isEmpty()) {
             player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia, pero no tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
             return;
         }
         player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia: se incauto "
-                + describeItems(allSeized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
-
-        if (!result.equipped().isEmpty()) {
-            returnItems(player.getUUID(), result.equipped(), server);
-            player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fLo que llevabas equipado ("
-                    + describeItems(result.equipped()) + ") no entra en la subasta - se te ha devuelto."));
-        }
+                + describeItems(seized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
         player.sendSystemMessage(Component.literal("§7[Sheyito's currency] Quien avisa no es traidor. Mas suerte para la proxima."));
 
-        if (result.loose().isEmpty()) {
-            return;
-        }
         long id = nextAuctionId.getAndIncrement();
-        AuctionVote vote = new AuctionVote(id, player.getUUID(), result.loose(), GameTime.currentDay(server));
+        AuctionVote vote = new AuctionVote(id, player.getUUID(), seized, GameTime.currentDay(server));
         activeVotes.put(id, vote);
         dirty.set(true);
         announceIfEligible(vote, server);
