@@ -47,6 +47,11 @@ algunos layouts también exponen ahí), incautando todo lo que sea `ArmorItem`, 
 `AxeItem`, `PickaxeItem`, `ShovelItem`, `HoeItem`, `BowItem`, `CrossbowItem`, `TridentItem`,
 `ShieldItem` o `MaceItem`. El saldo se fija a 0 exacto.
 
+El mensaje al jugador nombra exactamente lo incautado (`"Netherite Sword x1, Diamond Pickaxe x1"`,
+vía `describeItems`), no una frase genérica fija — antes decía siempre "tu armadura, armas y
+herramientas" aunque la víctima solo llevara encima un único ítem, lo que hacía parecer que se
+había perdido más de lo real.
+
 ### Bloqueos durante la gracia
 
 `EmbargoBlockListener` (mismo patrón de cancelación que `shop.ShopProtectionListener`) impide, solo
@@ -92,7 +97,10 @@ compara el recuento final y, entre los empatados, gana el de menor tick.
 Al cerrar: el ítem ganador va a `AuctionPoolManager` (guarda quién lo perdió, cuándo); el resto se
 devuelve directo al inventario de la víctima si está online, o se guarda en una lista de
 devoluciones pendientes que se entrega automáticamente la próxima vez que inicie sesión
-(`ServerLifecycleHandler.onPlayerLoggedIn` → `EmbargoManager.deliverPendingReturns`).
+(`ServerLifecycleHandler.onPlayerLoggedIn` → `EmbargoManager.deliverPendingReturns`). El mensaje de
+cierre solo dice "el resto se devolvió" si de verdad hubo más de un candidato incautado - si el
+único ítem incautado fue directamente el ganador, dice "era el único objeto incautado" en vez de
+insinuar una devolución que nunca existió.
 
 ### La pool de subastas: solo almacenamiento, nada automático
 
