@@ -285,7 +285,7 @@ public class EmbargoManager {
     }
 
     /**
-     * Admin-only testing tool for {@code /sc embargo cerrar} - force-closes {@code victim}'s
+     * Admin-only testing tool for {@code /sc liquidation close} - force-closes {@code victim}'s
      * oldest active vote right now, ignoring both {@code minVotersToClose} and
      * {@code minVoteGameDays}. Needed because {@link #tickVoteClosing}'s day requirement is
      * measured in real server uptime (see {@link com.sheyito.economicmaster.util.GameTime}), so a
