@@ -53,13 +53,13 @@ public final class EmbargoCommand {
         Optional<Long> voteId = manager == null ? Optional.empty() : manager.openVoteFor(player.getUUID());
         if (voteId.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal(
-                    "§cNo hay ninguna votacion de embargo activa en la que puedas participar."));
+                    "§cNo hay ninguna votación de embargo activa en la que puedas participar."));
             return 0;
         }
 
         player.openMenu(new SimpleMenuProvider(
                 (id, inv, p) -> new EmbargoVoteMenu(id, inv, voteId.get(), player.getUUID()),
-                Component.literal("Votacion de embargo")));
+                Component.literal("Votación de embargo")));
         return 1;
     }
 
@@ -67,7 +67,7 @@ public final class EmbargoCommand {
         ServerPlayer admin = ctx.getSource().getPlayerOrException();
         Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext();
         if (next.isEmpty()) {
-            ctx.getSource().sendFailure(Component.literal("§cLa pool de subastas esta vacia."));
+            ctx.getSource().sendFailure(Component.literal("§cLa pool de subastas está vacía."));
             return 0;
         }
 
@@ -88,11 +88,11 @@ public final class EmbargoCommand {
         boolean closed = manager != null && manager.forceCloseOldestVote(uuid, ctx.getSource().getServer());
         if (!closed) {
             ctx.getSource().sendFailure(Component.literal(
-                    "§cNo hay ninguna votacion de embargo activa para " + target.getName() + "."));
+                    "§cNo hay ninguna votación de embargo activa para " + target.getName() + "."));
             return 0;
         }
         ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fForzado el cierre de la "
-                + "votacion de embargo mas antigua de " + target.getName() + "."), true);
+                + "votación de embargo más antigua de " + target.getName() + "."), true);
         return 1;
     }
 }
