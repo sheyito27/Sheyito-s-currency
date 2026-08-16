@@ -42,20 +42,29 @@ final class EmbargoSeizureLogic {
     }
 
     /**
-     * Removes every seizable item from {@code owner} (equipped armor/hands + loose main
-     * inventory) and returns copies of what was taken - equipped and loose are treated exactly
-     * the same, both go into the same auction vote as candidates (confirmed with the user: no
-     * special-casing for what happened to be equipped at the moment of seizure). Mutates
-     * {@code owner} directly - caller decides what happens to the result (vault it, vote on it,
-     * etc).
+     * One seized item plus where it physically came from - {@code originSlot} is null for
+     * anything that was loose in the main inventory. Equipped and loose still get no special
+     * treatment as auction candidates (confirmed with the user: both are equally up for grabs in
+     * the vote) - this is purely so a candidate that comes back (didn't win the vote, or the whole
+     * seizure gets returned some other way) can go back onto the body instead of just landing as
+     * a loose stack in the backpack.
      */
-    static List<ItemStack> collectSeizable(LivingEntity owner, Inventory inventory) {
-        List<ItemStack> seized = new ArrayList<>();
+    record SeizedItem(ItemStack stack, EquipmentSlot originSlot) {
+    }
+
+    /**
+     * Removes every seizable item from {@code owner} (equipped armor/hands + loose main
+     * inventory) and returns copies of what was taken, tagged with where each one came from.
+     * Mutates {@code owner} directly - caller decides what happens to the result (vault it, vote
+     * on it, etc).
+     */
+    static List<SeizedItem> collectSeizable(LivingEntity owner, Inventory inventory) {
+        List<SeizedItem> seized = new ArrayList<>();
 
         for (EquipmentSlot slot : EQUIPMENT_SLOTS) {
             ItemStack equipped = owner.getItemBySlot(slot);
             if (isSeizable(equipped)) {
-                seized.add(equipped.copy());
+                seized.add(new SeizedItem(equipped.copy(), slot));
                 owner.setItemSlot(slot, ItemStack.EMPTY);
             }
         }
@@ -64,7 +73,7 @@ final class EmbargoSeizureLogic {
         for (int i = 0; i < slots; i++) {
             ItemStack stack = inventory.getItem(i);
             if (isSeizable(stack)) {
-                seized.add(stack.copy());
+                seized.add(new SeizedItem(stack.copy(), null));
                 inventory.setItem(i, ItemStack.EMPTY);
             }
         }
