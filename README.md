@@ -61,7 +61,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
   - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala como `n^1.5` por jugador y no es configurable (ver más abajo).
   - `transmission_tax.json` — porcentaje de IVA que se quema en `/pay`, el dinero de `/trade`, las tiendas de cartel y las suscripciones (`taxPercent`, 10% por defecto, ver más abajo).
-  - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto), condiciones de cierre de la votación de qué se incauta (`minVotersToClose`, `minVoteGameDays`) y duración/incrementos de puja de la subasta de la pool (`auctionDurationGameDays`, `bidIncrements`, ver más abajo).
+  - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto), condiciones de cierre de la votación de qué se incauta (`minVotersToClose`, `minVoteGameDays`), duración/incrementos de puja de la subasta de la pool (`auctionDurationGameDays`, `bidIncrements`) y el bloque de columnas/techo del "puesto de subastas" (`auctionStandBlockId`, ver más abajo).
   - `rent.json` — cadencia compartida (`intervalGameDays`, 7 por defecto) de la renta progresiva sobre ganancias (`profitBrackets`) y la renta de force-load de chunks (`forceLoadRentBase`, ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas, chunks reclamados/force-loaded, seguimiento de renta): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
@@ -192,14 +192,20 @@ cuanto cierra - si era algo que llevabas equipado y esa ranura sigue libre, vuel
 ítem suelto. La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes
 días de juego a la vez (`minVotersToClose`, `minVoteGameDays`).
 
-El objeto que gana la votación entra en una **subasta con pujas de verdad** (`/liquidation auction`,
-menú tipo cofre con botones - nada de escribir cifras por chat): un botón por cada incremento
-configurado (`bidIncrements`) puja `pujaActual + incremento`, más un botón para pujar tu saldo
-máximo. Pujar retiene el dinero al instante; si te superan, se te devuelve íntegro. La puja se
-cierra pasados `auctionDurationGameDays` días de juego - si ganó alguien, se lleva el ítem y su
-dinero se queda quemado (nunca se redistribuye, ni siquiera a la víctima original); si nadie pujó,
-el ítem pasa al final de la cola y le toca su turno más adelante en vez de quedarse bloqueando todo
-para siempre. `/sc liquidation withdraw` sigue existiendo como válvula de escape de admin (saca el
+El objeto que gana la votación entra en la pool, pero **no se subasta solo**: la única forma de
+elegir qué sale a puja es construir un **puesto de subastas** - un atril con 3 columnas y un techo
+(bloque configurable, `auctionStandBlockId`) formando un hueco de 2 de alto. Al completarlo aparece
+un aldeano fijo dentro (con partículas y sonido); hablar con él abre un menú con todo lo que hay en
+la pool, y clicar un objeto lo pone en juego. Solo puede haber una subasta activa a la vez.
+
+Esa subasta sí es **con pujas de verdad** (`/liquidation auction`, menú tipo cofre con botones -
+nada de escribir cifras por chat): un botón por cada incremento configurado (`bidIncrements`) puja
+`pujaActual + incremento`, más un botón para pujar tu saldo máximo. Pujar retiene el dinero al
+instante; si te superan, se te devuelve íntegro. La puja se cierra pasados
+`auctionDurationGameDays` días de juego - si ganó alguien, se lleva el ítem y su dinero se queda
+quemado (nunca se redistribuye, ni siquiera a la víctima original); si nadie pujó, el ítem vuelve a
+esperar en la pool hasta que alguien lo elija otra vez en el puesto - nada se reabre solo.
+`/sc liquidation withdraw` sigue existiendo como válvula de escape de admin (saca el
 ítem de la cabeza de la cola pase lo que pase, reembolsando primero cualquier puja activa sobre él).
 
 ## Renta progresiva sobre ganancias
@@ -284,8 +290,8 @@ com.sheyito.economicmaster
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
 ├── chunk/ChunkClaimRegistry      chunks reclamados (precio n^1.5) y force-loaded (renta n^1.5 base 10) por jugador
 ├── rent/                         RentManager/RentLogic - renta progresiva semanal sobre ganancias (tipo plano por tramo)
-├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu/LiquidationAuctionMenu - plazo de gracia, incautación y votación
-├── auction/AuctionPoolManager    pool con subasta de pujas sobre el item en cabeza de la cola, /sc liquidation withdraw como valvula de escape de admin
+├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu/LiquidationAuctionMenu/AuctionStandListener/AuctionStandSelectionMenu - plazo de gracia, incautación, votación y el puesto de subastas fisico
+├── auction/AuctionPoolManager    pool con subasta de pujas sobre el item elegido en el puesto, /sc liquidation withdraw como valvula de escape de admin
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones/rentas + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
 ├── commands/                     /bal /baltop /pay /subscribe /eco /trade /liquidation + /sc (reward, dimension lock, chunk reset, liquidation withdraw/close, rent force - admin/dev)
