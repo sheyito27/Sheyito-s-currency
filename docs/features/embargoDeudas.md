@@ -9,11 +9,10 @@
 Cuando el saldo de un jugador se vuelve negativo, empieza a correr un plazo de gracia real (30
 segundos por defecto, `graceSeconds`) para saldarlo, con avisos por chat en cuenta atrás para que
 se note de verdad. Si no lo hace a tiempo, el mod le **incauta** del inventario todo lo que sea
-armadura, arma o herramienta (equipada y suelta), le devuelve el saldo a exactamente 0, y guarda lo
-incautado hasta que la comunidad vota **una sola pieza** para mandar a una pool de subastas — el
-resto se le devuelve. Lo que llevaba **equipado** nunca puede ser esa pieza: se le devuelve directo,
-sin pasar por la votación — solo lo que tenía suelto en el inventario está realmente en juego. No
-hay reembolso ni marcha atrás: pagar después de que se ejecute el embargo no recupera nada.
+armadura, arma o herramienta (equipada y suelta, sin distinción entre ambas) le devuelve el saldo a
+exactamente 0, y guarda lo incautado hasta que la comunidad vota **una sola pieza** para mandar a
+una pool de subastas — el resto se le devuelve. No hay reembolso ni marcha atrás: pagar después de
+que se ejecute el embargo no recupera nada.
 
 **Historia:** cuando se construyó esta feature, la única vía real para caer en saldo negativo era
 el admin-only `/eco charge` — el enganche a `EconomyManager.setBalance()` se hizo genérico a
@@ -59,15 +58,14 @@ algunos layouts también exponen ahí), incautando todo lo que sea `ArmorItem`, 
 `AxeItem`, `PickaxeItem`, `ShovelItem`, `HoeItem`, `BowItem`, `CrossbowItem`, `TridentItem`,
 `ShieldItem` o `MaceItem`. El saldo se fija a 0 exacto.
 
-El resultado viene partido en `EmbargoSeizureLogic.SeizureResult(equipped, loose)` - **solo
-`loose` puede acabar en la pool de subastas**; `equipped` se devuelve de inmediato (mismo
-`returnItems` que usa el cierre de la votación, con el mismo online/offline) sin pasar nunca por
-`AuctionVote`. Si `loose` queda vacío no se abre ninguna votación - no hay nada en juego, aunque sí
-se haya incautado (y devuelto) algo. El mensaje al jugador nombra exactamente lo incautado
-(`"Netherite Sword x1, Diamond Pickaxe x1"`, vía `describeItems`), no una frase genérica fija —
-antes decía siempre "tu armadura, armas y herramientas" aunque la víctima solo llevara encima un
-único ítem, lo que hacía parecer que se había perdido más de lo real. Cierra con una línea de
-sabor fija ("Quien avisa no es traidor. Mas suerte para la proxima.").
+**Equipado y suelto van sin distinción a la misma lista de candidatos** de la votación - se
+consideró excluir lo equipado de la subasta y devolverlo de inmediato, pero eso hacía que la
+incautación de lo equipado fuera un ida-y-vuelta sin efecto real (se te quitaba y se te devolvía en
+el mismo instante); descartado explícitamente por el usuario. El mensaje al jugador nombra
+exactamente lo incautado (`"Netherite Sword x1, Diamond Pickaxe x1"`, vía `describeItems`), no una
+frase genérica fija — antes decía siempre "tu armadura, armas y herramientas" aunque la víctima
+solo llevara encima un único ítem, lo que hacía parecer que se había perdido más de lo real. Cierra
+con una línea de sabor fija ("Quien avisa no es traidor. Mas suerte para la proxima.").
 
 ### Bloqueos durante la gracia
 
@@ -106,6 +104,14 @@ El cierre exige **ambas** condiciones a la vez: `votantes >= minVotersToClose` *
 `díasDeJuegoTranscurridos >= minVoteGameDays` (vía `GameTime.currentDay`, mismo patrón que
 `SalaryManager`/`SubscriptionManager`). Esto se comprueba en el scheduler general de ~30s
 (`EconomicMasterScheduler`), no en el de por-tick — la precisión de días no la necesita.
+
+**Ojo en pruebas:** `openVoteFor` siempre da la votación activa **más antigua** sin cerrar. Una
+votación que nunca recibe votos (`votantes` se queda en 0) no cierra nunca — se queda ahí de por
+vida, y sigue colándose por delante de embargos más recientes del mismo jugador. Esto ya pasó en
+desarrollo: el botón `[Votar]` estuvo apuntando a `/sc embargo vote` (comando inexistente) varias
+sesiones, así que ninguna votación de esa época pudo cerrarse nunca — al arreglar el botón, las
+votaciones siguientes seguían enseñando esos objetos viejísimos primero, hasta limpiar a mano el
+`activeVotes` de `embargo_data.json`.
 
 **Empate:** gana quien alcanzó ese número de votos primero. Cada candidato guarda su marca de agua
 de votos más alta (`highWaterMark`) y el tick en el que la alcanzó (`reachedAtTick`); al cerrar, se
