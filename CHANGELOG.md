@@ -4,6 +4,10 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 
 ## Versión 1.1.0
 
+### Arreglado
+- El botón `[Votar]` del aviso de embargo apuntaba a `/sc embargo vote` (no existe) en vez de `/embargo vote` - el click siempre fallaba con "Unknown or incomplete command".
+- Los mensajes de incautación y de cierre de votación eran texto fijo genérico ("tu armadura, armas y herramientas", "el resto se devolvió") sin importar lo que realmente pasara - si la víctima solo tenía un ítem encima, sonaba como si hubiera perdido más de lo real, o como si algo se hubiera devuelto cuando no había "resto" que devolver. Ahora nombran exactamente lo incautado/devuelto.
+
 ### Nuevo: renta progresiva sobre ganancias
 - Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal.
 - Es ganancia bruta acumulada (cada ingreso vía `EconomyManager.give()`), no un balance neto: si ganas 10.000 en la semana pero por separado pierdes 20.000, igual se cobra el 10% de los 10.000 ganados - perder saldo es gasto, ajeno a esta renta, nunca compensa una ganancia.
