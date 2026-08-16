@@ -179,14 +179,16 @@ segundos **reales** (30 por defecto, pausados mientras estás desconectado) para
 en tiendas, cobrando salario o completando misiones, con avisos por chat en cuenta atrás (tiempo
 completo al entrar, cada 10 segundos, aviso dedicado a los 10 segundos, y del 5 al 1 uno por
 segundo). Mientras tanto no puedes recibir dinero de otros jugadores (`/pay`/`/trade`), tirar
-objetos al suelo, ni abrir cofres o el ender chest — para que no puedas esconder tu equipo.
+objetos al suelo, ni abrir **ningún** contenedor - cofre, ender chest, shulker, barril, uno de otro
+mod, o incluso la ventana de `/trade` - para que no puedas esconder tu equipo.
 
 Si se agota el plazo, se ejecuta todo de golpe: se te incauta del inventario (equipado y suelto, sin
 distinción entre ambos) toda armadura, arma o herramienta, tu saldo vuelve a exactamente 0, y no hay
 marcha atrás — pagar después no recupera nada. En cuanto haya suficientes jugadores conectados (sin
 contar a la víctima), se abre una votación secreta (`/liquidation vote`, menú tipo cofre) sobre cuál
 de los objetos incautados se manda a la pool de subastas del servidor; el resto se te devuelve en
-cuanto cierra. La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes
+cuanto cierra - si era algo que llevabas equipado y esa ranura sigue libre, vuelve puesto, no como
+ítem suelto. La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes
 días de juego a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace
 nada por sí sola — un admin la saca con `/sc liquidation withdraw` y la comunidad decide qué hacer
 con ella.
