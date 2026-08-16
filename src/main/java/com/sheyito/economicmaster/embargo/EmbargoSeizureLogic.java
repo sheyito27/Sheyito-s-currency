@@ -42,47 +42,34 @@ final class EmbargoSeizureLogic {
     }
 
     /**
-     * Split result of a seizure - {@code equipped} (worn armor + whatever was in the hands) is
-     * never a candidate for the community auction vote and goes straight back to the victim; only
-     * {@code loose} (the main inventory) is at risk of actually being auctioned off. Both lists
-     * are still physically removed from {@code owner} up front, same shock either way - see
-     * {@link EmbargoManager#executeSeizure}.
-     */
-    record SeizureResult(List<ItemStack> equipped, List<ItemStack> loose) {
-        List<ItemStack> all() {
-            List<ItemStack> combined = new ArrayList<>(equipped.size() + loose.size());
-            combined.addAll(equipped);
-            combined.addAll(loose);
-            return combined;
-        }
-    }
-
-    /**
      * Removes every seizable item from {@code owner} (equipped armor/hands + loose main
-     * inventory) and returns copies of what was taken, split by {@link SeizureResult}. Mutates
-     * {@code owner} directly - caller decides what happens to each half of the result.
+     * inventory) and returns copies of what was taken - equipped and loose are treated exactly
+     * the same, both go into the same auction vote as candidates (confirmed with the user: no
+     * special-casing for what happened to be equipped at the moment of seizure). Mutates
+     * {@code owner} directly - caller decides what happens to the result (vault it, vote on it,
+     * etc).
      */
-    static SeizureResult collectSeizable(LivingEntity owner, Inventory inventory) {
-        List<ItemStack> equipped = new ArrayList<>();
+    static List<ItemStack> collectSeizable(LivingEntity owner, Inventory inventory) {
+        List<ItemStack> seized = new ArrayList<>();
+
         for (EquipmentSlot slot : EQUIPMENT_SLOTS) {
-            ItemStack stack = owner.getItemBySlot(slot);
-            if (isSeizable(stack)) {
-                equipped.add(stack.copy());
+            ItemStack equipped = owner.getItemBySlot(slot);
+            if (isSeizable(equipped)) {
+                seized.add(equipped.copy());
                 owner.setItemSlot(slot, ItemStack.EMPTY);
             }
         }
 
-        List<ItemStack> loose = new ArrayList<>();
         int slots = Math.min(MAIN_INVENTORY_SLOTS, inventory.getContainerSize());
         for (int i = 0; i < slots; i++) {
             ItemStack stack = inventory.getItem(i);
             if (isSeizable(stack)) {
-                loose.add(stack.copy());
+                seized.add(stack.copy());
                 inventory.setItem(i, ItemStack.EMPTY);
             }
         }
 
-        return new SeizureResult(equipped, loose);
+        return seized;
     }
 
     static boolean isSeizable(ItemStack stack) {
