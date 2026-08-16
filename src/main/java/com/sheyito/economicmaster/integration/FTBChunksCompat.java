@@ -45,7 +45,7 @@ public final class FTBChunksCompat {
         }
     }
 
-    /** No-op if FTB Chunks isn't installed - backs {@code /sc rent forzar}. */
+    /** No-op if FTB Chunks isn't installed - backs {@code /sc rent force}. */
     public static void forceProcessForceLoadRent(MinecraftServer server, UUID uuid) {
         if (ModList.get().isLoaded(FTBCHUNKS_MODID)) {
             FtbChunksIntegration.forceProcessForceLoadRent(server, uuid);
