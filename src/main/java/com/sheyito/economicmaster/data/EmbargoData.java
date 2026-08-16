@@ -22,7 +22,7 @@ public class EmbargoData {
     public Map<String, AuctionVoteRecord> activeVotes = new LinkedHashMap<>();
 
     /** Victim uuid -> seized items still waiting to be handed back (they were offline when their vote closed). */
-    public Map<String, List<JsonElement>> pendingReturns = new LinkedHashMap<>();
+    public Map<String, List<PendingItemRecord>> pendingReturns = new LinkedHashMap<>();
 
     public long nextAuctionId = 1;
 
@@ -34,6 +34,10 @@ public class EmbargoData {
         public String victimUuid;
         /** Seized candidates up for vote - index in this list is the "candidate index" used everywhere else. */
         public List<JsonElement> items = new ArrayList<>();
+        /** Parallel to items: which equipment slot each candidate was worn/held in (HEAD, MAINHAND,
+         * ...), or null if it came loose from the main inventory - so a candidate that doesn't win
+         * the vote can be re-equipped instead of just dumped back into the backpack. */
+        public List<String> originSlots = new ArrayList<>();
         /** Voter uuid -> candidate index they currently back. Changing a vote overwrites the entry. */
         public Map<String, Integer> votesByVoter = new LinkedHashMap<>();
         public long openedGameDay;
@@ -41,5 +45,11 @@ public class EmbargoData {
         public List<Integer> highWaterMark = new ArrayList<>();
         /** Parallel to items: the server tick at which that high-water mark was reached (tie-break). */
         public List<Long> reachedAtTick = new ArrayList<>();
+    }
+
+    public static class PendingItemRecord {
+        public JsonElement item;
+        /** Same meaning as {@link AuctionVoteRecord#originSlots}' entries - null if it was loose. */
+        public String slot;
     }
 }
