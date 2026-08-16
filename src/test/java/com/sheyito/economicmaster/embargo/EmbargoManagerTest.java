@@ -362,4 +362,33 @@ class EmbargoManagerTest {
                     org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
         });
     }
+
+    @Test
+    void forceCloseOldestVoteIgnoresVoterCountAndGameDayRequirements() throws Exception {
+        // minVoteGameDays is measured in real server uptime (GameTime), which a short dev
+        // session may never accumulate - /sc embargo cerrar exists precisely to skip both
+        // conditions for testing, same spirit as /sc rent forzar.
+        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            ServerPlayer player = mockPlayer(victim, new ItemStack(Items.IRON_SWORD));
+            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
+            economy.setBalance(victim, -10.0);
+            tick(embargo, server, 20);
+            long voteId = embargo.openVoteFor(UUID.randomUUID()).orElseThrow();
+            // still day 0, 0 voters - a normal tickVoteClosing would refuse this.
+
+            boolean closed = embargo.forceCloseOldestVote(victim, server);
+
+            assertTrue(closed);
+            assertFalse(embargo.isVoteActive(voteId));
+            assertEquals(1, AuctionPoolManager.get().list().size());
+        });
+    }
+
+    @Test
+    void forceCloseOldestVoteIsANoOpWithoutAnActiveVote() throws Exception {
+        withEmbargo(1, 2, 2, (embargo, economy, server) ->
+                assertFalse(embargo.forceCloseOldestVote(UUID.randomUUID(), server)));
+    }
 }
