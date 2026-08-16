@@ -89,7 +89,7 @@ Al ejecutarse el embargo se crea un `AuctionVote` (uno por evento, id incrementa
 incautados como candidatos. En cuanto haya al menos `minVotersToClose` jugadores conectados sin
 contar a la víctima, se anuncia una sola vez por chat con un botón `[Votar]` (mismo patrón de
 [invitación pendiente](patronInvitacionPendiente.md) que `/trade`/`/subscribe`) que ejecuta
-`/embargo vote` — deliberadamente **fuera** de la raíz `/sc` (esa es solo para
+`/liquidation vote` — deliberadamente **fuera** de la raíz `/sc` (esa es solo para
 administración/pruebas, no para algo que cualquier jugador debe poder correr).
 
 El menú (`EmbargoVoteMenu`, calcado de `trade.TradeMenu`: mismo truco de `MenuType` vanilla +
@@ -108,7 +108,7 @@ El cierre exige **ambas** condiciones a la vez: `votantes >= minVotersToClose` *
 **Ojo en pruebas:** `openVoteFor` siempre da la votación activa **más antigua** sin cerrar. Una
 votación que nunca recibe votos (`votantes` se queda en 0) no cierra nunca — se queda ahí de por
 vida, y sigue colándose por delante de embargos más recientes del mismo jugador. Esto ya pasó en
-desarrollo: el botón `[Votar]` estuvo apuntando a `/sc embargo vote` (comando inexistente) varias
+desarrollo: el botón `[Votar]` estuvo apuntando a `/sc liquidation vote` (comando inexistente) varias
 sesiones, así que ninguna votación de esa época pudo cerrarse nunca — al arreglar el botón, las
 votaciones siguientes seguían enseñando esos objetos viejísimos primero, hasta limpiar a mano el
 `activeVotes` de `embargo_data.json`.
@@ -118,7 +118,7 @@ votaciones siguientes seguían enseñando esos objetos viejísimos primero, hast
 una sesión de dev corta, votar ya no basta: aunque `minVotersToClose` se cumpla al instante (se ve
 reflejado en `votesByVoter` en cuanto se vota, confirmado leyendo `embargo_data.json` en caliente),
 `minVoteGameDays` puede seguir sin cumplirse durante horas de pruebas reales. Para eso existe
-`/sc embargo cerrar <jugador>` (ver Comandos) — se salta ambas condiciones a la vez.
+`/sc liquidation close <player>` (ver Comandos) — se salta ambas condiciones a la vez.
 
 **Empate:** gana quien alcanzó ese número de votos primero. Cada candidato guarda su marca de agua
 de votos más alta (`highWaterMark`) y el tick en el que la alcanzó (`reachedAtTick`); al cerrar, se
@@ -135,7 +135,7 @@ insinuar una devolución que nunca existió.
 ### La pool de subastas: solo almacenamiento, nada automático
 
 `AuctionPoolManager` es deliberadamente tonto: una cola FIFO persistida, sin lógica de subasta
-alguna. `/sc embargo retirar` (OP, bajo la raíz admin `/sc`) saca el ítem más antiguo y se lo da al
+alguna. `/sc liquidation withdraw` (OP, bajo la raíz admin `/sc`) saca el ítem más antiguo y se lo da al
 admin que lo ejecuta — a partir de ahí, la comunidad decide qué hacer con él (montar una casa de
 subastas, repartirlo, lo que sea). Sin este comando el ítem quedaría atrapado para siempre.
 
@@ -151,12 +151,16 @@ test de round-trip dedicado (nombre personalizado, durabilidad, tamaño de stack
 
 ## Comandos
 
-- `/embargo vote` (cualquier jugador elegible - no la víctima) — abre el menú de votación si hay
-  una activa.
-- `/sc embargo retirar` (OP nivel 2) — saca el siguiente ítem de la pool de subastas y lo entrega
-  al admin que lo ejecuta.
-- `/sc embargo cerrar <jugador>` (OP nivel 2) — fuerza el cierre de la votación **más antigua** de
-  ese jugador ahora mismo, ignorando tanto `minVotersToClose` como `minVoteGameDays`
+Literales en inglés a propósito (pedido explícito del usuario: nada de castellano en los comandos
+en sí, aunque todos los mensajes al jugador siguen en español) — el nombre interno de la feature
+(clases, config, docs) sigue siendo "embargo", solo cambió lo que el jugador escribe.
+
+- `/liquidation vote` (cualquier jugador elegible - no la víctima) — abre el menú de votación si
+  hay una activa.
+- `/sc liquidation withdraw` (OP nivel 2) — saca el siguiente ítem de la pool de subastas y lo
+  entrega al admin que lo ejecuta.
+- `/sc liquidation close <player>` (OP nivel 2) — fuerza el cierre de la votación **más antigua**
+  de ese jugador ahora mismo, ignorando tanto `minVotersToClose` como `minVoteGameDays`
   (`EmbargoManager.forceCloseOldestVote`). Necesario porque `minVoteGameDays` se mide en tiempo
   real de servidor acumulado (`GameTime`, ver más abajo) - una sesión de pruebas corta puede no
   llegar nunca a acumular lo suficiente por más gente que vote. Sin votos emitidos, gana el
