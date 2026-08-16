@@ -93,6 +93,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
 - `/sc embargo retirar` — saca el ítem más antiguo de la pool de subastas y lo entrega al admin que lo ejecuta (ver más abajo). Es la única forma de que un ítem salga de la pool.
+- `/sc embargo cerrar <jugador>` — fuerza el cierre de la votación de embargo más antigua de ese jugador ya mismo, saltándose tanto el mínimo de votantes como los días de juego necesarios (que se miden en tiempo real de servidor acumulado, no en fecha - una sesión de pruebas corta puede no acumular suficiente aunque todo el mundo ya haya votado).
 - `/sc rent forzar <jugador>` — fuerza un cobro inmediato de la renta progresiva sobre ganancias y de la renta de force-load de chunks de ese jugador, ignorando si ya pasaron los días de intervalo de verdad (ver más abajo).
 
 Todos los comandos de administración/pruebas viven bajo la raíz compartida `/sc` (Brigadier fusiona los subcomandos de cada clase en un único árbol).
