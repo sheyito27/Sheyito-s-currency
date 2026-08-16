@@ -97,6 +97,14 @@ class EmbargoManagerTest {
         return player;
     }
 
+    /** Same as {@link #mockPlayer}, but with {@code equippedSlot} stubbed to a real stack instead
+     * of empty - for tests covering the equipped-vs-loose split. */
+    private static ServerPlayer mockPlayerWithEquipped(UUID uuid, EquipmentSlot equippedSlot, ItemStack equippedStack, ItemStack... looseItems) {
+        ServerPlayer player = mockPlayer(uuid, looseItems);
+        when(player.getItemBySlot(equippedSlot)).thenReturn(equippedStack);
+        return player;
+    }
+
     private static void tick(EmbargoManager embargo, MinecraftServer server, int times) {
         for (int i = 0; i < times; i++) {
             embargo.tickGrace(server);
@@ -318,6 +326,47 @@ class EmbargoManagerTest {
 
             org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
                     org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.IRON_PICKAXE));
+        });
+    }
+
+    @Test
+    void equippedItemsAreNeverAuctionCandidatesAndAreReturnedImmediately() throws Exception {
+        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            UUID bystander = UUID.randomUUID();
+            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND,
+                    new ItemStack(Items.NETHERITE_SWORD), new ItemStack(Items.IRON_PICKAXE));
+            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
+
+            economy.setBalance(victim, -10.0);
+            tick(embargo, server, 20);
+
+            long voteId = embargo.openVoteFor(bystander).orElseThrow();
+            List<ItemStack> candidates = embargo.voteItems(voteId);
+            assertEquals(1, candidates.size(), "the equipped sword must not be a candidate");
+            assertEquals(Items.IRON_PICKAXE, candidates.get(0).getItem());
+
+            org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
+                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
+        });
+    }
+
+    @Test
+    void seizingOnlyEquippedItemsReturnsThemImmediatelyAndOpensNoVote() throws Exception {
+        withEmbargo(1, 2, 2, (embargo, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            ServerPlayer player = mockPlayerWithEquipped(victim, EquipmentSlot.MAINHAND, new ItemStack(Items.NETHERITE_SWORD));
+            when(server.getPlayerList().getPlayer(victim)).thenReturn(player);
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(player));
+
+            economy.setBalance(victim, -10.0);
+            tick(embargo, server, 20);
+
+            assertTrue(embargo.openVoteFor(UUID.randomUUID()).isEmpty(),
+                    "nothing loose was seized, so there is nothing left to vote on");
+            org.mockito.Mockito.verify(player.getInventory()).placeItemBackInInventory(
+                    org.mockito.ArgumentMatchers.argThat(stack -> stack.getItem() == Items.NETHERITE_SWORD));
         });
     }
 }
