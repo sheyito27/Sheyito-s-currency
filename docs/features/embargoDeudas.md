@@ -113,6 +113,13 @@ sesiones, así que ninguna votación de esa época pudo cerrarse nunca — al ar
 votaciones siguientes seguían enseñando esos objetos viejísimos primero, hasta limpiar a mano el
 `activeVotes` de `embargo_data.json`.
 
+**Ojo #2:** `minVoteGameDays` se mide con `GameTime.currentDay` — tiempo real de servidor
+**acumulado** (1 día de juego = 20 minutos de uptime), no fecha del calendario ni `/time set`. En
+una sesión de dev corta, votar ya no basta: aunque `minVotersToClose` se cumpla al instante (se ve
+reflejado en `votesByVoter` en cuanto se vota, confirmado leyendo `embargo_data.json` en caliente),
+`minVoteGameDays` puede seguir sin cumplirse durante horas de pruebas reales. Para eso existe
+`/sc embargo cerrar <jugador>` (ver Comandos) — se salta ambas condiciones a la vez.
+
 **Empate:** gana quien alcanzó ese número de votos primero. Cada candidato guarda su marca de agua
 de votos más alta (`highWaterMark`) y el tick en el que la alcanzó (`reachedAtTick`); al cerrar, se
 compara el recuento final y, entre los empatados, gana el de menor tick.
@@ -148,6 +155,13 @@ test de round-trip dedicado (nombre personalizado, durabilidad, tamaño de stack
   una activa.
 - `/sc embargo retirar` (OP nivel 2) — saca el siguiente ítem de la pool de subastas y lo entrega
   al admin que lo ejecuta.
+- `/sc embargo cerrar <jugador>` (OP nivel 2) — fuerza el cierre de la votación **más antigua** de
+  ese jugador ahora mismo, ignorando tanto `minVotersToClose` como `minVoteGameDays`
+  (`EmbargoManager.forceCloseOldestVote`). Necesario porque `minVoteGameDays` se mide en tiempo
+  real de servidor acumulado (`GameTime`, ver más abajo) - una sesión de pruebas corta puede no
+  llegar nunca a acumular lo suficiente por más gente que vote. Sin votos emitidos, gana el
+  candidato en el índice 0 (mismo criterio de empate de siempre). No hace nada si ese jugador no
+  tiene ninguna votación activa.
 
 El único ajuste de config es `config/sheyitoscurrency/embargo.json` (`enabled`, `graceSeconds`,
 `minVotersToClose`, `minVoteGameDays`).
