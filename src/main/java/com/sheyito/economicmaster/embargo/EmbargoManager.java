@@ -14,6 +14,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
@@ -41,7 +42,7 @@ public class EmbargoManager {
     private final Path file;
     private final Map<UUID, Integer> graceSecondsElapsed = new ConcurrentHashMap<>();
     private final Map<Long, AuctionVote> activeVotes = new ConcurrentHashMap<>();
-    private final Map<UUID, List<ItemStack>> pendingReturns = new ConcurrentHashMap<>();
+    private final Map<UUID, List<EmbargoSeizureLogic.SeizedItem>> pendingReturns = new ConcurrentHashMap<>();
     private final AtomicLong nextAuctionId = new AtomicLong(1);
     private final AtomicBoolean dirty = new AtomicBoolean(false);
     private int tickAccumulator = 0;
@@ -80,20 +81,24 @@ public class EmbargoManager {
     private void load() {
         EmbargoData data = JsonFileUtil.loadOrCreate(file, EmbargoData.class, EmbargoData::empty);
         data.graceSecondsElapsed.forEach((uuid, seconds) -> graceSecondsElapsed.put(UUID.fromString(uuid), seconds));
-        data.pendingReturns.forEach((uuid, items) -> {
-            List<ItemStack> stacks = new ArrayList<>();
-            for (var json : items) {
-                stacks.add(ItemStackJson.decode(json));
+        data.pendingReturns.forEach((uuid, records) -> {
+            List<EmbargoSeizureLogic.SeizedItem> items = new ArrayList<>();
+            for (EmbargoData.PendingItemRecord record : records) {
+                items.add(new EmbargoSeizureLogic.SeizedItem(ItemStackJson.decode(record.item), decodeSlot(record.slot)));
             }
-            pendingReturns.put(UUID.fromString(uuid), stacks);
+            pendingReturns.put(UUID.fromString(uuid), items);
         });
         data.activeVotes.forEach((idString, record) -> {
             List<ItemStack> items = new ArrayList<>();
             for (var json : record.items) {
                 items.add(ItemStackJson.decode(json));
             }
+            EquipmentSlot[] originSlots = new EquipmentSlot[items.size()];
+            for (int i = 0; i < items.size() && i < record.originSlots.size(); i++) {
+                originSlots[i] = decodeSlot(record.originSlots.get(i));
+            }
             long id = Long.parseLong(idString);
-            AuctionVote vote = new AuctionVote(id, UUID.fromString(record.victimUuid), items, record.openedGameDay);
+            AuctionVote vote = new AuctionVote(id, UUID.fromString(record.victimUuid), items, originSlots, record.openedGameDay);
             record.votesByVoter.forEach((voter, index) -> vote.votesByVoter.put(UUID.fromString(voter), index));
             for (int i = 0; i < items.size() && i < record.highWaterMark.size(); i++) {
                 vote.highWaterMark[i] = record.highWaterMark.get(i);
@@ -103,6 +108,10 @@ public class EmbargoManager {
             activeVotes.put(id, vote);
         });
         nextAuctionId.set(Math.max(1, data.nextAuctionId));
+    }
+
+    private static EquipmentSlot decodeSlot(String name) {
+        return name == null ? null : EquipmentSlot.valueOf(name);
     }
 
     public void saveIfDirty() {
@@ -115,9 +124,12 @@ public class EmbargoManager {
         EmbargoData data = new EmbargoData();
         graceSecondsElapsed.forEach((uuid, seconds) -> data.graceSecondsElapsed.put(uuid.toString(), seconds));
         pendingReturns.forEach((uuid, items) -> {
-            List<com.google.gson.JsonElement> encoded = new ArrayList<>();
-            for (ItemStack stack : items) {
-                encoded.add(ItemStackJson.encode(stack));
+            List<EmbargoData.PendingItemRecord> encoded = new ArrayList<>();
+            for (EmbargoSeizureLogic.SeizedItem item : items) {
+                EmbargoData.PendingItemRecord record = new EmbargoData.PendingItemRecord();
+                record.item = ItemStackJson.encode(item.stack());
+                record.slot = encodeSlot(item.originSlot());
+                encoded.add(record);
             }
             data.pendingReturns.put(uuid.toString(), encoded);
         });
@@ -128,6 +140,9 @@ public class EmbargoManager {
             for (ItemStack stack : vote.items) {
                 record.items.add(ItemStackJson.encode(stack));
             }
+            for (EquipmentSlot slot : vote.originSlots) {
+                record.originSlots.add(encodeSlot(slot));
+            }
             vote.votesByVoter.forEach((voter, index) -> record.votesByVoter.put(voter.toString(), index));
             for (int i = 0; i < vote.items.size(); i++) {
                 record.highWaterMark.add(vote.highWaterMark[i]);
@@ -137,6 +152,10 @@ public class EmbargoManager {
         });
         data.nextAuctionId = nextAuctionId.get();
         JsonFileUtil.save(file, data);
+    }
+
+    private static String encodeSlot(EquipmentSlot slot) {
+        return slot == null ? null : slot.name();
     }
 
     // === Grace period ===
@@ -212,23 +231,31 @@ public class EmbargoManager {
 
     private void executeSeizure(ServerPlayer player, MinecraftServer server) {
         graceSecondsElapsed.remove(player.getUUID());
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
+        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
         EconomyManager.get().setBalance(player.getUUID(), 0.0);
         dirty.set(true);
 
         if (seized.isEmpty()) {
-            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia, pero no tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
+            player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fNo tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
             return;
         }
-        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia: se incauto "
-                + describeItems(seized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
+        player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe te incauto "
+                + describeItems(stacksOf(seized)) + ", y tu saldo volvio a 0. No hay vuelta atras."));
         player.sendSystemMessage(Component.literal("§7[Sheyito's currency] Quien avisa no es traidor. Mas suerte para la proxima."));
 
         long id = nextAuctionId.getAndIncrement();
-        AuctionVote vote = new AuctionVote(id, player.getUUID(), seized, GameTime.currentDay(server));
+        AuctionVote vote = AuctionVote.fromSeizure(id, player.getUUID(), seized, GameTime.currentDay(server));
         activeVotes.put(id, vote);
         dirty.set(true);
         announceIfEligible(vote, server);
+    }
+
+    private static List<ItemStack> stacksOf(List<EmbargoSeizureLogic.SeizedItem> items) {
+        List<ItemStack> stacks = new ArrayList<>(items.size());
+        for (EmbargoSeizureLogic.SeizedItem item : items) {
+            stacks.add(item.stack());
+        }
+        return stacks;
     }
 
     // === Voting ===
@@ -311,19 +338,25 @@ public class EmbargoManager {
         String victimName = EconomyManager.get().getName(vote.victimUuid);
         AuctionPoolManager.get().add(winner, vote.victimUuid, victimName, GameTime.currentDay(server));
 
-        List<ItemStack> returned = new ArrayList<>();
+        List<EmbargoSeizureLogic.SeizedItem> returned = new ArrayList<>();
         for (int i = 0; i < vote.items.size(); i++) {
             if (i != winnerIndex) {
-                returned.add(vote.items.get(i));
+                returned.add(new EmbargoSeizureLogic.SeizedItem(vote.items.get(i), vote.originSlots[i]));
             }
         }
-        returnItems(vote.victimUuid, returned, server);
-        dirty.set(true);
 
+        // Built BEFORE returnItems() runs, on purpose: Inventory#placeItemBackInInventory
+        // mutates each ItemStack in place (splits it down to empty as it inserts), so reading
+        // these same stacks for the message AFTER returning them showed "Air x0" instead of the
+        // real item - the item was already gone from the stack object by the time we described it.
         String message = "§6[Sheyito's currency] §fLa votacion sobre el embargo de " + victimName
                 + " termino: " + winner.getHoverName().getString() + " x" + winner.getCount()
                 + " pasa a la pool de subastas."
-                + (returned.isEmpty() ? " Era el unico objeto incautado." : " El resto (" + describeItems(returned) + ") se devolvio.");
+                + (returned.isEmpty() ? " Era el unico objeto incautado." : " El resto (" + describeItems(stacksOf(returned)) + ") se devolvio.");
+
+        returnItems(vote.victimUuid, returned, server);
+        dirty.set(true);
+
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             p.sendSystemMessage(Component.literal(message));
         }
@@ -344,14 +377,14 @@ public class EmbargoManager {
         return builder.toString();
     }
 
-    private void returnItems(UUID victim, List<ItemStack> items, MinecraftServer server) {
+    private void returnItems(UUID victim, List<EmbargoSeizureLogic.SeizedItem> items, MinecraftServer server) {
         if (items.isEmpty()) {
             return;
         }
         ServerPlayer player = server.getPlayerList().getPlayer(victim);
         if (player != null) {
-            for (ItemStack stack : items) {
-                player.getInventory().placeItemBackInInventory(stack);
+            for (EmbargoSeizureLogic.SeizedItem item : items) {
+                giveBack(player, item);
             }
         } else {
             pendingReturns.computeIfAbsent(victim, k -> new ArrayList<>()).addAll(items);
@@ -359,15 +392,27 @@ public class EmbargoManager {
         }
     }
 
+    /** Puts a returned item back where it came from: re-equips it if it was worn/held AND that
+     * slot is still free (never yanks something the player has since put on to replace it), falls
+     * back to a loose inventory stack otherwise - same as any item that was never equipped. */
+    private static void giveBack(ServerPlayer player, EmbargoSeizureLogic.SeizedItem item) {
+        EquipmentSlot slot = item.originSlot();
+        if (slot != null && player.getItemBySlot(slot).isEmpty()) {
+            player.setItemSlot(slot, item.stack());
+        } else {
+            player.getInventory().placeItemBackInInventory(item.stack());
+        }
+    }
+
     /** Called from {@code ServerLifecycleHandler.onPlayerLoggedIn} - hands over any items that
      * couldn't be returned because the victim was offline when their vote closed. */
     public void deliverPendingReturns(ServerPlayer player) {
-        List<ItemStack> pending = pendingReturns.remove(player.getUUID());
+        List<EmbargoSeizureLogic.SeizedItem> pending = pendingReturns.remove(player.getUUID());
         if (pending == null || pending.isEmpty()) {
             return;
         }
-        for (ItemStack stack : pending) {
-            player.getInventory().placeItemBackInInventory(stack);
+        for (EmbargoSeizureLogic.SeizedItem item : pending) {
+            giveBack(player, item);
         }
         dirty.set(true);
         player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSe te devolvieron los objetos incautados que no fueron elegidos en la votacion del embargo."));
