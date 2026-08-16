@@ -78,7 +78,7 @@ public class EmbargoVoteMenu extends AbstractContainerMenu {
         Integer voted = EmbargoManager.get().voteOf(voteId, viewerUuid);
         if (voted == null || voted >= candidateCount) {
             ItemStack marker = new ItemStack(Items.GRAY_DYE);
-            marker.set(DataComponents.CUSTOM_NAME, Component.literal("§7Aun no has votado"));
+            marker.set(DataComponents.CUSTOM_NAME, Component.literal("§7Aún no has votado"));
             indicator.setItem(0, marker);
             return;
         }
