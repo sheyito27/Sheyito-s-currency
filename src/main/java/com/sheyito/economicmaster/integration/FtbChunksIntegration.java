@@ -165,7 +165,7 @@ final class FtbChunksIntegration {
     }
 
     /**
-     * Admin-only testing tool for {@code /sc rent forzar} - bills this one player's force-load
+     * Admin-only testing tool for {@code /sc rent force} - bills this one player's force-load
      * rent right now, ignoring whether {@code intervalGameDays} has actually elapsed. A no-op if
      * they have nothing force-loaded (nothing to bill). Same math and side effects (including
      * all-or-nothing auto-unload on failure) as the normal per-player pass inside
