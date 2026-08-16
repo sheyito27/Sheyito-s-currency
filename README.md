@@ -175,18 +175,21 @@ waystones/dimensiones/chunks — ninguno de esos es una compraventa entre jugado
 Si tu saldo se vuelve negativo (hoy solo posible vía `/eco charge`, herramienta de admin — la
 futura feature de "pagos obligatorios" será la vía real de gameplay), tienes `graceSeconds`
 segundos **reales** (30 por defecto, pausados mientras estás desconectado) para saldarlo vendiendo
-en tiendas, cobrando salario o completando misiones. Mientras tanto no puedes recibir dinero de
-otros jugadores (`/pay`/`/trade`), tirar objetos al suelo, ni abrir cofres o el ender chest — para
-que no puedas esconder tu equipo.
+en tiendas, cobrando salario o completando misiones, con avisos por chat en cuenta atrás (tiempo
+completo al entrar, cada 10 segundos, aviso dedicado a los 10 segundos, y del 5 al 1 uno por
+segundo). Mientras tanto no puedes recibir dinero de otros jugadores (`/pay`/`/trade`), tirar
+objetos al suelo, ni abrir cofres o el ender chest — para que no puedas esconder tu equipo.
 
 Si se agota el plazo, se ejecuta todo de golpe: se te incauta del inventario (equipado y suelto)
 toda armadura, arma o herramienta, tu saldo vuelve a exactamente 0, y no hay marcha atrás — pagar
-después no recupera nada. En cuanto haya suficientes jugadores conectados (sin contar a la
-víctima), se abre una votación secreta (`/embargo vote`, menú tipo cofre) sobre cuál de los objetos
-incautados se manda a la pool de subastas del servidor; el resto se te devuelve en cuanto cierra.
-La votación se cierra solo cuando hay suficientes votos **y** han pasado suficientes días de juego
-a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace nada por sí sola — un admin la
-saca con `/sc embargo retirar` y la comunidad decide qué hacer con ella.
+después no recupera nada. Lo que llevabas **equipado** se te devuelve de inmediato — nunca entra en
+la subasta, solo lo que tenías suelto en el inventario está en juego. En cuanto haya suficientes
+jugadores conectados (sin contar a la víctima), se abre una votación secreta (`/embargo vote`, menú
+tipo cofre) sobre cuál de esos objetos sueltos se manda a la pool de subastas del servidor; el resto
+se te devuelve en cuanto cierra. La votación se cierra solo cuando hay suficientes votos **y** han
+pasado suficientes días de juego a la vez (`minVotersToClose`, `minVoteGameDays`). La pool no hace
+nada por sí sola — un admin la saca con `/sc embargo retirar` y la comunidad decide qué hacer con
+ella.
 
 ## Renta progresiva sobre ganancias
 
