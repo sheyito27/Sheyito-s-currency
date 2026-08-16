@@ -7,9 +7,13 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 ### Arreglado
 - El botón `[Votar]` del aviso de embargo apuntaba a `/sc embargo vote` (no existe) en vez de `/embargo vote` - el click siempre fallaba con "Unknown or incomplete command".
 - Los mensajes de incautación y de cierre de votación eran texto fijo genérico ("tu armadura, armas y herramientas", "el resto se devolvió") sin importar lo que realmente pasara - si la víctima solo tenía un ítem encima, sonaba como si hubiera perdido más de lo real, o como si algo se hubiera devuelto cuando no había "resto" que devolver. Ahora nombran exactamente lo incautado/devuelto.
+- El mensaje de cierre de votación podía anunciar "Air x0" como el objeto devuelto en vez del nombre real - `Inventory#placeItemBackInInventory` vacía el propio `ItemStack` al insertarlo, y el mensaje se construía después de eso, leyendo el objeto ya vacío. Ahora se construye antes.
+- Durante el periodo de gracia solo se bloqueaba abrir cofre/ender chest - un shulker, un barril, o cualquier contenedor de otro mod dejaban esconder el equipo igualmente. Ahora se bloquea cualquier bloque que abra un menú (comprobación genérica, no una lista de clases) más un cierre universal de cualquier ventana que se llegue a abrir (incluida la propia `/trade`), como red de seguridad para inventarios que no son bloques.
 
 ### Cambiado: embargo con cuenta atrás real
 - El plazo de gracia ahora avisa por chat en cuenta atrás real: el tiempo completo al entrar en banca rota, cada 10 segundos, un aviso dedicado a los 10 segundos, y un mensaje por segundo del 5 al 1 justo antes de la incautación.
+- El mensaje de incautación ya no repite "se agotó tu plazo de gracia" (la cuenta atrás ya avisó de sobra) - va directo a qué se incautó.
+- Un ítem incautado que llevabas equipado y no gana la votación (o vuelve por estar offline) se **reequipa** directamente en su ranura si sigue libre, en vez de caer como ítem suelto en la mochila.
 - Nuevo comando de dev `/sc liquidation close <player>`: fuerza el cierre de la votación de embargo más antigua de ese jugador, saltándose el mínimo de votantes y de días de juego (que se miden en tiempo real de servidor acumulado - una sesión de pruebas corta puede no acumular suficiente aunque ya se haya votado).
 - Los comandos del embargo pasan de español a inglés: `/embargo vote` → `/liquidation vote`, `/sc embargo retirar` → `/sc liquidation withdraw`. Solo cambian los literales que se escriben - los mensajes del mod al jugador y el nombre interno de la feature siguen en español.
 
