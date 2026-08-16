@@ -21,16 +21,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Covers the pool's FIFO storage plus the bidding auction on whichever item sits at the front -
- * see {@code EmbargoDeudas.md}'s "La subasta con pujas" section for the design. */
+/** Covers the pool's storage plus the bidding auction on whichever item was picked via
+ * {@link AuctionPoolManager#startAuction} - the only way one ever starts, confirmed with the user
+ * against an earlier "opens automatically the moment the pool isn't empty" design (that's what the
+ * "puesto de subastas" villager multiblock is for - see {@code embargo.AuctionStandListener}, not
+ * unit-testable here since it needs a real Level). See {@code EmbargoDeudas.md}'s "La subasta con
+ * pujas" section for the full design. */
 class AuctionPoolManagerTest {
 
     @BeforeAll
@@ -82,17 +84,24 @@ class AuctionPoolManagerTest {
         return player;
     }
 
+    /** Starts an auction on whichever item is first in the list right now - convenience for tests
+     * that only care about bidding/closing, not about which item got picked. */
+    private static void startFirst(AuctionPoolManager pool, long day) {
+        AuctionPoolManager.PooledItem item = pool.list().get(0);
+        assertEquals(AuctionPoolManager.StartResult.SUCCESS, pool.startAuction(item, day));
+    }
+
     @Test
     void newPoolIsEmpty() throws Exception {
         withPool(3, (pool, economy, server) -> {
             assertTrue(pool.list().isEmpty());
-            assertTrue(pool.retrieveNext(server).isEmpty());
+            assertTrue(pool.retrieveNext().isEmpty());
             assertTrue(pool.currentAuctionItem().isEmpty());
         });
     }
 
     @Test
-    void addedItemsShowUpInListAndOpenAFreshAuctionIfThePoolWasEmpty() throws Exception {
+    void addedItemsShowUpInListButNothingStartsOnItsOwn() throws Exception {
         withPool(3, (pool, economy, server) -> {
             UUID victim = UUID.randomUUID();
 
@@ -105,21 +114,76 @@ class AuctionPoolManagerTest {
             assertEquals("Fulano", items.get(0).seizedFromName());
             assertEquals(5L, items.get(0).addedAtGameDay());
 
-            assertTrue(pool.currentAuctionItem().isPresent(), "a fresh auction opens automatically");
+            assertTrue(pool.currentAuctionItem().isEmpty(),
+                    "nothing is up for bid until someone explicitly starts it via startAuction");
+        });
+    }
+
+    @Test
+    void startAuctionOpensBiddingOnWhicheverItemIsChosen() throws Exception {
+        withPool(3, (pool, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 0L);
+            AuctionPoolManager.PooledItem axe = pool.list().get(1);
+
+            AuctionPoolManager.StartResult result = pool.startAuction(axe, 0L);
+
+            assertEquals(AuctionPoolManager.StartResult.SUCCESS, result);
+            assertEquals(Items.NETHERITE_AXE, pool.currentAuctionItem().orElseThrow().stack().getItem(),
+                    "the chosen item becomes the one up for auction, regardless of its original position");
             assertEquals(0.0, pool.currentHighestBid());
             assertTrue(pool.currentHighestBidder().isEmpty());
         });
     }
 
     @Test
-    void aSecondAddedItemJustQueuesBehindTheOneAlreadyUpForAuction() throws Exception {
+    void startAuctionMovesTheChosenItemToTheFrontWithoutLosingTheRest() throws Exception {
         withPool(3, (pool, economy, server) -> {
             UUID victim = UUID.randomUUID();
-            pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 1L);
-            pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 2L);
+            pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 0L);
+            pool.add(new ItemStack(Items.IRON_PICKAXE), victim, "Fulano", 0L);
+            AuctionPoolManager.PooledItem pickaxe = pool.list().get(2);
 
+            pool.startAuction(pickaxe, 0L);
+
+            List<AuctionPoolManager.PooledItem> items = pool.list();
+            assertEquals(3, items.size(), "nothing gets lost, just reordered");
+            assertEquals(Items.IRON_PICKAXE, items.get(0).stack().getItem());
+            assertEquals(Items.DIAMOND_SWORD, items.get(1).stack().getItem());
+            assertEquals(Items.NETHERITE_AXE, items.get(2).stack().getItem());
+        });
+    }
+
+    @Test
+    void startAuctionFailsIfOneIsAlreadyActive() throws Exception {
+        withPool(3, (pool, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 0L);
+            AuctionPoolManager.PooledItem sword = pool.list().get(0);
+            AuctionPoolManager.PooledItem axe = pool.list().get(1);
+            pool.startAuction(sword, 0L);
+
+            AuctionPoolManager.StartResult result = pool.startAuction(axe, 0L);
+
+            assertEquals(AuctionPoolManager.StartResult.ALREADY_ACTIVE, result);
             assertEquals(Items.DIAMOND_SWORD, pool.currentAuctionItem().orElseThrow().stack().getItem(),
-                    "the first item stays the one up for auction, the second just queues");
+                    "the already-active auction is untouched");
+        });
+    }
+
+    @Test
+    void startAuctionFailsIfTheChosenItemIsNoLongerInThePool() throws Exception {
+        withPool(3, (pool, economy, server) -> {
+            UUID victim = UUID.randomUUID();
+            AuctionPoolManager.PooledItem notPooled = new AuctionPoolManager.PooledItem(
+                    new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+
+            AuctionPoolManager.StartResult result = pool.startAuction(notPooled, 0L);
+
+            assertEquals(AuctionPoolManager.StartResult.ITEM_NOT_FOUND, result);
         });
     }
 
@@ -130,6 +194,7 @@ class AuctionPoolManagerTest {
             UUID bidder = UUID.randomUUID();
             economy.give(bidder, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
 
             AuctionPoolManager.BidResult result = pool.placeBid(bidder, 100.0);
 
@@ -149,6 +214,7 @@ class AuctionPoolManagerTest {
             economy.give(firstBidder, 1000.0);
             economy.give(secondBidder, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(firstBidder, 100.0);
 
             AuctionPoolManager.BidResult result = pool.placeBid(secondBidder, 100.0);
@@ -166,6 +232,7 @@ class AuctionPoolManagerTest {
             UUID bidder = UUID.randomUUID();
             economy.give(bidder, 50.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
 
             AuctionPoolManager.BidResult result = pool.placeBid(bidder, 100.0);
 
@@ -181,6 +248,7 @@ class AuctionPoolManagerTest {
             UUID victim = UUID.randomUUID();
             economy.give(victim, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
 
             AuctionPoolManager.BidResult result = pool.placeBid(victim, 100.0);
 
@@ -198,6 +266,7 @@ class AuctionPoolManagerTest {
             economy.give(firstBidder, 1000.0);
             economy.give(secondBidder, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(firstBidder, 100.0);
 
             AuctionPoolManager.BidResult result = pool.placeBid(secondBidder, 200.0);
@@ -217,6 +286,7 @@ class AuctionPoolManagerTest {
             UUID bidder = UUID.randomUUID();
             economy.give(bidder, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(bidder, 100.0);
 
             when(server.overworld().getGameTime()).thenReturn(2L * 24000L);
@@ -236,6 +306,7 @@ class AuctionPoolManagerTest {
             ServerPlayer winnerPlayer = mockOnlinePlayer(bidder);
             when(server.getPlayerList().getPlayer(bidder)).thenReturn(winnerPlayer);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(bidder, 100.0);
 
             when(server.overworld().getGameTime()).thenReturn(3L * 24000L);
@@ -249,23 +320,25 @@ class AuctionPoolManagerTest {
     }
 
     @Test
-    void closingWithAWinnerOpensAFreshAuctionOnTheNextQueuedItem() throws Exception {
+    void closingWithAWinnerDoesNotAutoOpenTheNextQueuedItem() throws Exception {
         withPool(3, (pool, economy, server) -> {
             UUID victim = UUID.randomUUID();
             UUID bidder = UUID.randomUUID();
             economy.give(bidder, 1000.0);
-            ServerPlayer winnerPlayer = mockOnlinePlayer(bidder);
-            when(server.getPlayerList().getPlayer(bidder)).thenReturn(winnerPlayer);
+            ServerPlayer bidderPlayer = mockOnlinePlayer(bidder);
+            when(server.getPlayerList().getPlayer(bidder)).thenReturn(bidderPlayer);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
             pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(bidder, 100.0);
 
             when(server.overworld().getGameTime()).thenReturn(3L * 24000L);
             pool.tickAuctionClosing(server);
 
-            assertEquals(Items.NETHERITE_AXE, pool.currentAuctionItem().orElseThrow().stack().getItem());
-            assertEquals(0.0, pool.currentHighestBid(), "a brand new auction, no carried-over bid");
-            assertTrue(pool.currentHighestBidder().isEmpty());
+            assertTrue(pool.currentAuctionItem().isEmpty(),
+                    "nothing reopens on its own - someone has to pick the axe at the auction stand");
+            assertEquals(1, pool.list().size());
+            assertEquals(Items.NETHERITE_AXE, pool.list().get(0).stack().getItem(), "still waiting in the pool");
         });
     }
 
@@ -275,14 +348,15 @@ class AuctionPoolManagerTest {
             UUID victim = UUID.randomUUID();
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
             pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
 
             when(server.overworld().getGameTime()).thenReturn(3L * 24000L);
             pool.tickAuctionClosing(server);
 
             assertEquals(2, pool.list().size(), "nothing is destroyed just for going unsold");
-            assertEquals(Items.NETHERITE_AXE, pool.currentAuctionItem().orElseThrow().stack().getItem(),
-                    "the next item in line gets its turn now");
+            assertTrue(pool.currentAuctionItem().isEmpty(), "closed, and nothing reopens on its own");
             List<AuctionPoolManager.PooledItem> items = pool.list();
+            assertEquals(Items.NETHERITE_AXE, items.get(0).stack().getItem(), "never got its turn, still waits at the front");
             assertEquals(Items.DIAMOND_SWORD, items.get(1).stack().getItem(), "the unsold sword moved to the back");
         });
     }
@@ -295,6 +369,7 @@ class AuctionPoolManagerTest {
             economy.give(bidder, 1000.0);
             // No stub for getPlayer(bidder) -> null -> offline.
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(bidder, 100.0);
 
             when(server.overworld().getGameTime()).thenReturn(3L * 24000L);
@@ -315,7 +390,7 @@ class AuctionPoolManagerTest {
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 1L);
             pool.add(new ItemStack(Items.NETHERITE_AXE), victim, "Fulano", 2L);
 
-            Optional<AuctionPoolManager.PooledItem> first = pool.retrieveNext(server);
+            Optional<AuctionPoolManager.PooledItem> first = pool.retrieveNext();
 
             assertTrue(first.isPresent());
             assertEquals(Items.DIAMOND_SWORD, first.get().stack().getItem());
@@ -331,12 +406,14 @@ class AuctionPoolManagerTest {
             UUID bidder = UUID.randomUUID();
             economy.give(bidder, 1000.0);
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
+            startFirst(pool, 0L);
             pool.placeBid(bidder, 100.0);
 
-            Optional<AuctionPoolManager.PooledItem> withdrawn = pool.retrieveNext(server);
+            Optional<AuctionPoolManager.PooledItem> withdrawn = pool.retrieveNext();
 
             assertTrue(withdrawn.isPresent());
             assertEquals(1000.0, economy.getBalance(bidder), "no money left stranded with neither the item nor a refund");
+            assertTrue(pool.currentAuctionItem().isEmpty(), "the active auction is gone along with the item");
         });
     }
 
@@ -346,7 +423,7 @@ class AuctionPoolManagerTest {
             UUID victim = UUID.randomUUID();
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
 
-            assertTrue(pool.retrieveNext(server).isPresent());
+            assertTrue(pool.retrieveNext().isPresent());
         });
     }
 }
