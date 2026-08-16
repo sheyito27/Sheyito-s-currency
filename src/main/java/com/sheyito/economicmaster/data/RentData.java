@@ -5,8 +5,9 @@ import java.util.Map;
 
 /**
  * On-disk shape of &lt;world&gt;/sheyitoscurrency/rent_data.json - per player, when they were last
- * charged the progressive profit tax and what their balance was at that moment (the baseline
- * "ganancias" is measured against next time).
+ * charged the progressive profit tax and how much they've earned (gross, via
+ * {@code EconomyManager#give}) since then. {@code lastRentDay} of -1 means "never checkpointed
+ * yet" - seeded on the next periodic pass, not at accumulation time.
  */
 public class RentData {
 
@@ -17,7 +18,7 @@ public class RentData {
     }
 
     public static class RentRecord {
-        public long lastRentDay;
-        public double balanceSnapshot;
+        public long lastRentDay = -1;
+        public double accumulatedGains;
     }
 }
