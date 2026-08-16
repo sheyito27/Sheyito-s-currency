@@ -2,6 +2,7 @@ package com.sheyito.economicmaster;
 
 import com.mojang.logging.LogUtils;
 import com.sheyito.economicmaster.commands.CommandRegistrar;
+import com.sheyito.economicmaster.embargo.AuctionStandListener;
 import com.sheyito.economicmaster.embargo.EmbargoBlockListener;
 import com.sheyito.economicmaster.embargo.EmbargoScheduler;
 import com.sheyito.economicmaster.events.DimensionUnlockListener;
@@ -47,6 +48,7 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
         NeoForge.EVENT_BUS.register(new EmbargoScheduler());
         NeoForge.EVENT_BUS.register(new EmbargoBlockListener());
+        NeoForge.EVENT_BUS.register(new AuctionStandListener());
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
         modEventBus.addListener((FMLCommonSetupEvent event) -> WaystonesCompat.logDetection());
