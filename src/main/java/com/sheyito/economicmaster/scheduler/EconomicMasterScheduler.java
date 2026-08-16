@@ -40,6 +40,7 @@ public class EconomicMasterScheduler {
         SubscriptionManager.get().processDueCharges(event.getServer());
         SubscriptionManager.get().expireInvites(event.getServer());
         EmbargoManager.get().tickVoteClosing(event.getServer());
+        AuctionPoolManager.get().tickAuctionClosing(event.getServer());
         RentManager.get().processDueRent(event.getServer());
         FTBChunksCompat.processForceLoadRent(event.getServer());
 
