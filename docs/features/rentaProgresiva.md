@@ -77,13 +77,13 @@ recorre los jugadores con algún registro:
 Toda la aritmética de tramos vive en `RentLogic` (pura, sin tocar `EconomyManager` ni persistencia)
 para poder testearla con listas de tramos cualquiera, sin necesitar un servidor.
 
-`forceProcess` (detrás de `/sc rent forzar`) reutiliza el mismo método privado de cobro
+`forceProcess` (detrás de `/sc rent force`) reutiliza el mismo método privado de cobro
 (`chargeAndAdvance`) que la pasada periódica, pero sin la comprobación de "¿ya tocaba?" — cobra lo
 acumulado en el momento, aunque sea la primerísima vez que se llama para ese jugador.
 
 ## Comandos
 
-- `/sc rent forzar <jugador>` (OP nivel 2) — fuerza un cobro inmediato de lo que ese jugador tenga
+- `/sc rent force <player>` (OP nivel 2) — fuerza un cobro inmediato de lo que ese jugador tenga
   acumulado, ignorando si ya pasaron `intervalGameDays` de verdad. Cobra también la renta de
   force-load de chunks del mismo jugador en la misma llamada (`RentCommand.java`) — evita tener
   que esperar 7 días de juego reales para probar que un cobro dispara bien. No hace nada si el
