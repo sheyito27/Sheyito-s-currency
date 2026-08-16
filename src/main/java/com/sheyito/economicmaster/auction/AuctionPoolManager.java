@@ -30,12 +30,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * ({@link #items} index 0). Follows the manager-with-lifecycle pattern (docs/features/patronManager.md).
  *
  * <p>Only one auction is ever active - same "one at a time" spirit as the embargo's own seizure
- * vote ({@code AuctionVote}). A fresh {@link FrontAuction} opens automatically the moment the pool
- * stops being empty, or the moment the previous auction resolves (sold or expired unsold) and
- * there's something left behind it. The winning bid is taken via {@link EconomyManager#take} the
- * instant it's placed (escrowed) - refunded in full if later outbid, and simply never given to
- * anyone if it wins, which IS the burn: this mod never redistributes auction proceeds, same as
- * every other sink (IVA de transmisión, renta de force-load, ...).
+ * vote ({@code AuctionVote}). Nothing opens automatically: {@link #startAuction} - called from the
+ * "puesto de subastas" multiblock's villager NPC ({@code AuctionStandListener}), the only way to
+ * pick what goes up - is the sole way a {@link FrontAuction} ever begins, confirmed with the user
+ * over the earlier "opens the moment the pool stops being empty" design. Closing an auction (sold
+ * or expired unsold) never auto-opens the next one either - it just goes idle until someone visits
+ * the stand again. The winning bid is taken via {@link EconomyManager#take} the instant it's
+ * placed (escrowed) - refunded in full if later outbid, and simply never given to anyone if it
+ * wins, which IS the burn: this mod never redistributes auction proceeds, same as every other sink
+ * (IVA de transmisión, renta de force-load, ...).
  */
 public class AuctionPoolManager {
 
@@ -60,6 +63,10 @@ public class AuctionPoolManager {
 
     public enum BidResult {
         SUCCESS, NO_ACTIVE_AUCTION, CANNOT_BID_ON_OWN_ITEM, TOO_LOW, INSUFFICIENT_FUNDS
+    }
+
+    public enum StartResult {
+        SUCCESS, ALREADY_ACTIVE, ITEM_NOT_FOUND
     }
 
     private AuctionPoolManager(Path file) {
@@ -153,16 +160,9 @@ public class AuctionPoolManager {
     }
 
     /** Called from {@code EmbargoManager.closeVote} when the community's vote picks an item to
-     * auction. Opens a fresh bidding round on it immediately if the pool was empty (nothing
-     * already at the front) - otherwise it just queues behind whatever's currently up for bid. */
+     * auction. Just joins the pool - nothing opens on its own, see {@link #startAuction}. */
     public void add(ItemStack stack, UUID seizedFromUuid, String seizedFromName, long gameDay) {
-        boolean wasEmpty = items.isEmpty();
         items.add(new PooledItem(stack.copy(), seizedFromUuid, seizedFromName, gameDay));
-        if (wasEmpty) {
-            FrontAuction auction = new FrontAuction();
-            auction.openedGameDay = gameDay;
-            frontAuction = auction;
-        }
         dirty.set(true);
     }
 
@@ -172,7 +172,29 @@ public class AuctionPoolManager {
 
     /** The item currently up for bid, if any. */
     public Optional<PooledItem> currentAuctionItem() {
-        return items.isEmpty() ? Optional.empty() : Optional.of(items.get(0));
+        return frontAuction == null ? Optional.empty() : Optional.of(items.get(0));
+    }
+
+    /**
+     * Picks {@code chosen} to be the one up for bid right now - called from the "puesto de
+     * subastas" villager's selection menu, the only way an auction ever starts. Moves it to the
+     * front of the queue (everything else just shifts back, nothing is lost) and opens a fresh
+     * {@link FrontAuction} on it. Rejects if an auction is already active (finish or wait for that
+     * one first) or if {@code chosen} somehow isn't in the pool anymore (picked from a stale menu).
+     */
+    public StartResult startAuction(PooledItem chosen, long currentDay) {
+        if (frontAuction != null) {
+            return StartResult.ALREADY_ACTIVE;
+        }
+        if (!items.remove(chosen)) {
+            return StartResult.ITEM_NOT_FOUND;
+        }
+        items.add(0, chosen);
+        FrontAuction auction = new FrontAuction();
+        auction.openedGameDay = currentDay;
+        frontAuction = auction;
+        dirty.set(true);
+        return StartResult.SUCCESS;
     }
 
     public Optional<UUID> currentHighestBidder() {
@@ -230,18 +252,18 @@ public class AuctionPoolManager {
         PooledItem current = items.remove(0);
         UUID winner = frontAuction.highestBidder;
         double winningBid = frontAuction.highestBid;
+        frontAuction = null;
         dirty.set(true);
 
         if (winner == null) {
             // Nobody bid at all - goes to the back of the queue for its next turn instead of
-            // camping the front forever and blocking everything behind it.
+            // camping the front forever and blocking everything behind it. Stays unsold until
+            // someone picks it again at the auction stand - nothing reopens on its own.
             items.add(current);
-            openFrontAuction(GameTime.currentDay(server));
             return;
         }
 
         deliver(winner, current.stack(), server);
-        openFrontAuction(GameTime.currentDay(server));
 
         String winnerName = EconomyManager.get().getName(winner);
         String message = "§6[Sheyito's currency] §f" + winnerName + " se llevó "
@@ -250,16 +272,6 @@ public class AuctionPoolManager {
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             p.sendSystemMessage(Component.literal(message));
         }
-    }
-
-    private void openFrontAuction(long currentDay) {
-        if (items.isEmpty()) {
-            frontAuction = null;
-            return;
-        }
-        FrontAuction auction = new FrontAuction();
-        auction.openedGameDay = currentDay;
-        frontAuction = auction;
     }
 
     private void deliver(UUID uuid, ItemStack stack, MinecraftServer server) {
@@ -290,7 +302,7 @@ public class AuctionPoolManager {
     /** Pops the oldest pooled item (FIFO), for "/sc liquidation withdraw" - an admin override
      * that works regardless of auction state. If that item had an active bidder, refunds their
      * escrowed bid first, so no money is left stranded with neither an item nor a refund. */
-    public Optional<PooledItem> retrieveNext(MinecraftServer server) {
+    public Optional<PooledItem> retrieveNext() {
         if (items.isEmpty()) {
             return Optional.empty();
         }
@@ -298,7 +310,7 @@ public class AuctionPoolManager {
         if (frontAuction != null && frontAuction.highestBidder != null) {
             EconomyManager.get().give(frontAuction.highestBidder, frontAuction.highestBid);
         }
-        openFrontAuction(GameTime.currentDay(server));
+        frontAuction = null;
         dirty.set(true);
         return Optional.of(next);
     }
