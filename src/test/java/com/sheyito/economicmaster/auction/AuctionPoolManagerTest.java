@@ -13,7 +13,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Pure storage backing "/sc embargo retirar" - a FIFO queue with no auction logic of its own. */
+/** Pure storage backing "/sc liquidation withdraw" - a FIFO queue with no auction logic of its own. */
 class AuctionPoolManagerTest {
 
     @BeforeAll
