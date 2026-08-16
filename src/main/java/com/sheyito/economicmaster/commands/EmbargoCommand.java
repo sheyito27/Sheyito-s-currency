@@ -87,7 +87,7 @@ public final class EmbargoCommand {
 
     private static int withdraw(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer admin = ctx.getSource().getPlayerOrException();
-        Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext(ctx.getSource().getServer());
+        Optional<AuctionPoolManager.PooledItem> next = AuctionPoolManager.get().retrieveNext();
         if (next.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal("§cLa pool de subastas está vacía."));
             return 0;
