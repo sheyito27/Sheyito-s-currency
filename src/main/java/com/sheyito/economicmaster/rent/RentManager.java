@@ -19,18 +19,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Charges a progressive tax on each player's 7-day PROFIT (not net worth) - see
- * {@link RentLogic}. Follows the manager-with-lifecycle pattern (docs/features/patronManager.md).
- * Every player with a tracked balance is a candidate ({@link EconomyManager#top} enumerates all
- * of them without needing a new getter on EconomyManager); a player's first appearance only
- * records a baseline, it never charges for time before they were being tracked.
+ * Charges a progressive tax on each player's 7-day GROSS earnings - see {@link RentLogic}.
+ * Follows the manager-with-lifecycle pattern (docs/features/patronManager.md).
  *
- * <p>Unlike every other sink in this mod, this one uses {@link EconomyManager#charge} - not
- * {@link EconomyManager#take} - so it can genuinely push a player into a negative balance
- * instead of just being skipped when they can't afford it. That is the point, confirmed with the
- * user: this is meant to be able to end in "banca rota", and {@code setBalance}'s own
- * >=0-to-negative hook already wires that straight into the embargo grace period - the first
- * real, organic trigger for it, no changes needed on that side.
+ * <p>"Ganancias" is a running accumulator fed by {@link EconomyManager#give} ({@link #trackGain}),
+ * not a before/after balance comparison - confirmed with the user against an earlier net-delta
+ * design: earning 10,000 and separately losing 20,000 in the same period still owes tax on the
+ * 10,000 earned, even though the player is down overall. Losing money is spending, unrelated to
+ * this tax; it never offsets a gain, past or future.
+ *
+ * <p>Unlike every other sink in this mod, charging this tax uses {@link EconomyManager#charge} -
+ * not {@link EconomyManager#take} - so it can genuinely push a player into a negative balance
+ * instead of being skipped when they can't afford it. That is the point, confirmed with the user:
+ * this is meant to be able to end in "banca rota", and {@code setBalance}'s own >=0-to-negative
+ * hook already wires that straight into the embargo grace period - the first real, organic
+ * trigger for it, no changes needed on that side.
  */
 public class RentManager {
 
@@ -41,8 +44,8 @@ public class RentManager {
     private final AtomicBoolean dirty = new AtomicBoolean(false);
 
     private static class Record {
-        long lastRentDay;
-        double balanceSnapshot;
+        long lastRentDay = -1;
+        double accumulatedGains;
     }
 
     private RentManager(Path file) {
@@ -81,7 +84,7 @@ public class RentManager {
         data.records.forEach((uuid, stored) -> {
             Record record = new Record();
             record.lastRentDay = stored.lastRentDay;
-            record.balanceSnapshot = stored.balanceSnapshot;
+            record.accumulatedGains = stored.accumulatedGains;
             records.put(UUID.fromString(uuid), record);
         });
     }
@@ -97,10 +100,21 @@ public class RentManager {
         records.forEach((uuid, record) -> {
             RentData.RentRecord stored = new RentData.RentRecord();
             stored.lastRentDay = record.lastRentDay;
-            stored.balanceSnapshot = record.balanceSnapshot;
+            stored.accumulatedGains = record.accumulatedGains;
             data.records.put(uuid.toString(), stored);
         });
         JsonFileUtil.save(file, data);
+    }
+
+    /** Called from {@link EconomyManager#give} - every gross gain accumulates here, regardless
+     * of what the player later spends or loses. A brand new player's record starts with
+     * {@code lastRentDay = -1} ("never billed yet"), which {@link #processDueRent} treats as
+     * immediately due - there is no pre-existing balance to worry about double-counting, since
+     * gains only ever accumulate here from this point forward. */
+    public void trackGain(UUID uuid, double amount) {
+        Record record = records.computeIfAbsent(uuid, k -> new Record());
+        record.accumulatedGains += amount;
+        dirty.set(true);
     }
 
     /** Called periodically (~30s cadence, day precision is all this needs) by
@@ -113,16 +127,11 @@ public class RentManager {
         EconomyManager economy = EconomyManager.get();
         long currentDay = GameTime.currentDay(server);
 
-        for (Map.Entry<UUID, Double> entry : economy.top(Integer.MAX_VALUE)) {
+        for (Map.Entry<UUID, Record> entry : records.entrySet()) {
             UUID uuid = entry.getKey();
-            Record record = records.get(uuid);
-
-            if (record == null) {
-                seedBaseline(uuid, entry.getValue(), currentDay);
-                continue;
-            }
-
-            if (currentDay - record.lastRentDay < config.intervalGameDays) {
+            Record record = entry.getValue();
+            boolean due = record.lastRentDay < 0 || currentDay - record.lastRentDay >= config.intervalGameDays;
+            if (!due) {
                 continue;
             }
 
@@ -131,58 +140,38 @@ public class RentManager {
     }
 
     /**
-     * Admin-only testing tool for {@code /sc rent forzar} - charges (or seeds, if this is the
-     * player's first time being seen) this one player's profit tax right now, ignoring whether
-     * {@code intervalGameDays} has actually elapsed. Same math and side effects as the normal
-     * per-player pass inside {@link #processDueRent}, just without the "is it due yet" gate.
+     * Admin-only testing tool for {@code /sc rent forzar} - charges this one player's
+     * accumulated gains right now, ignoring whether {@code intervalGameDays} has actually
+     * elapsed (and even whether they've ever been checkpointed at all). A no-op if they've never
+     * earned anything tracked - nothing accumulated, nothing to force.
      */
     public void forceProcess(MinecraftServer server, UUID uuid) {
         RentConfig config = ConfigManager.rent();
         if (!config.enabled) {
             return;
         }
-        EconomyManager economy = EconomyManager.get();
-        long currentDay = GameTime.currentDay(server);
         Record record = records.get(uuid);
-
         if (record == null) {
-            seedBaseline(uuid, economy.getBalance(uuid), currentDay);
             return;
         }
-
-        chargeAndAdvance(server, economy, config, uuid, record, currentDay);
+        chargeAndAdvance(server, EconomyManager.get(), config, uuid, record, GameTime.currentDay(server));
     }
 
-    private void seedBaseline(UUID uuid, double balance, long currentDay) {
-        Record record = new Record();
-        record.lastRentDay = currentDay;
-        record.balanceSnapshot = balance;
-        records.put(uuid, record);
-        dirty.set(true);
-    }
-
-    /**
-     * The gain measured here is strictly period-over-period against {@link Record#balanceSnapshot}
-     * - a loss is never "banked" as a credit against a future gain (confirmed with the user: a
-     * loss is just spending, unrelated to this tax, so it never offsets a later profit). Whatever
-     * the player earned since last time is what gets taxed here, full stop.
-     */
     private void chargeAndAdvance(MinecraftServer server, EconomyManager economy, RentConfig config,
                                    UUID uuid, Record record, long currentDay) {
-        double balance = economy.getBalance(uuid);
-        double profit = Math.max(0.0, balance - record.balanceSnapshot);
-        if (profit > 0) {
-            double tax = RentLogic.taxFor(profit, config.profitBrackets);
+        double gains = record.accumulatedGains;
+        if (gains > 0) {
+            double tax = RentLogic.taxFor(gains, config.profitBrackets);
             economy.charge(uuid, tax);
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player != null) {
                 player.sendSystemMessage(Component.literal("§6[Sheyito's currency] §fRenta semanal: -"
-                        + Money.format(tax) + " sobre " + Money.format(profit) + " de ganancias."));
+                        + Money.format(tax) + " sobre " + Money.format(gains) + " de ganancias."));
             }
         }
 
+        record.accumulatedGains = 0;
         record.lastRentDay = currentDay;
-        record.balanceSnapshot = economy.getBalance(uuid);
         dirty.set(true);
     }
 }
