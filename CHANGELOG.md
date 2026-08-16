@@ -8,9 +8,8 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 - El botón `[Votar]` del aviso de embargo apuntaba a `/sc embargo vote` (no existe) en vez de `/embargo vote` - el click siempre fallaba con "Unknown or incomplete command".
 - Los mensajes de incautación y de cierre de votación eran texto fijo genérico ("tu armadura, armas y herramientas", "el resto se devolvió") sin importar lo que realmente pasara - si la víctima solo tenía un ítem encima, sonaba como si hubiera perdido más de lo real, o como si algo se hubiera devuelto cuando no había "resto" que devolver. Ahora nombran exactamente lo incautado/devuelto.
 
-### Cambiado: embargo con cuenta atrás y equipo a salvo de la subasta
+### Cambiado: embargo con cuenta atrás real
 - El plazo de gracia ahora avisa por chat en cuenta atrás real: el tiempo completo al entrar en banca rota, cada 10 segundos, un aviso dedicado a los 10 segundos, y un mensaje por segundo del 5 al 1 justo antes de la incautación.
-- Lo que llevabas **equipado** (armadura puesta + lo que tenías en las manos) se sigue incautando igual, pero ya no puede ser el objeto que la comunidad vota para subastar - se te devuelve de inmediato. Solo lo que tenías suelto en el inventario entra en la votación.
 
 ### Nuevo: renta progresiva sobre ganancias
 - Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal.
