@@ -180,6 +180,8 @@ public class EmbargoManager {
                 player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSaldaste tu deuda a tiempo."));
                 continue;
             }
+            int elapsedBefore = graceSecondsElapsed.get(uuid);
+            announceCountdown(player, config.graceSeconds - elapsedBefore, config.graceSeconds);
             int elapsed = graceSecondsElapsed.merge(uuid, 1, Integer::sum);
             dirty.set(true);
             if (elapsed >= config.graceSeconds) {
@@ -188,20 +190,51 @@ public class EmbargoManager {
         }
     }
 
+    /** Fixed real-time checkpoints instead of a silent countdown: the full window right when the
+     * grace period starts, every 10s after that, a dedicated warning at 10s left, and a final
+     * per-second 5..1 countdown - so the threat of the seizure is actually felt, not just logged
+     * somewhere the player has to check. */
+    private void announceCountdown(ServerPlayer player, int remaining, int graceSeconds) {
+        if (remaining == graceSeconds) {
+            player.sendSystemMessage(Component.literal("§c§l[Sheyito's currency] §r§cEstas en banca rota. Tienes "
+                    + remaining + " segundos para saldar tu deuda."));
+        } else if (remaining == 10) {
+            player.sendSystemMessage(Component.literal(
+                    "§c[Sheyito's currency] §fEn 10 segundos el estado embargara tus objetos mas valiosos."));
+        } else if (remaining > 10 && remaining % 10 == 0) {
+            player.sendSystemMessage(Component.literal(
+                    "§c[Sheyito's currency] §fTe quedan " + remaining + " segundos para saldar tu deuda."));
+        } else if (remaining >= 1 && remaining <= 5) {
+            player.sendSystemMessage(Component.literal("§c§l" + remaining));
+        }
+    }
+
     private void executeSeizure(ServerPlayer player, MinecraftServer server) {
         graceSecondsElapsed.remove(player.getUUID());
-        List<ItemStack> seized = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
+        EmbargoSeizureLogic.SeizureResult result = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
+        List<ItemStack> allSeized = result.all();
         EconomyManager.get().setBalance(player.getUUID(), 0.0);
         dirty.set(true);
 
-        if (seized.isEmpty()) {
+        if (allSeized.isEmpty()) {
             player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia, pero no tenias nada incautable (armadura/armas/herramientas) encima. Tu saldo volvio a 0. No hay vuelta atras."));
             return;
         }
         player.sendSystemMessage(Component.literal("§c[Sheyito's currency] §fSe agoto tu plazo de gracia: se incauto "
-                + describeItems(seized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
+                + describeItems(allSeized) + ", y tu saldo volvio a 0. No hay vuelta atras."));
+
+        if (!result.equipped().isEmpty()) {
+            returnItems(player.getUUID(), result.equipped(), server);
+            player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fLo que llevabas equipado ("
+                    + describeItems(result.equipped()) + ") no entra en la subasta - se te ha devuelto."));
+        }
+        player.sendSystemMessage(Component.literal("§7[Sheyito's currency] Quien avisa no es traidor. Mas suerte para la proxima."));
+
+        if (result.loose().isEmpty()) {
+            return;
+        }
         long id = nextAuctionId.getAndIncrement();
-        AuctionVote vote = new AuctionVote(id, player.getUUID(), seized, GameTime.currentDay(server));
+        AuctionVote vote = new AuctionVote(id, player.getUUID(), result.loose(), GameTime.currentDay(server));
         activeVotes.put(id, vote);
         dirty.set(true);
         announceIfEligible(vote, server);
