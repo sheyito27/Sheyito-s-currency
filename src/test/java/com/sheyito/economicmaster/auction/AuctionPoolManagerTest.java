@@ -64,9 +64,13 @@ class AuctionPoolManagerTest {
         when(server.getPlayerList()).thenReturn(playerList);
         // Two anonymous online players by default - enough to clear the default
         // minPlayersToStartAuction=2 gate in every test that doesn't care about that gate itself
-        // (their random UUIDs never collide with a test's victim/bidder UUIDs).
-        when(playerList.getPlayers()).thenReturn(List.of(
-                mockOnlinePlayer(UUID.randomUUID()), mockOnlinePlayer(UUID.randomUUID())));
+        // (their random UUIDs never collide with a test's victim/bidder UUIDs). Built as separate
+        // statements, not inline inside thenReturn(...) - Mockito's stubbing is not reentrant, so
+        // nesting mock()/when() calls (mockOnlinePlayer does both) inside another when(...)'s
+        // argument list throws UnfinishedStubbingException.
+        ServerPlayer defaultOnlinePlayerA = mockOnlinePlayer(UUID.randomUUID());
+        ServerPlayer defaultOnlinePlayerB = mockOnlinePlayer(UUID.randomUUID());
+        when(playerList.getPlayers()).thenReturn(List.of(defaultOnlinePlayerA, defaultOnlinePlayerB));
 
         try (MockedStatic<ConfigManager> mocked = mockStatic(ConfigManager.class)) {
             mocked.when(ConfigManager::general).thenReturn(general);
@@ -201,7 +205,8 @@ class AuctionPoolManagerTest {
     void startAuctionFailsWithFewerThanTheConfiguredMinimumPlayersOnline() throws Exception {
         withPool(3, (pool, economy, server) -> {
             UUID victim = UUID.randomUUID();
-            when(server.getPlayerList().getPlayers()).thenReturn(List.of(mockOnlinePlayer(UUID.randomUUID())));
+            ServerPlayer onlyOnlinePlayer = mockOnlinePlayer(UUID.randomUUID());
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(onlyOnlinePlayer));
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
             AuctionPoolManager.PooledItem item = pool.list().get(0);
 
@@ -234,8 +239,9 @@ class AuctionPoolManagerTest {
     void startAuctionSucceedsWithExactlyTheConfiguredMinimumPlayersOnline() throws Exception {
         withPool(3, (pool, economy, server) -> {
             UUID victim = UUID.randomUUID();
-            when(server.getPlayerList().getPlayers()).thenReturn(List.of(
-                    mockOnlinePlayer(UUID.randomUUID()), mockOnlinePlayer(UUID.randomUUID())));
+            ServerPlayer onlinePlayerA = mockOnlinePlayer(UUID.randomUUID());
+            ServerPlayer onlinePlayerB = mockOnlinePlayer(UUID.randomUUID());
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(onlinePlayerA, onlinePlayerB));
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
             AuctionPoolManager.PooledItem item = pool.list().get(0);
 
@@ -405,7 +411,8 @@ class AuctionPoolManagerTest {
             ServerPlayer winnerPlayer = mockOnlinePlayer(bidder);
             when(server.getPlayerList().getPlayer(bidder)).thenReturn(winnerPlayer);
             ServerPlayer bystander = mockOnlinePlayer(UUID.randomUUID());
-            when(server.getPlayerList().getPlayers()).thenReturn(List.of(bystander));
+            ServerPlayer anotherBystander = mockOnlinePlayer(UUID.randomUUID());
+            when(server.getPlayerList().getPlayers()).thenReturn(List.of(bystander, anotherBystander));
             pool.add(new ItemStack(Items.DIAMOND_SWORD), victim, "Fulano", 0L);
             startFirst(pool, server);
             pool.placeBid(bidder, 100.0, server);
