@@ -61,7 +61,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
   - `chunk_claim.json` — solo `enabled`; el coste de reclamar un chunk con FTB Chunks escala como `n^1.5` por jugador y no es configurable (ver más abajo).
   - `transmission_tax.json` — porcentaje de IVA que se quema en `/pay`, el dinero de `/trade`, las tiendas de cartel y las suscripciones (`taxPercent`, 10% por defecto, ver más abajo).
-  - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto), condiciones de cierre de la votación de qué se incauta (`minVotersToClose`, `minVoteGameDays`), duración/incrementos de puja de la subasta de la pool (`auctionDurationGameDays`, `bidIncrements`) y el bloque de columnas/techo del "puesto de subastas" (`auctionStandBlockId`, ver más abajo).
+  - `embargo.json` — plazo de gracia en segundos (`graceSeconds`, 30 por defecto), condiciones de cierre de la votación de qué se incauta (`minVotersToClose`, `minVoteGameDays`), segundos reales sin pujas antes de cerrar la subasta de la pool, jugadores mínimos para poder empezarla e incrementos de puja (`auctionInactivitySeconds`, 30 por defecto, `minPlayersToStartAuction`, 2 por defecto, `bidIncrements`) y el bloque de columnas/techo del "puesto de subastas" (`auctionStandBlockId`, ver más abajo).
   - `rent.json` — cadencia compartida (`intervalGameDays`, 7 por defecto) de la renta progresiva sobre ganancias (`profitBrackets`) y la renta de force-load de chunks (`forceLoadRentBase`, ver más abajo).
 - **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas, dimensiones desbloqueadas, chunks reclamados/force-loaded, seguimiento de renta): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
 
@@ -84,7 +84,7 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
 - `/liquidation vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
-- `/liquidation auction` — si hay una subasta activa en la que puedes participar (nunca si eres la víctima del objeto en juego), abre el menú para pujar (ver más abajo). Se puja clicando botones, no escribiendo cifras.
+- `/auction` — si hay una subasta activa en la que puedes participar (nunca si eres la víctima del objeto en juego), abre el menú para pujar (ver más abajo). Se puja clicando botones, no escribiendo cifras. Es el mismo comando que ejecuta el botón `[Pujar]` de los mensajes de inicio de subasta y de cada puja.
 
 ### Administración (requieren OP nivel 2 o consola)
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
@@ -194,19 +194,29 @@ días de juego a la vez (`minVotersToClose`, `minVoteGameDays`).
 
 El objeto que gana la votación entra en la pool, pero **no se subasta solo**: la única forma de
 elegir qué sale a puja es construir un **puesto de subastas** - un atril con 3 columnas y un techo
-(bloque configurable, `auctionStandBlockId`) formando un hueco de 2 de alto. Al completarlo aparece
-un aldeano fijo dentro (con partículas y sonido); hablar con él abre un menú con todo lo que hay en
-la pool, y clicar un objeto lo pone en juego. Solo puede haber una subasta activa a la vez.
+(bloque configurable, `auctionStandBlockId`) formando un hueco de 2 de alto, en cualquier
+orientación horizontal (mirando a cualquiera de los 4 puntos cardinales - el detector prueba las 4
+solo). Al completarlo aparece un aldeano fijo dentro (con partículas y
+sonido) que gira para mirar al jugador que tenga más cerca en vez de quedarse mirando a un punto
+fijo; hablar con él abre un menú con todo lo que hay en la pool, y clicar un objeto lo pone en
+juego - lo que dispara el mensaje de inicio de subasta (ver abajo), siempre que haya al menos
+`minPlayersToStartAuction` (2 por defecto) jugadores conectados sin contar a la víctima del ítem -
+si no, se rechaza y el ítem se queda esperando en la pool. Solo puede haber una subasta activa a la
+vez.
 
-Esa subasta sí es **con pujas de verdad** (`/liquidation auction`, menú tipo cofre con botones -
-nada de escribir cifras por chat): un botón por cada incremento configurado (`bidIncrements`) puja
+Esa subasta sí es **con pujas de verdad** (`/auction`, menú tipo cofre con botones - nada de
+escribir cifras por chat): un botón por cada incremento configurado (`bidIncrements`) puja
 `pujaActual + incremento`, más un botón para pujar tu saldo máximo. Pujar retiene el dinero al
-instante; si te superan, se te devuelve íntegro. La puja se cierra pasados
-`auctionDurationGameDays` días de juego - si ganó alguien, se lleva el ítem y su dinero se queda
-quemado (nunca se redistribuye, ni siquiera a la víctima original); si nadie pujó, el ítem vuelve a
-esperar en la pool hasta que alguien lo elija otra vez en el puesto - nada se reabre solo.
-`/sc liquidation withdraw` sigue existiendo como válvula de escape de admin (saca el
-ítem de la cabeza de la cola pase lo que pase, reembolsando primero cualquier puja activa sobre él).
+instante; si te superan, se te devuelve íntegro. Tanto al empezar la subasta como en cada puja se
+anuncia por chat a todo el servidor con un botón `[Pujar]` que abre el menú directamente. Si pasan
+`auctionInactivitySeconds` segundos reales (30 por defecto) sin que nadie puje, se cierra sola -
+cada puja reinicia esa cuenta atrás a 0, y mientras corre se avisa por chat cada 10 segundos y con
+cuenta atrás final del 5 al 1 (sin botón, solo en los mensajes de inicio y de puja). Si ganó
+alguien, se lleva el ítem y su dinero se queda quemado (nunca se redistribuye, ni siquiera a la
+víctima original); si nadie pujó, el ítem vuelve a esperar en la pool hasta que alguien lo elija
+otra vez en el puesto - nada se reabre solo. `/sc liquidation withdraw` sigue existiendo como
+válvula de escape de admin (saca el ítem de la cabeza de la cola pase lo que pase, reembolsando
+primero cualquier puja activa sobre él).
 
 ## Renta progresiva sobre ganancias
 
@@ -290,11 +300,11 @@ com.sheyito.economicmaster
 ├── dimension/DimensionUnlockManager  dimensiones que cada jugador ya pago (Nether, End, modded)
 ├── chunk/ChunkClaimRegistry      chunks reclamados (precio n^1.5) y force-loaded (renta n^1.5 base 10) por jugador
 ├── rent/                         RentManager/RentLogic - renta progresiva semanal sobre ganancias (tipo plano por tramo)
-├── embargo/                      EmbargoManager/EmbargoScheduler/EmbargoSeizureLogic/EmbargoBlockListener/EmbargoVoteMenu/LiquidationAuctionMenu/AuctionStandListener/AuctionStandSelectionMenu - plazo de gracia, incautación, votación y el puesto de subastas fisico
-├── auction/AuctionPoolManager    pool con subasta de pujas sobre el item elegido en el puesto, /sc liquidation withdraw como valvula de escape de admin
+├── liquidation/                  LiquidationManager/LiquidationScheduler/LiquidationSeizureLogic/LiquidationBlockListener/LiquidationVoteMenu/LiquidationAuctionMenu/AuctionStandListener/AuctionStandSelectionMenu - plazo de gracia, incautación, votación y el puesto de subastas fisico
+├── auction/                      AuctionPoolManager/AuctionScheduler - pool con subasta de pujas sobre el item elegido en el puesto, cuenta atrás real de inactividad, /sc liquidation withdraw como valvula de escape de admin
 ├── scheduler/                    chequeo cada ~30s de salario/suscripciones/cierre de votaciones/rentas + autoguardado
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
-├── commands/                     /bal /baltop /pay /subscribe /eco /trade /liquidation + /sc (reward, dimension lock, chunk reset, liquidation withdraw/close, rent force - admin/dev)
+├── commands/                     /bal /baltop /pay /subscribe /eco /trade /liquidation /auction + /sc (reward, dimension lock, chunk reset, liquidation withdraw/close, rent force - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo/force-load de chunk) - todas compileOnly

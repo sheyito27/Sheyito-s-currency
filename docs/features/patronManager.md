@@ -2,7 +2,7 @@
 
 Usado por: `EconomyManager`, `SalaryManager`, `SubscriptionManager`, `ShopManager`,
 `DimensionUnlockManager`, `ChunkClaimRegistry` (renombrada de `ChunkClaimManager`),
-`EmbargoManager`, `AuctionPoolManager`, `RentManager` — y parcialmente `TradeManager` (mismo ciclo
+`LiquidationManager`, `AuctionPoolManager`, `RentManager` — y parcialmente `TradeManager` (mismo ciclo
 de vida, pero sin persistencia, ver más abajo).
 
 ## Qué resuelve

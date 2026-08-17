@@ -41,7 +41,7 @@ reiniciándola a 0 después. Lo que gastes o pierdas mientras tanto nunca se res
 cobro de este mod (que usan `EconomyManager.take()` y se bloquean o se saltan si no alcanza el
 saldo), esta usa `EconomyManager.charge()` — la misma vía sin comprobación que usa `/eco charge`.
 La idea explícita del usuario es que la renta pueda llevarte a la banca rota. Como
-`EconomyManager.setBalance()` ya avisa a `EmbargoManager` en cuanto el saldo cruza de ≥0 a
+`EconomyManager.setBalance()` ya avisa a `LiquidationManager` en cuanto el saldo cruza de ≥0 a
 negativo, esta es la primera vía de gameplay real (no solo `/eco charge` de admin) que dispara el
 [plazo de gracia del embargo](embargoDeudas.md) — sin haber tenido que tocar nada de ese sistema.
 

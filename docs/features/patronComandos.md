@@ -2,7 +2,7 @@
 
 Usado por: `BalCommand`, `BalTopCommand`, `PayCommand`, `SubscribeCommand`, `TradeCommand`,
 `BuyCommand`, `EcoCommand`, `EconomicMasterCommand`, `DimensionCommand`, `ChunkCommand`,
-`EmbargoCommand`, `RentCommand`.
+`LiquidationCommand`, `AuctionCommand`, `RentCommand`.
 
 ## Qué resuelve
 

@@ -11,22 +11,35 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 - Durante el periodo de gracia solo se bloqueaba abrir cofre/ender chest - un shulker, un barril, o cualquier contenedor de otro mod dejaban esconder el equipo igualmente. Ahora se bloquea cualquier bloque que abra un menú (comprobación genérica, no una lista de clases) más un cierre universal de cualquier ventana que se llegue a abrir (incluida la propia `/trade`), como red de seguridad para inventarios que no son bloques.
 - Varios mensajes de chat del embargo se escribieron sin tildes - corregidos.
 - El mensaje al intentar abrir cualquier contenedor en periodo de gracia mencionaba el "periodo de gracia" - ya no lo hace (el de tirar objetos sigue mencionándolo).
+- El mensaje de cierre de la subasta (y el de `/sc liquidation withdraw`) también podían anunciar "Air x0" en vez del objeto real - mismo bug que el de la votación (arriba), reaparecido porque el mensaje se construía después de entregar el ítem. Corregido igual: se construye antes.
+- El puesto de subastas solo se dejaba construir mirando hacia el oeste (o el sur) - vanilla's `BlockPattern#find` solo busca hacia delante desde el atril, y el atril de este puesto no está en una esquina extrema del patrón como sí lo está la calabaza del Golem de Hierro, así que mirando al norte o al este la búsqueda fallaba siempre. Ahora se busca en ambos sentidos del eje horizontal y funciona mirando a cualquiera de los 4 puntos cardinales.
 
 ### Nuevo: subasta con pujas sobre la pool de subastas
 - El objeto que gana la votación de incautación entra en la pool, pero nada se subasta solo: hace
   falta construir un **puesto de subastas** (atril + 3 columnas + techo, bloque configurable con
   `auctionStandBlockId`) para que aparezca un aldeano fijo dentro (con partículas y sonido al
   crearse) - hablar con él abre un menú con todo lo que hay en la pool, y elegir un objeto ahí es
-  la única forma de ponerlo en juego.
-- Esa subasta sí es real, con pujas (`/liquidation auction`, menú tipo cofre con botones - nada de
-  escribir cifras por chat). Un botón por cada incremento configurado (`bidIncrements`) puja
+  la única forma de ponerlo en juego. El aldeano gira para mirar al jugador más cercano en vez de
+  quedarse mirando a un punto fijo, sea cual sea la orientación con la que se construyó la
+  estructura - y esa estructura misma se puede construir mirando a cualquiera de los 4 puntos
+  cardinales (ver el arreglo de detección más abajo).
+- Esa subasta sí es real, con pujas (`/auction`, menú tipo cofre con botones - nada de escribir
+  cifras por chat). Un botón por cada incremento configurado (`bidIncrements`) puja
   `pujaActual + incremento`, más un botón para pujar el saldo máximo. Pujar retiene el dinero al
   instante; si te superan, se devuelve íntegro.
-- La puja se cierra pasados `auctionDurationGameDays` días de juego (ajuste independiente de
-  `minVoteGameDays`). Si ganó alguien, se lleva el ítem y su dinero se queda quemado - nunca se
-  redistribuye a nadie, ni siquiera a la víctima original, coherente con el "no hay reembolso ni
-  marcha atrás" de todo el embargo. Si nadie pujó, el ítem vuelve a esperar en la pool - nada se
-  reabre solo, hay que volver a elegirlo en el puesto.
+- Al empezar una subasta y en cada puja se anuncia por chat a todo el servidor con un botón
+  `[Pujar]` que abre el menú directamente - el mismo `/auction` de arriba.
+- Elegir un ítem en el puesto se rechaza si no hay al menos `minPlayersToStartAuction` (2 por
+  defecto) jugadores conectados sin contar a la víctima del ítem - mismo criterio de conteo que
+  `minVotersToClose` en la votación de embargo, para no dejar una subasta abierta sin nadie
+  alrededor para pujarla.
+- La puja se cierra si pasan `auctionInactivitySeconds` segundos reales (30 por defecto) sin que
+  nadie puje - cada puja reinicia esa cuenta atrás a 0 (recicla la misma lógica del plazo de gracia
+  del embargo: avisos cada 10s, aviso a los 10s y cuenta atrás final 5→1, esta vez sin botón). Si
+  ganó alguien, se lleva el ítem y su dinero se queda quemado - nunca se redistribuye a nadie, ni
+  siquiera a la víctima original, coherente con el "no hay reembolso ni marcha atrás" de todo el
+  embargo. Si nadie pujó, el ítem vuelve a esperar en la pool - nada se reabre solo, hay que volver
+  a elegirlo en el puesto.
 - `/sc liquidation withdraw` sigue existiendo como válvula de escape de admin, ahora reembolsando
   primero cualquier puja activa sobre el ítem que saca.
 
@@ -35,7 +48,8 @@ Resumen de qué ha cambiado en Sheyito's currency, de más reciente a más antig
 - El mensaje de incautación ya no repite "se agotó tu plazo de gracia" (la cuenta atrás ya avisó de sobra) - va directo a qué se incautó.
 - Un ítem incautado que llevabas equipado y no gana la votación (o vuelve por estar offline) se **reequipa** directamente en su ranura si sigue libre, en vez de caer como ítem suelto en la mochila.
 - Nuevo comando de dev `/sc liquidation close <player>`: fuerza el cierre de la votación de embargo más antigua de ese jugador, saltándose el mínimo de votantes y de días de juego (que se miden en tiempo real de servidor acumulado - una sesión de pruebas corta puede no acumular suficiente aunque ya se haya votado).
-- Los comandos del embargo pasan de español a inglés: `/embargo vote` → `/liquidation vote`, `/sc embargo retirar` → `/sc liquidation withdraw`. Solo cambian los literales que se escriben - los mensajes del mod al jugador y el nombre interno de la feature siguen en español.
+- Los comandos del embargo pasan de español a inglés: `/embargo vote` → `/liquidation vote`, `/sc embargo retirar` → `/sc liquidation withdraw`. Solo cambian los literales que se escriben - los mensajes del mod al jugador siguen en español.
+- Las clases Java de la feature pasan de `Embargo*` a `Liquidation*` (`EmbargoManager` → `LiquidationManager`, `EmbargoConfig` → `LiquidationConfig`, ...) y el paquete de `embargo` a `liquidation`, para que coincidan con el nombre que ya usan los comandos. Cambio puramente interno: la carpeta de config (`config/sheyitoscurrency/embargo.json`) y la de datos (`embargo_data.json`) no se tocaron a propósito, para no dejar huérfano el config/mundo de un servidor de pruebas ya en marcha; la ficha de esta feature sigue viviendo en `docs/features/embargoDeudas.md` por lo mismo.
 
 ### Nuevo: renta progresiva sobre ganancias
 - Cada 7 días de juego (`rent.json`, `intervalGameDays`) se cobra un porcentaje sobre lo que ganaste en ese periodo (no tu patrimonio total): 1-10K → 10%, 10K-100K → 20%, 100K-1M → 30%, 1M+ → 40% (tope). Tipo plano por tramo, no marginal.
