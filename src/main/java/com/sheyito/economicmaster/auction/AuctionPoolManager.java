@@ -1,14 +1,15 @@
 package com.sheyito.economicmaster.auction;
 
 import com.sheyito.economicmaster.config.ConfigManager;
-import com.sheyito.economicmaster.config.EmbargoConfig;
+import com.sheyito.economicmaster.config.LiquidationConfig;
 import com.sheyito.economicmaster.data.AuctionPoolData;
 import com.sheyito.economicmaster.data.DataPaths;
 import com.sheyito.economicmaster.economy.EconomyManager;
-import com.sheyito.economicmaster.util.GameTime;
 import com.sheyito.economicmaster.util.ItemStackJson;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.Money;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,11 +26,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Storage for items that won an embargo vote (see {@code EmbargoManager}) - sold off one at a
+ * Storage for items that won a liquidation vote (see {@code LiquidationManager}) - sold off one at a
  * time through a real bidding auction on whichever item sits at the front of the queue
  * ({@link #items} index 0). Follows the manager-with-lifecycle pattern (docs/features/patronManager.md).
  *
- * <p>Only one auction is ever active - same "one at a time" spirit as the embargo's own seizure
+ * <p>Only one auction is ever active - same "one at a time" spirit as the liquidation's own seizure
  * vote ({@code AuctionVote}). Nothing opens automatically: {@link #startAuction} - called from the
  * "puesto de subastas" multiblock's villager NPC ({@code AuctionStandListener}), the only way to
  * pick what goes up - is the sole way a {@link FrontAuction} ever begins, confirmed with the user
@@ -39,6 +40,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * placed (escrowed) - refunded in full if later outbid, and simply never given to anyone if it
  * wins, which IS the burn: this mod never redistributes auction proceeds, same as every other sink
  * (IVA de transmisión, renta de force-load, ...).
+ *
+ * <p>Closing works exactly like the liquidation's own grace period ({@code LiquidationManager#tickGrace}):
+ * a real-time, per-second countdown ({@link #tickInactivity}, driven by the dedicated
+ * {@code AuctionScheduler} instead of the coarse ~30s economy scheduler) that resets to 0 on every
+ * bid ({@link #placeBid}) and, once it reaches {@code LiquidationConfig.auctionInactivitySeconds}
+ * without a fresh bid, closes the auction - same fixed real-time checkpoints
+ * ({@link #announceCountdown}) reused from that same grace period, minus the button (that only
+ * ever appears on the start/bid announcements, never on a plain time-remaining reminder).
  */
 public class AuctionPoolManager {
 
@@ -49,16 +58,18 @@ public class AuctionPoolManager {
     private final Map<UUID, List<ItemStack>> pendingDeliveries = new ConcurrentHashMap<>();
     private FrontAuction frontAuction;
     private final AtomicBoolean dirty = new AtomicBoolean(false);
+    private int inactivityTickAccumulator = 0;
 
     public record PooledItem(ItemStack stack, UUID seizedFromUuid, String seizedFromName, long addedAtGameDay) {
     }
 
     /** Bidding state of whichever item is at {@code items.get(0)} - null while the pool is empty.
-     * {@code highestBidder} stays null until the first bid comes in. */
+     * {@code highestBidder} stays null until the first bid comes in. {@code elapsedInactivitySeconds}
+     * is the real-time no-bid countdown - reset to 0 by every successful bid, see {@link #tickInactivity}. */
     private static class FrontAuction {
         UUID highestBidder;
         double highestBid;
-        long openedGameDay;
+        int elapsedInactivitySeconds;
     }
 
     public enum BidResult {
@@ -66,7 +77,7 @@ public class AuctionPoolManager {
     }
 
     public enum StartResult {
-        SUCCESS, ALREADY_ACTIVE, ITEM_NOT_FOUND
+        SUCCESS, ALREADY_ACTIVE, ITEM_NOT_FOUND, NOT_ENOUGH_PLAYERS
     }
 
     private AuctionPoolManager(Path file) {
@@ -114,7 +125,7 @@ public class AuctionPoolManager {
             auction.highestBidder = data.frontAuction.highestBidderUuid == null
                     ? null : UUID.fromString(data.frontAuction.highestBidderUuid);
             auction.highestBid = data.frontAuction.highestBid;
-            auction.openedGameDay = data.frontAuction.openedGameDay;
+            auction.elapsedInactivitySeconds = data.frontAuction.elapsedInactivitySeconds;
             frontAuction = auction;
         }
         data.pendingDeliveries.forEach((uuid, encoded) -> {
@@ -146,7 +157,7 @@ public class AuctionPoolManager {
             AuctionPoolData.FrontAuctionRecord record = new AuctionPoolData.FrontAuctionRecord();
             record.highestBidderUuid = frontAuction.highestBidder == null ? null : frontAuction.highestBidder.toString();
             record.highestBid = frontAuction.highestBid;
-            record.openedGameDay = frontAuction.openedGameDay;
+            record.elapsedInactivitySeconds = frontAuction.elapsedInactivitySeconds;
             data.frontAuction = record;
         }
         pendingDeliveries.forEach((uuid, stacks) -> {
@@ -159,7 +170,7 @@ public class AuctionPoolManager {
         JsonFileUtil.save(file, data);
     }
 
-    /** Called from {@code EmbargoManager.closeVote} when the community's vote picks an item to
+    /** Called from {@code LiquidationManager.closeVote} when the community's vote picks an item to
      * auction. Just joins the pool - nothing opens on its own, see {@link #startAuction}. */
     public void add(ItemStack stack, UUID seizedFromUuid, String seizedFromName, long gameDay) {
         items.add(new PooledItem(stack.copy(), seizedFromUuid, seizedFromName, gameDay));
@@ -180,21 +191,35 @@ public class AuctionPoolManager {
      * subastas" villager's selection menu, the only way an auction ever starts. Moves it to the
      * front of the queue (everything else just shifts back, nothing is lost) and opens a fresh
      * {@link FrontAuction} on it. Rejects if an auction is already active (finish or wait for that
-     * one first) or if {@code chosen} somehow isn't in the pool anymore (picked from a stale menu).
+     * one first), if {@code chosen} somehow isn't in the pool anymore (picked from a stale menu),
+     * or if fewer than {@code LiquidationConfig.minPlayersToStartAuction} players besides the item's
+     * own victim are online (no point opening a bid nobody's around to place) - same counting
+     * convention as the liquidation vote's {@code minVotersToClose}. On success, broadcasts the start
+     * announcement with the "[Pujar]" button - see {@link #announceStart}.
      */
-    public StartResult startAuction(PooledItem chosen, long currentDay) {
+    public StartResult startAuction(PooledItem chosen, MinecraftServer server) {
         if (frontAuction != null) {
             return StartResult.ALREADY_ACTIVE;
         }
-        if (!items.remove(chosen)) {
+        if (!items.contains(chosen)) {
             return StartResult.ITEM_NOT_FOUND;
         }
+        if (!enoughPlayersOnline(chosen.seizedFromUuid(), server)) {
+            return StartResult.NOT_ENOUGH_PLAYERS;
+        }
+        items.remove(chosen);
         items.add(0, chosen);
-        FrontAuction auction = new FrontAuction();
-        auction.openedGameDay = currentDay;
-        frontAuction = auction;
+        frontAuction = new FrontAuction();
         dirty.set(true);
+        announceStart(chosen, server);
         return StartResult.SUCCESS;
+    }
+
+    private static boolean enoughPlayersOnline(UUID victim, MinecraftServer server) {
+        long onlineExcludingVictim = server.getPlayerList().getPlayers().stream()
+                .filter(p -> !p.getUUID().equals(victim))
+                .count();
+        return onlineExcludingVictim >= ConfigManager.liquidation().minPlayersToStartAuction;
     }
 
     public Optional<UUID> currentHighestBidder() {
@@ -209,9 +234,11 @@ public class AuctionPoolManager {
      * Places a bid on the item currently at the front of the queue - taken (escrowed) immediately
      * via {@link EconomyManager#take}, refunded in full if later outbid. Rejects without touching
      * any money if there's nothing up for auction, the bidder is the item's own original victim,
-     * the amount doesn't strictly beat the current highest bid, or the bidder can't afford it.
+     * the amount doesn't strictly beat the current highest bid, or the bidder can't afford it. On
+     * success, resets the no-bid closing countdown back to 0 (see {@link #tickInactivity}) and
+     * broadcasts the bid with the "[Pujar]" button - see {@link #announceBid}.
      */
-    public BidResult placeBid(UUID bidder, double amount) {
+    public BidResult placeBid(UUID bidder, double amount, MinecraftServer server) {
         if (items.isEmpty() || frontAuction == null) {
             return BidResult.NO_ACTIVE_AUCTION;
         }
@@ -230,22 +257,41 @@ public class AuctionPoolManager {
         }
         frontAuction.highestBidder = bidder;
         frontAuction.highestBid = amount;
+        frontAuction.elapsedInactivitySeconds = 0;
         dirty.set(true);
+        announceBid(current, bidder, amount, server);
         return BidResult.SUCCESS;
     }
 
-    /** Called periodically (coarse ~30s cadence, from {@code EconomicMasterScheduler}) -
-     * day-level precision doesn't need per-tick resolution. */
-    public void tickAuctionClosing(MinecraftServer server) {
-        if (items.isEmpty() || frontAuction == null) {
+    /**
+     * Called every server tick by the dedicated {@code AuctionScheduler} - same per-tick,
+     * throttled-to-1s pattern as {@code LiquidationManager#tickGrace}, needed for the same reason: the
+     * coarse ~30s economy scheduler would only catch a no-bid timeout somewhere between 0 and 60s
+     * late. A no-op the instant nothing is up for bid. Reuses that same grace-period countdown's
+     * fixed real-time checkpoints ({@link #announceCountdown}) to announce how long is left before
+     * the item closes unsold-or-sold-to-whoever's-winning, and closes it once {@code
+     * elapsedInactivitySeconds} reaches {@code LiquidationConfig.auctionInactivitySeconds} without a
+     * fresh bid resetting it (see {@link #placeBid}).
+     */
+    public void tickInactivity(MinecraftServer server) {
+        if (frontAuction == null) {
             return;
         }
-        EmbargoConfig config = ConfigManager.embargo();
-        long currentDay = GameTime.currentDay(server);
-        if (currentDay - frontAuction.openedGameDay < config.auctionDurationGameDays) {
+        inactivityTickAccumulator++;
+        if (inactivityTickAccumulator < 20) {
             return;
         }
-        closeCurrentAuction(server);
+        inactivityTickAccumulator = 0;
+
+        LiquidationConfig config = ConfigManager.liquidation();
+        int timeout = config.auctionInactivitySeconds;
+        int elapsedBefore = frontAuction.elapsedInactivitySeconds;
+        announceCountdown(server, timeout - elapsedBefore, timeout);
+        frontAuction.elapsedInactivitySeconds++;
+        dirty.set(true);
+        if (frontAuction.elapsedInactivitySeconds >= timeout) {
+            closeCurrentAuction(server);
+        }
     }
 
     private void closeCurrentAuction(MinecraftServer server) {
@@ -263,15 +309,73 @@ public class AuctionPoolManager {
             return;
         }
 
-        deliver(winner, current.stack(), server);
-
+        // Built BEFORE deliver() runs, on purpose: Inventory#placeItemBackInInventory mutates the
+        // ItemStack in place (splits it down to empty as it inserts) - reading it for the message
+        // AFTER delivering showed "Air x0" instead of the real item, same bug already fixed once
+        // in LiquidationManager#closeVote.
         String winnerName = EconomyManager.get().getName(winner);
         String message = "§6[Sheyito's currency] §f" + winnerName + " se llevó "
                 + current.stack().getHoverName().getString() + " x" + current.stack().getCount()
                 + " de la subasta por " + Money.format(winningBid) + ".";
+
+        deliver(winner, current.stack(), server);
+
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             p.sendSystemMessage(Component.literal(message));
         }
+    }
+
+    /** Broadcast when {@link #startAuction} succeeds - the "message + button" the user asked for
+     * ("al comenzar una subasta debe haber un mensaje informando y un botón para acceder"). */
+    private static void announceStart(PooledItem item, MinecraftServer server) {
+        String message = "§6[Sheyito's currency] §f¡Empieza la subasta de "
+                + item.stack().getHoverName().getString() + " x" + item.stack().getCount()
+                + " (incautado a " + item.seizedFromName() + ")! ";
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            p.sendSystemMessage(Component.literal(message).append(bidButton()));
+        }
+    }
+
+    /** Broadcast on every successful {@link #placeBid} - same "message + button" requirement as
+     * the start announcement, so anyone can jump straight into the bidding GUI from the chat. */
+    private static void announceBid(PooledItem item, UUID bidder, double amount, MinecraftServer server) {
+        String bidderName = EconomyManager.get().getName(bidder);
+        String message = "§6[Sheyito's currency] §f" + bidderName + " pujó " + Money.format(amount)
+                + " por " + item.stack().getHoverName().getString() + " x" + item.stack().getCount() + ". ";
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            p.sendSystemMessage(Component.literal(message).append(bidButton()));
+        }
+    }
+
+    /**
+     * Fixed real-time checkpoints, reused as-is from {@code LiquidationManager#announceCountdown}:
+     * every 10s, a dedicated warning at 10s left, and a final per-second 5..1 countdown. Skips the
+     * "just started/reset" checkpoint ({@code remaining == total}) on purpose - the start/bid
+     * announcement right before it already said as much. Deliberately has NO button, unlike
+     * {@link #announceStart}/{@link #announceBid} - the user was explicit that only those two carry
+     * one, this is just a time-remaining reminder.
+     */
+    private static void announceCountdown(MinecraftServer server, int remaining, int total) {
+        String message;
+        if (remaining == total) {
+            return;
+        } else if (remaining == 10) {
+            message = "§e[Sheyito's currency] §fEn 10 segundos la subasta se cierra si nadie más puja.";
+        } else if (remaining > 10 && remaining % 10 == 0) {
+            message = "§e[Sheyito's currency] §fQuedan " + remaining + " segundos para que la subasta se cierre si nadie más puja.";
+        } else if (remaining >= 1 && remaining <= 5) {
+            message = "§e§l" + remaining;
+        } else {
+            return;
+        }
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            p.sendSystemMessage(Component.literal(message));
+        }
+    }
+
+    private static Component bidButton() {
+        return Component.literal("[Pujar]").withStyle(style -> style.withColor(ChatFormatting.GREEN)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/auction")));
     }
 
     private void deliver(UUID uuid, ItemStack stack, MinecraftServer server) {

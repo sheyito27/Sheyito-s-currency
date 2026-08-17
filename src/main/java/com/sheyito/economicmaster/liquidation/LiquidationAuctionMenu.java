@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import com.sheyito.economicmaster.auction.AuctionPoolManager;
 import com.sheyito.economicmaster.config.ConfigManager;
@@ -24,16 +24,16 @@ import java.util.UUID;
 
 /**
  * "Clicar para pujar", not "escribir una cifra por chat" - the user explicitly wanted the auction
- * to feel dynamic, not a bare command. Same molds as {@code EmbargoVoteMenu}/{@code TradeMenu}: a
+ * to feel dynamic, not a bare command. Same molds as {@code LiquidationVoteMenu}/{@code TradeMenu}: a
  * vanilla {@link MenuType#GENERIC_9x3} chest, no client registration needed. One fresh instance
  * per viewer, always reading straight from {@link AuctionPoolManager} (the source of truth), so a
  * stale display never causes a wrong bid - worst case a button's label is one bid behind until the
- * next click refreshes it, same "snapshot, not a live push" tradeoff {@code EmbargoVoteMenu}
+ * next click refreshes it, same "snapshot, not a live push" tradeoff {@code LiquidationVoteMenu}
  * already accepted.
  *
- * <p>Layout (27 top slots, same shape {@code EmbargoVoteMenu} uses): row 0 shows the item up for
+ * <p>Layout (27 top slots, same shape {@code LiquidationVoteMenu} uses): row 0 shows the item up for
  * auction, row 1 shows who's winning and for how much, row 2 is the action row - one button per
- * configured {@code EmbargoConfig.bidIncrements} entry plus a "puja tu saldo máximo" button.
+ * configured {@code LiquidationConfig.bidIncrements} entry plus a "puja tu saldo máximo" button.
  */
 public class LiquidationAuctionMenu extends AbstractContainerMenu {
 
@@ -77,7 +77,7 @@ public class LiquidationAuctionMenu extends AbstractContainerMenu {
 
         display.setItem(INFO_SLOT, infoItem(pool));
 
-        List<Double> increments = ConfigManager.embargo().bidIncrements;
+        List<Double> increments = ConfigManager.liquidation().bidIncrements;
         int incrementCount = Math.min(increments.size(), MAX_INCREMENT_BUTTONS);
         for (int i = 0; i < incrementCount; i++) {
             display.setItem(BUTTON_ROW_START + i, incrementButton(pool, increments.get(i)));
@@ -133,7 +133,7 @@ public class LiquidationAuctionMenu extends AbstractContainerMenu {
      * bids, computed fresh (not from the possibly-stale {@link #display}) so a click always acts
      * on the real current highest bid. */
     private Double amountForSlot(int slotId, AuctionPoolManager pool) {
-        List<Double> increments = ConfigManager.embargo().bidIncrements;
+        List<Double> increments = ConfigManager.liquidation().bidIncrements;
         int incrementCount = Math.min(increments.size(), MAX_INCREMENT_BUTTONS);
         if (slotId >= BUTTON_ROW_START && slotId < BUTTON_ROW_START + incrementCount) {
             return pool.currentHighestBid() + increments.get(slotId - BUTTON_ROW_START);
@@ -150,8 +150,8 @@ public class LiquidationAuctionMenu extends AbstractContainerMenu {
             AuctionPoolManager pool = AuctionPoolManager.get();
             Double amount = amountForSlot(slotId, pool);
             if (amount != null) {
-                AuctionPoolManager.BidResult result = pool.placeBid(serverPlayer.getUUID(), amount);
-                announceResult(serverPlayer, result, amount);
+                AuctionPoolManager.BidResult result = pool.placeBid(serverPlayer.getUUID(), amount, serverPlayer.getServer());
+                announceResult(serverPlayer, result);
                 refreshDisplay();
                 return;
             }
@@ -163,10 +163,13 @@ public class LiquidationAuctionMenu extends AbstractContainerMenu {
         }
     }
 
-    private static void announceResult(ServerPlayer player, AuctionPoolManager.BidResult result, double amount) {
+    /** SUCCESS gets no message here - {@code AuctionPoolManager#announceBid} already broadcast
+     * the "message + button" to every player, this one included. Only the failure paths, which
+     * nobody else needs to hear about, get a private reply. */
+    private static void announceResult(ServerPlayer player, AuctionPoolManager.BidResult result) {
         switch (result) {
-            case SUCCESS -> player.sendSystemMessage(Component.literal(
-                    "§a[Sheyito's currency] §fPujaste " + Money.format(amount) + "."));
+            case SUCCESS -> {
+            }
             case NO_ACTIVE_AUCTION -> player.sendSystemMessage(Component.literal(
                     "§c[Sheyito's currency] §fYa no hay ninguna subasta activa."));
             case CANNOT_BID_ON_OWN_ITEM -> player.sendSystemMessage(Component.literal(
@@ -189,7 +192,7 @@ public class LiquidationAuctionMenu extends AbstractContainerMenu {
     }
 
     /** Pure display: mirrors container contents but never accepts interaction - same as
-     * {@code trade.TradeMenu}/{@code EmbargoVoteMenu}'s private nested class of the same purpose. */
+     * {@code trade.TradeMenu}/{@code LiquidationVoteMenu}'s private nested class of the same purpose. */
     private static class MirrorSlot extends Slot {
         MirrorSlot(Container container, int slot, int x, int y) {
             super(container, slot, x, y);

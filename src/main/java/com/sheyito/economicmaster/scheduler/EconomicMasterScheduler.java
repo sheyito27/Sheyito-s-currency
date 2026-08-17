@@ -4,7 +4,7 @@ import com.sheyito.economicmaster.auction.AuctionPoolManager;
 import com.sheyito.economicmaster.chunk.ChunkClaimRegistry;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
-import com.sheyito.economicmaster.embargo.EmbargoManager;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
@@ -39,8 +39,7 @@ public class EconomicMasterScheduler {
         SalaryManager.get().tick(event.getServer());
         SubscriptionManager.get().processDueCharges(event.getServer());
         SubscriptionManager.get().expireInvites(event.getServer());
-        EmbargoManager.get().tickVoteClosing(event.getServer());
-        AuctionPoolManager.get().tickAuctionClosing(event.getServer());
+        LiquidationManager.get().tickVoteClosing(event.getServer());
         RentManager.get().processDueRent(event.getServer());
         FTBChunksCompat.processForceLoadRent(event.getServer());
 
@@ -50,7 +49,7 @@ public class EconomicMasterScheduler {
         ShopManager.get().saveIfDirty();
         DimensionUnlockManager.get().saveIfDirty();
         ChunkClaimRegistry.get().saveIfDirty();
-        EmbargoManager.get().saveIfDirty();
+        LiquidationManager.get().saveIfDirty();
         AuctionPoolManager.get().saveIfDirty();
         RentManager.get().saveIfDirty();
     }

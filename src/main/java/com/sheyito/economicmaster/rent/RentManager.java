@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * not {@link EconomyManager#take} - so it can genuinely push a player into a negative balance
  * instead of being skipped when they can't afford it. That is the point, confirmed with the user:
  * this is meant to be able to end in "banca rota", and {@code setBalance}'s own >=0-to-negative
- * hook already wires that straight into the embargo grace period - the first real, organic
+ * hook already wires that straight into the liquidation grace period - the first real, organic
  * trigger for it, no changes needed on that side.
  */
 public class RentManager {

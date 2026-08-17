@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * On-disk shape of &lt;world&gt;/sheyitoscurrency/auction_pool_data.json - the items that won an
- * embargo vote, plus the bidding auction state of whichever one is at the front of the queue
+ * liquidation vote, plus the bidding auction state of whichever one is at the front of the queue
  * ({@link #frontAuction}, null while the pool is empty) and any auction prizes still waiting for
  * an offline winner to log back in ({@link #pendingDeliveries}).
  */
@@ -34,6 +34,6 @@ public class AuctionPoolData {
         /** Null while nobody has bid yet on the item currently at the front of the queue. */
         public String highestBidderUuid;
         public double highestBid;
-        public long openedGameDay;
+        public int elapsedInactivitySeconds;
     }
 }

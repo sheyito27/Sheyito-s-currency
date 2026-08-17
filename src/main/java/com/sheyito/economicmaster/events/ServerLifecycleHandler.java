@@ -5,7 +5,7 @@ import com.sheyito.economicmaster.chunk.ChunkClaimRegistry;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
-import com.sheyito.economicmaster.embargo.EmbargoManager;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.salary.SalaryManager;
@@ -30,7 +30,7 @@ public class ServerLifecycleHandler {
         ShopManager.init(event.getServer());
         DimensionUnlockManager.init(event.getServer());
         ChunkClaimRegistry.init(event.getServer());
-        EmbargoManager.init(event.getServer());
+        LiquidationManager.init(event.getServer());
         AuctionPoolManager.init(event.getServer());
         RentManager.init(event.getServer());
     }
@@ -44,7 +44,7 @@ public class ServerLifecycleHandler {
         SubscriptionManager.shutdown();
         DimensionUnlockManager.shutdown();
         ChunkClaimRegistry.shutdown();
-        EmbargoManager.shutdown();
+        LiquidationManager.shutdown();
         AuctionPoolManager.shutdown();
         RentManager.shutdown();
     }
@@ -54,8 +54,8 @@ public class ServerLifecycleHandler {
         if (EconomyManager.get() != null) {
             EconomyManager.get().trackName(event.getEntity().getUUID(), event.getEntity().getGameProfile().getName());
         }
-        if (EmbargoManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
-            EmbargoManager.get().deliverPendingReturns(player);
+        if (LiquidationManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
+            LiquidationManager.get().deliverPendingReturns(player);
         }
         if (AuctionPoolManager.get() != null && event.getEntity() instanceof ServerPlayer player) {
             AuctionPoolManager.get().deliverPending(player);

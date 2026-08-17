@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The embargo feature vaults real seized items across server restarts, so this round-trip
+/** The liquidation feature vaults real seized items across server restarts, so this round-trip
  * (through ItemStack's own vanilla CODEC) has to preserve more than just the item id/count. */
 class ItemStackJsonTest {
 

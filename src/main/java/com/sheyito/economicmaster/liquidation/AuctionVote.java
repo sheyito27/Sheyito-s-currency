@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * In-memory state of one embargo's community vote: which of the seized items gets auctioned.
- * Package-private - only {@link EmbargoManager} mutates this, everything else goes through it.
+ * In-memory state of one liquidation's community vote: which of the seized items gets auctioned.
+ * Package-private - only {@link LiquidationManager} mutates this, everything else goes through it.
  */
 class AuctionVote {
 
@@ -19,7 +19,7 @@ class AuctionVote {
     final UUID victimUuid;
     final List<ItemStack> items;
     /** Parallel to {@link #items} - null entries were loose in the inventory, non-null entries
-     * name the equipment slot that item was worn/held in - see {@link EmbargoSeizureLogic.SeizedItem}. */
+     * name the equipment slot that item was worn/held in - see {@link LiquidationSeizureLogic.SeizedItem}. */
     final EquipmentSlot[] originSlots;
     final long openedGameDay;
     final Map<UUID, Integer> votesByVoter = new LinkedHashMap<>();
@@ -37,7 +37,7 @@ class AuctionVote {
         this.reachedAtTick = new long[items.size()];
     }
 
-    static AuctionVote fromSeizure(long id, UUID victimUuid, List<EmbargoSeizureLogic.SeizedItem> seized, long openedGameDay) {
+    static AuctionVote fromSeizure(long id, UUID victimUuid, List<LiquidationSeizureLogic.SeizedItem> seized, long openedGameDay) {
         List<ItemStack> items = new ArrayList<>(seized.size());
         EquipmentSlot[] originSlots = new EquipmentSlot[seized.size()];
         for (int i = 0; i < seized.size(); i++) {

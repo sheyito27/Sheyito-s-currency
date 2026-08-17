@@ -3,7 +3,7 @@ package com.sheyito.economicmaster.economy;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.DataPaths;
-import com.sheyito.economicmaster.embargo.EmbargoManager;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.data.EconomyData;
 import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.util.JsonFileUtil;
@@ -113,8 +113,8 @@ public class EconomyManager {
      * a plain, unclamped setter.
      *
      * <p>This is the single choke point every mutator ({@link #give}, {@link #take},
-     * {@link #charge}) funnels through, so it's also where an embargo grace period starts: if a
-     * balance crosses from >=0 to negative, {@code EmbargoManager} is notified generically here,
+     * {@link #charge}) funnels through, so it's also where a liquidation grace period starts: if a
+     * balance crosses from >=0 to negative, {@code LiquidationManager} is notified generically here,
      * regardless of which caller (today only {@code /eco charge}, later "pagos obligatorios")
      * caused it.
      */
@@ -124,8 +124,8 @@ public class EconomyManager {
         balances.put(uuid, rounded);
         dirty.set(true);
 
-        if (previous >= 0 && rounded < 0 && EmbargoManager.get() != null) {
-            EmbargoManager.get().onBalanceWentNegative(uuid);
+        if (previous >= 0 && rounded < 0 && LiquidationManager.get() != null) {
+            LiquidationManager.get().onBalanceWentNegative(uuid);
         }
     }
 

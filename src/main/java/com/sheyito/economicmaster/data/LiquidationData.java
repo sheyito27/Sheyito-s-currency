@@ -9,11 +9,11 @@ import java.util.Map;
 
 /**
  * On-disk shape of &lt;world&gt;/sheyitoscurrency/embargo_data.json. Gson never sees a UUID or
- * an ItemStack directly here - UUIDs are plain String keys (converted in EmbargoManager's
+ * an ItemStack directly here - UUIDs are plain String keys (converted in LiquidationManager's
  * load()/save(), same convention as every other manager) and items go through
  * {@link com.sheyito.economicmaster.util.ItemStackJson} so their real NBT round-trips.
  */
-public class EmbargoData {
+public class LiquidationData {
 
     /** Player uuid -> real seconds elapsed in their current grace period (absent = not in grace). */
     public Map<String, Integer> graceSecondsElapsed = new LinkedHashMap<>();
@@ -26,8 +26,8 @@ public class EmbargoData {
 
     public long nextAuctionId = 1;
 
-    public static EmbargoData empty() {
-        return new EmbargoData();
+    public static LiquidationData empty() {
+        return new LiquidationData();
     }
 
     public static class AuctionVoteRecord {

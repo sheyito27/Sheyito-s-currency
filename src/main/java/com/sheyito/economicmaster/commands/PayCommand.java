@@ -6,7 +6,7 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sheyito.economicmaster.economy.EconomyManager;
-import com.sheyito.economicmaster.embargo.EmbargoManager;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.commands.CommandSourceStack;
@@ -42,7 +42,7 @@ public final class PayCommand {
             return 0;
         }
 
-        if (EmbargoManager.get() != null && EmbargoManager.get().isInGracePeriod(targetUuid)) {
+        if (LiquidationManager.get() != null && LiquidationManager.get().isInGracePeriod(targetUuid)) {
             ctx.getSource().sendFailure(Component.literal("§c" + target.getName()
                     + " esta en periodo de gracia por deuda y no puede recibir dinero de otros jugadores."));
             TransactionSounds.failure(sender);

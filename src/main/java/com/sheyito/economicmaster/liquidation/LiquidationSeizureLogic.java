@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
@@ -21,11 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Pure logic for the "brutal" side of the embargo: deciding which items count as "armadura, arma
+ * Pure logic for the "brutal" side of the liquidation: deciding which items count as "armadura, arma
  * o herramienta" and pulling them out of a player. No manager/persistence dependency here, so it
  * can be tested with a real {@link Inventory} and a mocked owner.
  */
-final class EmbargoSeizureLogic {
+final class LiquidationSeizureLogic {
 
     private static final EquipmentSlot[] EQUIPMENT_SLOTS = {
             EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
@@ -38,7 +38,7 @@ final class EmbargoSeizureLogic {
      * {@code setItemSlot} below, which would double-count/clear the same physical slot twice. */
     private static final int MAIN_INVENTORY_SLOTS = 36;
 
-    private EmbargoSeizureLogic() {
+    private LiquidationSeizureLogic() {
     }
 
     /**

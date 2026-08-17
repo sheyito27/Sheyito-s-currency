@@ -5,9 +5,8 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sheyito.economicmaster.auction.AuctionPoolManager;
-import com.sheyito.economicmaster.embargo.EmbargoManager;
-import com.sheyito.economicmaster.embargo.EmbargoVoteMenu;
-import com.sheyito.economicmaster.embargo.LiquidationAuctionMenu;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
+import com.sheyito.economicmaster.liquidation.LiquidationVoteMenu;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -20,39 +19,40 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Two separate roots, on purpose: "liquidation vote"/"liquidation auction" are player-facing
- * (anyone eligible can cast a secret ballot on which seized item goes to auction, or bid on
- * whatever's currently up), so they do NOT live under the admin-only {@code /sc} root. "sc
- * liquidation withdraw" and "sc liquidation close" ARE admin tools, so they do. Command literals
- * are English on purpose (the user does not want Spanish command words, even though every
- * player-facing message stays in Spanish) - the internal "embargo" naming (classes, config, docs)
- * is unaffected, only what players actually type changed.
+ * Two separate roots, on purpose: "liquidation vote" is player-facing (anyone eligible can cast a
+ * secret ballot on which seized item goes to auction), so it does NOT live under the admin-only
+ * {@code /sc} root - bidding itself is the even shorter root-level {@code /auction} ({@link
+ * AuctionCommand}). "sc liquidation withdraw" and "sc liquidation close" ARE admin tools, so they
+ * stay under {@code /sc}. Command literals are English on purpose (the user does not want Spanish
+ * command words, even though every player-facing message stays in Spanish) - the internal Java
+ * naming (classes, config field/method names) matches now too (package {@code liquidation},
+ * {@code LiquidationManager}, ...); only the docs (docs/features/embargoDeudas.md) and the on-disk
+ * config/data file names (embargo.json, embargo_data.json) still say "embargo", left alone on
+ * purpose to avoid orphaning an existing dev server's config/world data.
  */
-public final class EmbargoCommand {
+public final class LiquidationCommand {
 
-    private EmbargoCommand() {
+    private LiquidationCommand() {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("liquidation")
                 .then(Commands.literal("vote")
-                        .executes(EmbargoCommand::vote))
-                .then(Commands.literal("auction")
-                        .executes(EmbargoCommand::auction)));
+                        .executes(LiquidationCommand::vote)));
 
         dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("liquidation")
                         .then(Commands.literal("withdraw")
-                                .executes(EmbargoCommand::withdraw))
+                                .executes(LiquidationCommand::withdraw))
                         .then(Commands.literal("close")
                                 .then(Commands.argument("player", GameProfileArgument.gameProfile())
-                                        .executes(EmbargoCommand::close)))));
+                                        .executes(LiquidationCommand::close)))));
     }
 
     private static int vote(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
         ServerPlayer player = ctx.getSource().getPlayerOrException();
-        EmbargoManager manager = EmbargoManager.get();
+        LiquidationManager manager = LiquidationManager.get();
         Optional<Long> voteId = manager == null ? Optional.empty() : manager.openVoteFor(player.getUUID());
         if (voteId.isEmpty()) {
             ctx.getSource().sendFailure(Component.literal(
@@ -61,27 +61,8 @@ public final class EmbargoCommand {
         }
 
         player.openMenu(new SimpleMenuProvider(
-                (id, inv, p) -> new EmbargoVoteMenu(id, inv, voteId.get(), player.getUUID()),
+                (id, inv, p) -> new LiquidationVoteMenu(id, inv, voteId.get(), player.getUUID()),
                 Component.literal("Votación de embargo")));
-        return 1;
-    }
-
-    private static int auction(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        ServerPlayer player = ctx.getSource().getPlayerOrException();
-        AuctionPoolManager pool = AuctionPoolManager.get();
-        Optional<AuctionPoolManager.PooledItem> current = pool == null ? Optional.empty() : pool.currentAuctionItem();
-        if (current.isEmpty()) {
-            ctx.getSource().sendFailure(Component.literal("§cNo hay ninguna subasta activa ahora mismo."));
-            return 0;
-        }
-        if (current.get().seizedFromUuid().equals(player.getUUID())) {
-            ctx.getSource().sendFailure(Component.literal("§cNo puedes pujar por tu propio objeto incautado."));
-            return 0;
-        }
-
-        player.openMenu(new SimpleMenuProvider(
-                (id, inv, p) -> new LiquidationAuctionMenu(id, inv, player.getUUID()),
-                Component.literal("Subasta")));
         return 1;
     }
 
@@ -94,10 +75,15 @@ public final class EmbargoCommand {
         }
 
         AuctionPoolManager.PooledItem pooled = next.get();
-        admin.getInventory().placeItemBackInInventory(pooled.stack());
-        ctx.getSource().sendSuccess(() -> Component.literal("§a[Sheyito's currency] §fRetiraste de la pool: "
+        // Built BEFORE placeItemBackInInventory() runs, on purpose - same "Air x0" bug already
+        // fixed once in AuctionPoolManager#closeCurrentAuction: that call mutates the ItemStack in
+        // place (splits it down to empty as it inserts), so reading it for the message after would
+        // describe an already-empty stack.
+        Component message = Component.literal("§a[Sheyito's currency] §fRetiraste de la pool: "
                 + pooled.stack().getHoverName().getString() + " x" + pooled.stack().getCount()
-                + " (incautado a " + pooled.seizedFromName() + ")."), true);
+                + " (incautado a " + pooled.seizedFromName() + ").");
+        admin.getInventory().placeItemBackInInventory(pooled.stack());
+        ctx.getSource().sendSuccess(() -> message, true);
         return 1;
     }
 
@@ -106,7 +92,7 @@ public final class EmbargoCommand {
         GameProfile target = profiles.iterator().next();
         UUID uuid = target.getId();
 
-        EmbargoManager manager = EmbargoManager.get();
+        LiquidationManager manager = LiquidationManager.get();
         boolean closed = manager != null && manager.forceCloseOldestVote(uuid, ctx.getSource().getServer());
         if (!closed) {
             ctx.getSource().sendFailure(Component.literal(

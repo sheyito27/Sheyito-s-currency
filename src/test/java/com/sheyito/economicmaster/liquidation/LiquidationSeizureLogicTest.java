@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import com.sheyito.economicmaster.TestBootstrap;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -25,9 +25,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Covers what counts as "armadura, arma o herramienta" and the equipped+loose-inventory scan
- * behind the embargo's item seizure, including which equipment slot (if any) each seized item is
+ * behind the liquidation's item seizure, including which equipment slot (if any) each seized item is
  * tagged with so it can be re-equipped later instead of just dumped into the backpack. */
-class EmbargoSeizureLogicTest {
+class LiquidationSeizureLogicTest {
 
     @BeforeAll
     static void bootstrap() {
@@ -53,24 +53,24 @@ class EmbargoSeizureLogicTest {
 
     @Test
     void isSeizableAcceptsArmorWeaponsAndTools() {
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND_CHESTPLATE)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.NETHERITE_SWORD)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.IRON_PICKAXE)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.STONE_AXE)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.WOODEN_SHOVEL)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND_HOE)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.BOW)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.CROSSBOW)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.TRIDENT)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.SHIELD)));
-        assertTrue(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.MACE)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND_CHESTPLATE)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.NETHERITE_SWORD)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.IRON_PICKAXE)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.STONE_AXE)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.WOODEN_SHOVEL)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND_HOE)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.BOW)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.CROSSBOW)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.TRIDENT)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.SHIELD)));
+        assertTrue(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.MACE)));
     }
 
     @Test
     void isSeizableRejectsEverydayItemsAndEmptyStacks() {
-        assertFalse(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.DIRT)));
-        assertFalse(EmbargoSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND)));
-        assertFalse(EmbargoSeizureLogic.isSeizable(ItemStack.EMPTY));
+        assertFalse(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.DIRT)));
+        assertFalse(LiquidationSeizureLogic.isSeizable(new ItemStack(Items.DIAMOND)));
+        assertFalse(LiquidationSeizureLogic.isSeizable(ItemStack.EMPTY));
     }
 
     @Test
@@ -79,7 +79,7 @@ class EmbargoSeizureLogicTest {
         when(owner.getItemBySlot(EquipmentSlot.HEAD)).thenReturn(new ItemStack(Items.DIAMOND_HELMET));
         Inventory inventory = inventoryOf();
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(1, seized.size());
         assertEquals(Items.DIAMOND_HELMET, seized.get(0).stack().getItem());
@@ -92,7 +92,7 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf();
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(owner, never()).setItemSlot(any(), any());
@@ -103,7 +103,7 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_SWORD), new ItemStack(Items.DIRT, 64));
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(1, seized.size());
         assertEquals(Items.IRON_SWORD, seized.get(0).stack().getItem());
@@ -117,7 +117,7 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(new ItemStack(Items.DIRT, 64), new ItemStack(Items.DIAMOND, 5));
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(anyInt(), any());
@@ -135,7 +135,7 @@ class EmbargoSeizureLogicTest {
         LivingEntity owner = emptyEquipment();
         Inventory inventory = inventoryOf(stacks);
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertTrue(seized.isEmpty());
         verify(inventory, never()).setItem(eq(40), any());
@@ -147,7 +147,7 @@ class EmbargoSeizureLogicTest {
         when(owner.getItemBySlot(EquipmentSlot.MAINHAND)).thenReturn(new ItemStack(Items.NETHERITE_SWORD));
         Inventory inventory = inventoryOf(new ItemStack(Items.IRON_PICKAXE));
 
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(owner, inventory);
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(owner, inventory);
 
         assertEquals(2, seized.size(), "equipped and loose items get no special treatment - both are seized the same way");
         assertEquals(EquipmentSlot.MAINHAND, seized.get(0).originSlot());

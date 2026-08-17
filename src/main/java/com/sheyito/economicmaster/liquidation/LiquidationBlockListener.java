@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,7 +13,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 /**
- * While a player is in an embargo grace period ({@link EmbargoManager#isInGracePeriod}), blocks
+ * While a player is in a liquidation grace period ({@link LiquidationManager#isInGracePeriod}), blocks
  * the ways they could hide their equipment before it gets seized: dropping items on the ground,
  * or opening any container. Selling in shops (sign-based, never opens a menu), missions, and
  * salary keep working unaffected. Same cancellation pattern as {@code shop.ShopProtectionListener}.
@@ -30,11 +30,11 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
  * {@code ServerPlayer#openMenu}, which every well-behaved menu - vanilla or modded - goes through)
  * and force-closes it immediately.
  */
-public class EmbargoBlockListener {
+public class LiquidationBlockListener {
 
     @SubscribeEvent
     public void onItemToss(ItemTossEvent event) {
-        EmbargoManager manager = EmbargoManager.get();
+        LiquidationManager manager = LiquidationManager.get();
         if (manager == null || !manager.isInGracePeriod(event.getPlayer().getUUID())) {
             return;
         }
@@ -62,7 +62,7 @@ public class EmbargoBlockListener {
         if (menuProvider == null) {
             return;
         }
-        EmbargoManager manager = EmbargoManager.get();
+        LiquidationManager manager = LiquidationManager.get();
         if (manager == null || !manager.isInGracePeriod(player.getUUID())) {
             return;
         }
@@ -76,7 +76,7 @@ public class EmbargoBlockListener {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        EmbargoManager manager = EmbargoManager.get();
+        LiquidationManager manager = LiquidationManager.get();
         if (manager == null || !manager.isInGracePeriod(player.getUUID())) {
             return;
         }

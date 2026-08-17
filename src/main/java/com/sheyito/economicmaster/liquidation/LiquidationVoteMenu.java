@@ -1,4 +1,4 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -21,14 +21,14 @@ import java.util.UUID;
  * Server-side-only secret-ballot menu, one instance per viewer - same molds as
  * {@code trade.TradeMenu} (a vanilla {@link MenuType#GENERIC_9x3} chest, so no client
  * registration is needed). The two candidate rows are a read-only mirror built fresh from
- * {@link EmbargoManager#voteItems} - identical for everyone, since it's just a snapshot copy,
+ * {@link LiquidationManager#voteItems} - identical for everyone, since it's just a snapshot copy,
  * not a shared live container. The "tu voto" indicator slot is a plain field of THIS instance
  * only (nobody else's menu references it), which is exactly what makes the ballot private:
- * clicking a candidate calls {@link EmbargoManager#castVote}, and only this viewer's own
+ * clicking a candidate calls {@link LiquidationManager#castVote}, and only this viewer's own
  * indicator (and thus only their own client, via vanilla's per-viewer {@code broadcastChanges()})
  * ever reflects it.
  */
-public class EmbargoVoteMenu extends AbstractContainerMenu {
+public class LiquidationVoteMenu extends AbstractContainerMenu {
 
     private static final int CANDIDATE_ROWS = 2;
     private static final int CANDIDATE_SLOTS = CANDIDATE_ROWS * 9;
@@ -41,12 +41,12 @@ public class EmbargoVoteMenu extends AbstractContainerMenu {
     private final SimpleContainer indicator = new SimpleContainer(1);
     private final int candidateCount;
 
-    public EmbargoVoteMenu(int containerId, Inventory playerInventory, long voteId, UUID viewerUuid) {
+    public LiquidationVoteMenu(int containerId, Inventory playerInventory, long voteId, UUID viewerUuid) {
         super(MenuType.GENERIC_9x3, containerId);
         this.voteId = voteId;
         this.viewerUuid = viewerUuid;
 
-        List<ItemStack> items = EmbargoManager.get().voteItems(voteId);
+        List<ItemStack> items = LiquidationManager.get().voteItems(voteId);
         this.candidateCount = Math.min(items.size(), CANDIDATE_SLOTS);
         for (int i = 0; i < candidateCount; i++) {
             candidates.setItem(i, items.get(i).copy());
@@ -75,7 +75,7 @@ public class EmbargoVoteMenu extends AbstractContainerMenu {
     }
 
     private void refreshIndicator() {
-        Integer voted = EmbargoManager.get().voteOf(voteId, viewerUuid);
+        Integer voted = LiquidationManager.get().voteOf(voteId, viewerUuid);
         if (voted == null || voted >= candidateCount) {
             ItemStack marker = new ItemStack(Items.GRAY_DYE);
             marker.set(DataComponents.CUSTOM_NAME, Component.literal("§7Aún no has votado"));
@@ -98,7 +98,7 @@ public class EmbargoVoteMenu extends AbstractContainerMenu {
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         if (slotId >= 0 && slotId < candidateCount && player instanceof ServerPlayer serverPlayer) {
-            EmbargoManager.get().castVote(voteId, viewerUuid, slotId, serverPlayer.getServer());
+            LiquidationManager.get().castVote(voteId, viewerUuid, slotId, serverPlayer.getServer());
             refreshIndicator();
             return;
         }
@@ -116,7 +116,7 @@ public class EmbargoVoteMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return EmbargoManager.get() != null && EmbargoManager.get().isVoteActive(voteId);
+        return LiquidationManager.get() != null && LiquidationManager.get().isVoteActive(voteId);
     }
 
     /** Pure display: mirrors container contents but never accepts interaction - same as

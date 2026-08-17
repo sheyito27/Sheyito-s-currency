@@ -1,7 +1,7 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import com.sheyito.economicmaster.auction.AuctionPoolManager;
-import com.sheyito.economicmaster.util.GameTime;
+import com.sheyito.economicmaster.config.ConfigManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -21,7 +21,7 @@ import java.util.List;
  * Opened by talking to a "puesto de subastas" villager ({@link AuctionStandListener}) - lists
  * every item currently sitting in {@link AuctionPoolManager}, click one to start the auction on
  * it right away ({@link AuctionPoolManager#startAuction}). Same chest-menu molds as
- * {@code EmbargoVoteMenu}/{@code LiquidationAuctionMenu} (vanilla {@link MenuType#GENERIC_9x3},
+ * {@code LiquidationVoteMenu}/{@code LiquidationAuctionMenu} (vanilla {@link MenuType#GENERIC_9x3},
  * no client registration needed) - one click, no separate confirmation step, matching every other
  * menu in this mod (voting, bidding) already being immediate-on-click.
  */
@@ -71,7 +71,7 @@ public class AuctionStandSelectionMenu extends AbstractContainerMenu {
         if (slotId >= 0 && slotId < candidateCount && player instanceof ServerPlayer serverPlayer) {
             AuctionPoolManager.PooledItem chosen = pooled.get(slotId);
             AuctionPoolManager.StartResult result = AuctionPoolManager.get()
-                    .startAuction(chosen, GameTime.currentDay(serverPlayer.getServer()));
+                    .startAuction(chosen, serverPlayer.getServer());
             announceResult(serverPlayer, result);
             return;
         }
@@ -82,14 +82,20 @@ public class AuctionStandSelectionMenu extends AbstractContainerMenu {
         }
     }
 
+    /** SUCCESS gets no message here - {@code AuctionPoolManager#announceStart} already broadcast
+     * the "message + button" to every player, this one included. Only the failure paths, which
+     * nobody else needs to hear about, get a private reply. */
     private static void announceResult(ServerPlayer player, AuctionPoolManager.StartResult result) {
         switch (result) {
-            case SUCCESS -> player.sendSystemMessage(Component.literal(
-                    "§a[Sheyito's currency] §f¡Subasta empezada! Usa /liquidation auction para pujar."));
+            case SUCCESS -> {
+            }
             case ALREADY_ACTIVE -> player.sendSystemMessage(Component.literal(
                     "§c[Sheyito's currency] §fYa hay una subasta en curso - espera a que termine para empezar otra."));
             case ITEM_NOT_FOUND -> player.sendSystemMessage(Component.literal(
                     "§c[Sheyito's currency] §fEse objeto ya no está en la pool."));
+            case NOT_ENOUGH_PLAYERS -> player.sendSystemMessage(Component.literal(
+                    "§c[Sheyito's currency] §fHacen falta al menos " + ConfigManager.liquidation().minPlayersToStartAuction
+                            + " jugadores conectados (aparte del embargado) para empezar esta subasta."));
         }
     }
 
@@ -104,7 +110,7 @@ public class AuctionStandSelectionMenu extends AbstractContainerMenu {
     }
 
     /** Pure display: mirrors container contents but never accepts interaction - same as
-     * {@code trade.TradeMenu}/{@code EmbargoVoteMenu}'s private nested class of the same purpose. */
+     * {@code trade.TradeMenu}/{@code LiquidationVoteMenu}'s private nested class of the same purpose. */
     private static class MirrorSlot extends Slot {
         MirrorSlot(Container container, int slot, int x, int y) {
             super(container, slot, x, y);

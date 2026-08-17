@@ -1,9 +1,9 @@
-package com.sheyito.economicmaster.embargo;
+package com.sheyito.economicmaster.liquidation;
 
 import com.sheyito.economicmaster.config.ConfigManager;
-import com.sheyito.economicmaster.config.EmbargoConfig;
+import com.sheyito.economicmaster.config.LiquidationConfig;
 import com.sheyito.economicmaster.data.DataPaths;
-import com.sheyito.economicmaster.data.EmbargoData;
+import com.sheyito.economicmaster.data.LiquidationData;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.util.GameTime;
 import com.sheyito.economicmaster.util.ItemStackJson;
@@ -32,42 +32,42 @@ import java.util.concurrent.atomic.AtomicLong;
  * Reacts to a player's balance going negative - today only reachable via the admin-only
  * {@code /eco charge}, since no gameplay path causes real debt yet (that is the future "pagos
  * obligatorios" feature). Owns two pieces of state, both persisted (docs/features/patronManager.md):
- * per-player grace-period countdowns, and any embargo's community vote on which seized item goes
+ * per-player grace-period countdowns, and any liquidation's community vote on which seized item goes
  * to the {@link AuctionPoolManager}.
  */
-public class EmbargoManager {
+public class LiquidationManager {
 
-    private static volatile EmbargoManager instance;
+    private static volatile LiquidationManager instance;
 
     private final Path file;
     private final Map<UUID, Integer> graceSecondsElapsed = new ConcurrentHashMap<>();
     private final Map<Long, AuctionVote> activeVotes = new ConcurrentHashMap<>();
-    private final Map<UUID, List<EmbargoSeizureLogic.SeizedItem>> pendingReturns = new ConcurrentHashMap<>();
+    private final Map<UUID, List<LiquidationSeizureLogic.SeizedItem>> pendingReturns = new ConcurrentHashMap<>();
     private final AtomicLong nextAuctionId = new AtomicLong(1);
     private final AtomicBoolean dirty = new AtomicBoolean(false);
     private int tickAccumulator = 0;
 
-    private EmbargoManager(Path file) {
+    private LiquidationManager(Path file) {
         this.file = file;
     }
 
     public static void init(MinecraftServer server) {
-        EmbargoManager manager = new EmbargoManager(DataPaths.dataDir(server).resolve("embargo_data.json"));
+        LiquidationManager manager = new LiquidationManager(DataPaths.dataDir(server).resolve("embargo_data.json"));
         manager.load();
         instance = manager;
     }
 
-    public static EmbargoManager get() {
+    public static LiquidationManager get() {
         return instance;
     }
 
     /** Test-support seam, not part of the mod's real lifecycle - builds an in-memory instance
      * that never touches disk. */
-    public static EmbargoManager createForTesting() {
-        return new EmbargoManager(Path.of("build", "test-tmp", "unused-embargo-test-file.json"));
+    public static LiquidationManager createForTesting() {
+        return new LiquidationManager(Path.of("build", "test-tmp", "unused-liquidation-test-file.json"));
     }
 
-    public static void installForTesting(EmbargoManager manager) {
+    public static void installForTesting(LiquidationManager manager) {
         instance = manager;
     }
 
@@ -79,12 +79,12 @@ public class EmbargoManager {
     }
 
     private void load() {
-        EmbargoData data = JsonFileUtil.loadOrCreate(file, EmbargoData.class, EmbargoData::empty);
+        LiquidationData data = JsonFileUtil.loadOrCreate(file, LiquidationData.class, LiquidationData::empty);
         data.graceSecondsElapsed.forEach((uuid, seconds) -> graceSecondsElapsed.put(UUID.fromString(uuid), seconds));
         data.pendingReturns.forEach((uuid, records) -> {
-            List<EmbargoSeizureLogic.SeizedItem> items = new ArrayList<>();
-            for (EmbargoData.PendingItemRecord record : records) {
-                items.add(new EmbargoSeizureLogic.SeizedItem(ItemStackJson.decode(record.item), decodeSlot(record.slot)));
+            List<LiquidationSeizureLogic.SeizedItem> items = new ArrayList<>();
+            for (LiquidationData.PendingItemRecord record : records) {
+                items.add(new LiquidationSeizureLogic.SeizedItem(ItemStackJson.decode(record.item), decodeSlot(record.slot)));
             }
             pendingReturns.put(UUID.fromString(uuid), items);
         });
@@ -121,12 +121,12 @@ public class EmbargoManager {
     }
 
     public void save() {
-        EmbargoData data = new EmbargoData();
+        LiquidationData data = new LiquidationData();
         graceSecondsElapsed.forEach((uuid, seconds) -> data.graceSecondsElapsed.put(uuid.toString(), seconds));
         pendingReturns.forEach((uuid, items) -> {
-            List<EmbargoData.PendingItemRecord> encoded = new ArrayList<>();
-            for (EmbargoSeizureLogic.SeizedItem item : items) {
-                EmbargoData.PendingItemRecord record = new EmbargoData.PendingItemRecord();
+            List<LiquidationData.PendingItemRecord> encoded = new ArrayList<>();
+            for (LiquidationSeizureLogic.SeizedItem item : items) {
+                LiquidationData.PendingItemRecord record = new LiquidationData.PendingItemRecord();
                 record.item = ItemStackJson.encode(item.stack());
                 record.slot = encodeSlot(item.originSlot());
                 encoded.add(record);
@@ -134,7 +134,7 @@ public class EmbargoManager {
             data.pendingReturns.put(uuid.toString(), encoded);
         });
         activeVotes.forEach((id, vote) -> {
-            EmbargoData.AuctionVoteRecord record = new EmbargoData.AuctionVoteRecord();
+            LiquidationData.AuctionVoteRecord record = new LiquidationData.AuctionVoteRecord();
             record.victimUuid = vote.victimUuid.toString();
             record.openedGameDay = vote.openedGameDay;
             for (ItemStack stack : vote.items) {
@@ -172,7 +172,7 @@ public class EmbargoManager {
         return graceSecondsElapsed.containsKey(uuid);
     }
 
-    /** Called every server tick by {@code EmbargoScheduler}; only does real work once every ~20
+    /** Called every server tick by {@code LiquidationScheduler}; only does real work once every ~20
      * ticks (1 real second), so a player's countdown is paused for every tick they're offline. */
     public void tickGrace(MinecraftServer server) {
         if (graceSecondsElapsed.isEmpty()) {
@@ -184,7 +184,7 @@ public class EmbargoManager {
         }
         tickAccumulator = 0;
 
-        EmbargoConfig config = ConfigManager.embargo();
+        LiquidationConfig config = ConfigManager.liquidation();
         if (!config.enabled) {
             return;
         }
@@ -231,7 +231,7 @@ public class EmbargoManager {
 
     private void executeSeizure(ServerPlayer player, MinecraftServer server) {
         graceSecondsElapsed.remove(player.getUUID());
-        List<EmbargoSeizureLogic.SeizedItem> seized = EmbargoSeizureLogic.collectSeizable(player, player.getInventory());
+        List<LiquidationSeizureLogic.SeizedItem> seized = LiquidationSeizureLogic.collectSeizable(player, player.getInventory());
         EconomyManager.get().setBalance(player.getUUID(), 0.0);
         dirty.set(true);
 
@@ -250,9 +250,9 @@ public class EmbargoManager {
         announceIfEligible(vote, server);
     }
 
-    private static List<ItemStack> stacksOf(List<EmbargoSeizureLogic.SeizedItem> items) {
+    private static List<ItemStack> stacksOf(List<LiquidationSeizureLogic.SeizedItem> items) {
         List<ItemStack> stacks = new ArrayList<>(items.size());
-        for (EmbargoSeizureLogic.SeizedItem item : items) {
+        for (LiquidationSeizureLogic.SeizedItem item : items) {
             stacks.add(item.stack());
         }
         return stacks;
@@ -298,7 +298,7 @@ public class EmbargoManager {
         if (activeVotes.isEmpty()) {
             return;
         }
-        EmbargoConfig config = ConfigManager.embargo();
+        LiquidationConfig config = ConfigManager.liquidation();
         long currentDay = GameTime.currentDay(server);
 
         for (AuctionVote vote : List.copyOf(activeVotes.values())) {
@@ -338,10 +338,10 @@ public class EmbargoManager {
         String victimName = EconomyManager.get().getName(vote.victimUuid);
         AuctionPoolManager.get().add(winner, vote.victimUuid, victimName, GameTime.currentDay(server));
 
-        List<EmbargoSeizureLogic.SeizedItem> returned = new ArrayList<>();
+        List<LiquidationSeizureLogic.SeizedItem> returned = new ArrayList<>();
         for (int i = 0; i < vote.items.size(); i++) {
             if (i != winnerIndex) {
-                returned.add(new EmbargoSeizureLogic.SeizedItem(vote.items.get(i), vote.originSlots[i]));
+                returned.add(new LiquidationSeizureLogic.SeizedItem(vote.items.get(i), vote.originSlots[i]));
             }
         }
 
@@ -377,13 +377,13 @@ public class EmbargoManager {
         return builder.toString();
     }
 
-    private void returnItems(UUID victim, List<EmbargoSeizureLogic.SeizedItem> items, MinecraftServer server) {
+    private void returnItems(UUID victim, List<LiquidationSeizureLogic.SeizedItem> items, MinecraftServer server) {
         if (items.isEmpty()) {
             return;
         }
         ServerPlayer player = server.getPlayerList().getPlayer(victim);
         if (player != null) {
-            for (EmbargoSeizureLogic.SeizedItem item : items) {
+            for (LiquidationSeizureLogic.SeizedItem item : items) {
                 giveBack(player, item);
             }
         } else {
@@ -395,7 +395,7 @@ public class EmbargoManager {
     /** Puts a returned item back where it came from: re-equips it if it was worn/held AND that
      * slot is still free (never yanks something the player has since put on to replace it), falls
      * back to a loose inventory stack otherwise - same as any item that was never equipped. */
-    private static void giveBack(ServerPlayer player, EmbargoSeizureLogic.SeizedItem item) {
+    private static void giveBack(ServerPlayer player, LiquidationSeizureLogic.SeizedItem item) {
         EquipmentSlot slot = item.originSlot();
         if (slot != null && player.getItemBySlot(slot).isEmpty()) {
             player.setItemSlot(slot, item.stack());
@@ -407,11 +407,11 @@ public class EmbargoManager {
     /** Called from {@code ServerLifecycleHandler.onPlayerLoggedIn} - hands over any items that
      * couldn't be returned because the victim was offline when their vote closed. */
     public void deliverPendingReturns(ServerPlayer player) {
-        List<EmbargoSeizureLogic.SeizedItem> pending = pendingReturns.remove(player.getUUID());
+        List<LiquidationSeizureLogic.SeizedItem> pending = pendingReturns.remove(player.getUUID());
         if (pending == null || pending.isEmpty()) {
             return;
         }
-        for (EmbargoSeizureLogic.SeizedItem item : pending) {
+        for (LiquidationSeizureLogic.SeizedItem item : pending) {
             giveBack(player, item);
         }
         dirty.set(true);
@@ -422,7 +422,7 @@ public class EmbargoManager {
         if (vote.announced) {
             return;
         }
-        EmbargoConfig config = ConfigManager.embargo();
+        LiquidationConfig config = ConfigManager.liquidation();
         long onlineExcludingVictim = server.getPlayerList().getPlayers().stream()
                 .filter(p -> !p.getUUID().equals(vote.victimUuid))
                 .count();
