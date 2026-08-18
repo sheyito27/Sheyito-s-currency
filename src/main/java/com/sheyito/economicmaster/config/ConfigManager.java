@@ -19,6 +19,7 @@ public final class ConfigManager {
     private static volatile SubscriptionsConfig subscriptions;
     private static volatile ShopConfig shop;
     private static volatile XpShopConfig xpShop;
+    private static volatile MonopolyConfig monopoly;
     private static volatile DebtConfig debt;
     private static volatile WaystoneTollConfig waystoneToll;
     private static volatile DimensionUnlockConfig dimensionUnlock;
@@ -47,6 +48,7 @@ public final class ConfigManager {
         subscriptions = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("subscriptions.json"), SubscriptionsConfig.class, SubscriptionsConfig::defaults);
         shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
         xpShop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("xp_shop.json"), XpShopConfig.class, XpShopConfig::defaults);
+        monopoly = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("monopoly.json"), MonopolyConfig.class, MonopolyConfig::defaults);
         debt = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("debt.json"), DebtConfig.class, DebtConfig::defaults);
         waystoneToll = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("waystone_toll.json"), WaystoneTollConfig.class, WaystoneTollConfig::defaults);
         dimensionUnlock = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("dimension_unlock.json"), DimensionUnlockConfig.class, DimensionUnlockConfig::defaults);
@@ -85,6 +87,8 @@ public final class ConfigManager {
         return xpShop;
     }
 
+    public static MonopolyConfig monopoly() {
+        return monopoly;
     public static DebtConfig debt() {
         return debt;
     }

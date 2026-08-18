@@ -213,17 +213,19 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void processDueChargesRenewsWhenFundsAreAvailable() throws Exception {
+    void inviteDoesNotChargeUntilAccepted() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             UUID payerUuid = UUID.randomUUID();
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
             economy.give(payerUuid, 200.0);
             subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
 
-            // Advance time by mutating the same mocked server's overworld game time in place.
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "renta");
 
-            subscriptions.processDueCharges(server);
+            assertEquals(100.0, economy.getBalance(payer.getUUID()), "an invite alone must never charge anyone");
+            assertTrue(subscriptions.providersFor(payer.getUUID()).isEmpty());
+        });
+    }
 
             assertEquals(100.0, economy.getBalance(payerUuid), "200 - 50 initial - 50 renewal");
             assertEquals(100.0, economy.getBalance(receiver.getUUID()));
@@ -232,7 +234,13 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void processDueChargesCancelsSubscriptionWithoutFunds() throws Exception {
+    void acceptInviteFailsWithNoPendingInvite() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) ->
+                assertFalse(subscriptions.acceptInvite(server, mockPlayer(UUID.randomUUID(), "Payer"))));
+    }
+
+    @Test
+    void acceptInviteLeavesTheInvitePendingWhenThePayerCantAfford() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             UUID payerUuid = UUID.randomUUID();
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
@@ -240,8 +248,8 @@ class SubscriptionManagerTest {
             subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
             // payer now has 0 balance, can't afford the renewal
 
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
-            subscriptions.processDueCharges(server);
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
+            assertFalse(subscriptions.acceptInvite(server, payer));
 
             assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
         });

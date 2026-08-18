@@ -12,6 +12,7 @@ import com.sheyito.economicmaster.events.PlayerDeathPenaltyListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
 import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
+import com.sheyito.economicmaster.monopoly.MonopolyEventListener;
 import com.sheyito.economicmaster.integration.WaystonesCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
 import com.sheyito.economicmaster.shop.ShopCreationTracker;
@@ -47,6 +48,7 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopCreationTracker());
         NeoForge.EVENT_BUS.register(new ShopTradeListener());
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
+        NeoForge.EVENT_BUS.register(new MonopolyEventListener());
         NeoForge.EVENT_BUS.register(new LiquidationScheduler());
         NeoForge.EVENT_BUS.register(new LiquidationBlockListener());
         NeoForge.EVENT_BUS.register(new AuctionStandListener());

@@ -17,6 +17,7 @@ hizo así, cómo funciona) dentro de [`docs/features/`](docs/features/):
 [caza de mobs](docs/features/cazaDeMobs.md),
 [integración FTB Quests](docs/features/integracionFtbQuests.md),
 [compra de XP](docs/features/compraXP.md),
+[eventos económicos Monopoly](docs/features/monopoly.md).
 [penalización por muerte](docs/features/penalizacionPorMuerte.md),
 [peaje de movilidad (Waystones)](docs/features/peajeMovilidadWaystones.md),
 [desbloqueo de dimensiones](docs/features/desbloqueoDimensiones.md),
@@ -56,6 +57,8 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
   - `subscriptions.json` — solo el intervalo de cobro (`intervalGameDays`, 5 días de juego por defecto). Las suscripciones en sí son 100% entre jugadores, no hay nada más que configurar aquí.
   - `shop.json` — tiempo límite en ticks para terminar de escribir un cartel de tienda (`pendingSignTimeoutTicks`, 600 = 30s por defecto).
   - `xp_shop.json` — precio en Sheyicoins por punto de experiencia vanilla (`coinsPerXpPoint`, 1.0 por defecto).
+  - `monopoly.json` — eventos económicos aleatorios: `enabled`, `eventsPerDay` (1 = un evento al día, 2 = dos), `minBet`/`maxBet` para el cara o cruz, y la lista de eventos con su `enabled`, `weight` y parámetros por tipo (multiplicadores, mobs, recompensa, comisión, probabilidad, una lista `messages` de anuncios de los que el sorteo elige uno al azar, y para `WINDFALL` la lista `effects` de efectos de poción con `effectDurationSeconds` y `effectAmplifier`).
+- **Datos de jugadores** (saldos, XP/nivel, ofertas y suscripciones activas, últimos pagos, tiendas registradas): dentro de la carpeta del mundo, en `<mundo>/sheyitoscurrency/`. Viaja con la copia de seguridad del mundo.
   - `debt.json` — porcentaje de la penalización por muerte (ver más abajo).
   - `waystone_toll.json` — coste en Sheyicoins de usar un waystone del mod Waystones, 100 por defecto (ver más abajo).
   - `dimension_unlock.json` — coste en Sheyicoins de desbloquear una dimensión (Nether, End, o cualquier otra), 5000 por defecto (ver más abajo).
@@ -83,6 +86,10 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
+- `/monopoly status` — muestra el evento económico activo (si lo hay) y cuándo llega el siguiente.
+- `/monopoly coinflip <cantidad>` — cara o cruz contra La Casa (solo mientras el evento `HOUSE_COINFLIP` está activo; La Casa cobra una comisión que se quema).
+- `/monopoly coinflip <cantidad> <jugador>` — retar a otro jugador a un cara o cruz (ambos pagan la comisión de La Casa).
+- `/monopoly accept` / `/monopoly deny` — aceptar o rechazar un reto de cara o cruz pendiente.
 - `/liquidation vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
 - `/auction` — si hay una subasta activa en la que puedes participar (nunca si eres la víctima del objeto en juego), abre el menú para pujar (ver más abajo). Se puja clicando botones, no escribiendo cifras. Es el mismo comando que ejecuta el botón `[Pujar]` de los mensajes de inicio de subasta y de cada puja.
 
@@ -90,6 +97,9 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
 - `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
+- `/monopoly roll [id]` — fuerza un sorteo de evento ahora mismo (con `id`, fuerza ese evento concreto).
+- `/monopoly end` — termina el evento actual; el siguiente llegará en la próxima frontera de periodo.
+- `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.
@@ -244,6 +254,34 @@ El importe no es fijo: cada jugador tiene un **nivel** (0 a `maxLevel`, 50 por d
 
 La XP necesaria para pasar del nivel L-1 al L es `levelCurveBaseXp * fibonacci(L)` — al crecer Fibonacci de forma exponencial, los primeros niveles son rápidos pero los últimos son deliberadamente brutales (con los valores por defecto, llegar al nivel 50 exige sumas de monedas ganadas absolutamente descomunales). Todo esto es ajustable en `salary.json` (`baseSalary`, `maxSalary`, `maxLevel`, `xpPerCoin`, `levelCurveBaseXp`). Consulta tu progreso con `/bal level`.
 
+## Eventos económicos (Monopoly)
+
+Cada `eventsPerDay` **días de juego** (1 por defecto) el servidor sortea un evento de `monopoly.json`
+y lo anuncia en el chat. El evento elegido altera la economía temporalmente hasta el siguiente
+sorteo:
+
+- **Multiplicadores de salario y misiones**: los eventos de tipo `SALARY_MULTIPLIER` /
+  `QUEST_REWARD_MULTIPLIER` eligen un multiplicador al azar de la lista `multipliers` del evento.
+- **Mob buscado**: `MOB_WANTED` elige un mob al azar de la lista `mobs`; al morir, el `bounty` se
+  reparte por igual entre todos los jugadores que lo dañaron (independiente de la caza de `mobs.json`).
+  El evento admite un tope `maxKills` de muertes pagadas (5 por defecto; 0 = sin límite): al agotarlo
+  deja de pagar, pero el evento sigue activo hasta el siguiente sorteo. Con `maxKills` a 1 sirve para
+  un **boss buscado** (evento por defecto `boss_buscado`: wither, ender dragon, elder guardian o
+  warden, con un bounty grande).
+- **Cara o cruz contra La Casa**: `HOUSE_COINFLIP` habilita `/monopoly coinflip`. Apostar cuesta
+  `cantidad × (1 + commission)` (la comisión se quema como sink) y con probabilidad `winChance`
+  (50%) se gana el doble de la apuesta. Se puede retar a otro jugador, que acepta con
+  `/monopoly accept` — ambos pagan la comisión y el ganador se lleva el doble.
+- **Efecto instantáneo (WINDFALL)**: `WINDFALL` elige al azar un efecto de poción de la lista
+  `effects` (con `effectDurationSeconds` y `effectAmplifier` configurables) y lo aplica una sola vez
+  a todos los jugadores conectados en el momento del sorteo. Quien se conecte después no lo recibe.
+  Los efectos pueden ser positivos (`golpe_de_suerte`: regeneración, velocidad, ...) o negativos
+  (`mala_suerte`: veneno, lentitud, fatiga de minería, ...).
+
+El sorteo es ponderado (`weight`) y cada evento tiene su propio `enabled`. El evento activo y sus
+parámetros sorteados se persisten en el mundo y sobreviven reinicios. Detalle completo en
+[`docs/features/monopoly.md`](docs/features/monopoly.md).
+
 ## Suscripciones (100% entre jugadores)
 
 No hay planes predefinidos: cualquier jugador puede vender su propio servicio de suscripción a su propio precio (`/subscribe offer <precio>`), y cualquier otro jugador puede suscribirse (`/subscribe <jugador>`). El precio queda fijado en el momento de suscribirse — si el vendedor lo cambia después, no afecta a quienes ya estaban suscritos. El único ajuste global es cada cuántos días de juego se cobra la renovación (`subscriptions.json`, `intervalGameDays`, 5 por defecto). Si al suscriptor le faltan fondos en el momento del cobro (precio pactado + IVA de transmisión, ver más abajo), la suscripción se cancela automáticamente y se le avisa por chat.
@@ -306,6 +344,7 @@ com.sheyito.economicmaster
 ├── events/                       LivingDeathEvent (caza, penalización por muerte), EntityTravelToDimensionEvent (desbloqueo), ciclo de vida del servidor
 ├── commands/                     /bal /baltop /pay /subscribe /eco /trade /liquidation /auction + /sc (reward, dimension lock, chunk reset, liquidation withdraw/close, rent force - admin/dev)
 ├── trade/                        TradeSession/TradeMenu/TradeManager - intercambio seguro con GUI
+├── monopoly/                     MonopolyManager (sorteo + cara o cruz) y MonopolyEventListener (mob buscado)
 ├── shop/                         ShopManager/ShopSignParser/ShopTransactionService - tiendas cartel+cofre
 ├── integration/                  FTBQuestsCompat (recompensa) + WaystonesCompat (peaje) + FTBChunksCompat (reclamo/force-load de chunk) - todas compileOnly
 └── util/                         JSON, dinero, sonidos de transaccion, días de juego (GameTime), curva de niveles (LevelCurve), ItemStackJson (persistir ItemStack real)
