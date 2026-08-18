@@ -6,6 +6,7 @@ import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.GeneralConfig;
 import com.sheyito.economicmaster.config.SalaryConfig;
 import com.sheyito.economicmaster.config.SubscriptionsConfig;
+import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.PlayerSubscription;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import net.minecraft.server.MinecraftServer;
@@ -45,6 +46,23 @@ class SubscriptionManagerTest {
     }
 
     private void withSubscriptions(int intervalGameDays, long currentGameDay, WithSubscriptions test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = false;
+        withSubscriptions(intervalGameDays, currentGameDay, tax, test);
+    }
+
+    /** Same as {@link #withSubscriptions(int, long, WithSubscriptions)} but with the
+     * transmission tax enabled at {@code taxPercent}, for tests covering the doble-corte math
+     * on both the initial charge ({@link SubscriptionManager#subscribe}) and renewals
+     * ({@link SubscriptionManager#processDueCharges}). */
+    private void withTaxedSubscriptions(int intervalGameDays, long currentGameDay, double taxPercent, WithSubscriptions test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = true;
+        tax.taxPercent = taxPercent;
+        withSubscriptions(intervalGameDays, currentGameDay, tax, test);
+    }
+
+    private void withSubscriptions(int intervalGameDays, long currentGameDay, TransmissionTaxConfig tax, WithSubscriptions test) throws Exception {
         GeneralConfig general = new GeneralConfig();
         general.decimals = 2;
         SalaryConfig salary = new SalaryConfig();
@@ -68,6 +86,7 @@ class SubscriptionManagerTest {
             mocked.when(ConfigManager::general).thenReturn(general);
             mocked.when(ConfigManager::salary).thenReturn(salary);
             mocked.when(ConfigManager::subscriptions).thenReturn(subs);
+            mocked.when(ConfigManager::transmissionTax).thenReturn(tax);
             test.run(SubscriptionManager.createForTesting(), economy, server);
         } finally {
             EconomyManager.installForTesting(null);
@@ -112,6 +131,37 @@ class SubscriptionManagerTest {
             assertEquals(50.0, sub.price);
             assertEquals("renta", sub.description);
             assertEquals(15L, sub.nextChargeGameDay, "day 10 + 5 day interval");
+        });
+    }
+
+    @Test
+    void subscribeChargesGrossAndCreditsNetWhenTaxIsEnabled() throws Exception {
+        withTaxedSubscriptions(5, 10, 0.10, (subscriptions, economy, server) -> {
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 60.0);
+
+            assertTrue(subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "renta"));
+            assertEquals(5.0, economy.getBalance(payerUuid), "payer pays the 50 sticker price plus 10% tax on top (55), starting from 60");
+            assertEquals(45.0, economy.getBalance(receiver.getUUID()), "receiver gets the 50 sticker price minus 10% tax (45)");
+            assertEquals(50.0, subscriptions.providersFor(payerUuid).get(0).price, "the stored agreed price stays untaxed - the tax is recomputed on every charge");
+        });
+    }
+
+    @Test
+    void processDueChargesAppliesTheTaxOnRenewalsToo() throws Exception {
+        withTaxedSubscriptions(5, 0, 0.10, (subscriptions, economy, server) -> {
+            UUID payerUuid = UUID.randomUUID();
+            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
+            economy.give(payerUuid, 110.0);
+            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
+            // first charge: payer 110 - 55 = 55, receiver 45
+
+            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
+            subscriptions.processDueCharges(server);
+
+            assertEquals(0.0, economy.getBalance(payerUuid), "55 - 55 (renewal, gross)");
+            assertEquals(90.0, economy.getBalance(receiver.getUUID()), "45 + 45 (renewal, net)");
         });
     }
 
@@ -163,17 +213,19 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void processDueChargesRenewsWhenFundsAreAvailable() throws Exception {
+    void inviteDoesNotChargeUntilAccepted() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             UUID payerUuid = UUID.randomUUID();
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
             economy.give(payerUuid, 200.0);
             subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
 
-            // Advance time by mutating the same mocked server's overworld game time in place.
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "renta");
 
-            subscriptions.processDueCharges(server);
+            assertEquals(100.0, economy.getBalance(payer.getUUID()), "an invite alone must never charge anyone");
+            assertTrue(subscriptions.providersFor(payer.getUUID()).isEmpty());
+        });
+    }
 
             assertEquals(100.0, economy.getBalance(payerUuid), "200 - 50 initial - 50 renewal");
             assertEquals(100.0, economy.getBalance(receiver.getUUID()));
@@ -182,7 +234,13 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void processDueChargesCancelsSubscriptionWithoutFunds() throws Exception {
+    void acceptInviteFailsWithNoPendingInvite() throws Exception {
+        withSubscriptions(5, 0, (subscriptions, economy, server) ->
+                assertFalse(subscriptions.acceptInvite(server, mockPlayer(UUID.randomUUID(), "Payer"))));
+    }
+
+    @Test
+    void acceptInviteLeavesTheInvitePendingWhenThePayerCantAfford() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             UUID payerUuid = UUID.randomUUID();
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
@@ -190,8 +248,8 @@ class SubscriptionManagerTest {
             subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
             // payer now has 0 balance, can't afford the renewal
 
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
-            subscriptions.processDueCharges(server);
+            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
+            assertFalse(subscriptions.acceptInvite(server, payer));
 
             assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
         });

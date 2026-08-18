@@ -4,6 +4,7 @@ import com.sheyito.economicmaster.TestBootstrap;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.config.GeneralConfig;
 import com.sheyito.economicmaster.config.SalaryConfig;
+import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.economy.EconomyManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -47,6 +48,21 @@ class TradeSessionTest {
     }
 
     private void withSession(double money, String message, WithSession test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = false;
+        withSession(money, message, tax, test);
+    }
+
+    /** Same as {@link #withSession(double, String, WithSession)} but with the transmission tax
+     * enabled at {@code taxPercent}, for the test covering {@code complete()}'s doble-corte math. */
+    private void withTaxedSession(double money, double taxPercent, WithSession test) throws Exception {
+        TransmissionTaxConfig tax = new TransmissionTaxConfig();
+        tax.enabled = true;
+        tax.taxPercent = taxPercent;
+        withSession(money, "", tax, test);
+    }
+
+    private void withSession(double money, String message, TransmissionTaxConfig tax, WithSession test) throws Exception {
         GeneralConfig general = new GeneralConfig();
         general.decimals = 2;
         SalaryConfig salary = new SalaryConfig();
@@ -66,6 +82,7 @@ class TradeSessionTest {
         try (MockedStatic<ConfigManager> mocked = mockStatic(ConfigManager.class)) {
             mocked.when(ConfigManager::general).thenReturn(general);
             mocked.when(ConfigManager::salary).thenReturn(salary);
+            mocked.when(ConfigManager::transmissionTax).thenReturn(tax);
             test.run(new TradeSession(uuidA, uuidB, money, message), economy, server, uuidA, uuidB);
         } finally {
             EconomyManager.installForTesting(null);
@@ -192,6 +209,29 @@ class TradeSessionTest {
             assertTrue(session.isFinished());
             assertEquals(0.0, economy.getBalance(uuidA));
             assertEquals(300.0, economy.getBalance(uuidB));
+        });
+    }
+
+    @Test
+    void pledgedMoneyIsTaxedOnCompletionWhenEnabled() throws Exception {
+        withTaxedSession(300.0, 0.10, (session, economy, server, uuidA, uuidB) -> {
+            economy.give(uuidA, 330.0);
+
+            ServerPlayer playerA = mock(ServerPlayer.class);
+            ServerPlayer playerB = mock(ServerPlayer.class);
+            when(playerB.getInventory()).thenReturn(mock(Inventory.class));
+            when(server.getPlayerList().getPlayer(uuidA)).thenReturn(playerA);
+            when(server.getPlayerList().getPlayer(uuidB)).thenReturn(playerB);
+
+            session.toggleConfirm(uuidA);
+            session.toggleConfirm(uuidB);
+            for (int i = 0; i < TradeSession.TOTAL_TICKS; i++) {
+                session.tick(server);
+            }
+
+            assertTrue(session.isFinished());
+            assertEquals(0.0, economy.getBalance(uuidA), "uuidA pays the 300 pledged plus 10% tax on top (330)");
+            assertEquals(270.0, economy.getBalance(uuidB), "uuidB receives the 300 pledged minus 10% tax (270)");
         });
     }
 

@@ -2,6 +2,7 @@ package com.sheyito.economicmaster.trade;
 
 import com.sheyito.economicmaster.EconomicMaster;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.core.component.DataComponents;
@@ -200,20 +201,26 @@ public class TradeSession {
         if (finished.get()) {
             return;
         }
-        if (moneyPledged > 0 && !EconomyManager.get().take(uuidA, moneyPledged)) {
-            abort(server, EconomyManager.get().getName(uuidA) + " ya no tiene saldo suficiente para pagar los " + Money.format(moneyPledged) + " prometidos.");
+        if (moneyPledged > 0 && LiquidationManager.get() != null && LiquidationManager.get().isInGracePeriod(uuidB)) {
+            abort(server, EconomyManager.get().getName(uuidB) + " esta en periodo de gracia por deuda y no puede recibir dinero de otros jugadores.");
+            return;
+        }
+        double grossFromA = EconomyManager.get().grossWithTax(moneyPledged);
+        if (moneyPledged > 0 && !EconomyManager.get().take(uuidA, grossFromA)) {
+            abort(server, EconomyManager.get().getName(uuidA) + " ya no tiene saldo suficiente para pagar los " + Money.format(grossFromA) + " prometidos (con IVA incluido).");
             return;
         }
         finished.set(true);
 
+        double netToB = EconomyManager.get().netAfterTax(moneyPledged);
         if (moneyPledged > 0) {
-            EconomyManager.get().give(uuidB, moneyPledged);
+            EconomyManager.get().give(uuidB, netToB);
         }
 
         returnItems(server, offerA, uuidB);
         returnItems(server, offerB, uuidA);
 
-        String moneyPart = moneyPledged > 0 ? " (" + Money.format(moneyPledged) + " incluidos)" : "";
+        String moneyPart = moneyPledged > 0 ? " (" + Money.format(netToB) + " recibidos, IVA incluido)" : "";
         notifyBoth(server, "§a[Sheyito's currency] §fIntercambio completado" + moneyPart + ".");
         playTransactionSoundToBoth(server, true);
         closeBothMenus(server);

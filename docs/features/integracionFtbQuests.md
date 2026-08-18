@@ -24,7 +24,7 @@ si falta el mod, esa clase nunca se referencia y Java nunca intenta cargarla.
 `amount` fijo de `quests_rewards.json` (10 SC por defecto) a cada miembro online del equipo
 (`event.getOnlineMembers()`) vía `giveEarned()` — sin configuración por misión.
 
-**Pago manual:** `/sheyitoscurrency reward <jugador> [monto]` (`EconomicMasterCommand.java`),
+**Pago manual:** `/sc reward <jugador> [monto]` (`EconomicMasterCommand.java`),
 pensado para pegarse como recompensa tipo "Comando" en una misión puntual. Sin `monto` usa el
 `amount` configurado; con `monto` lo sobreescribe solo para esa llamada. Funciona con o sin FTB
 Quests instalado.

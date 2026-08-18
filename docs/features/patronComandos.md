@@ -1,7 +1,8 @@
 # Patrón: comandos con Brigadier
 
 Usado por: `BalCommand`, `BalTopCommand`, `PayCommand`, `SubscribeCommand`, `TradeCommand`,
-`BuyCommand`, `EcoCommand`, `EconomicMasterCommand`.
+`BuyCommand`, `EcoCommand`, `EconomicMasterCommand`, `DimensionCommand`, `ChunkCommand`,
+`LiquidationCommand`, `AuctionCommand`, `RentCommand`.
 
 ## Qué resuelve
 
@@ -19,6 +20,12 @@ dependencias).
 texto fijo, `Commands.argument("nombre", tipo)` acepta un valor variable y lo guarda bajo ese
 nombre (`IntegerArgumentType.integer(min)`, `DoubleArgumentType.doubleArg(min)`,
 `GameProfileArgument.gameProfile()`, `EntityArgument.player()` son los tipos que usa este mod).
+
+**Raíz compartida `/sc`:** `EconomicMasterCommand`, `DimensionCommand` y `ChunkCommand` registran
+cada uno su propio `Commands.literal("sc")` — Brigadier fusiona (`CommandNode.addChild`) los
+literales repetidos de distintas llamadas a `dispatcher.register(...)` en un único árbol, así que
+`/sc reward`, `/sc dimension lock` y `/sc chunk reset` conviven bajo la misma raíz sin que ninguna
+clase necesite conocer a las demás.
 `.executes(Clase::metodo)` marca qué función correr cuando el jugador completa ese camino exacto
 — es una referencia a método, no una llamada: no se ejecuta durante `register()`, solo se guarda
 el puntero para cuando el comando se escriba de verdad.

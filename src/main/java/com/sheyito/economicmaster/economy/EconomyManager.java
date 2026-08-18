@@ -1,8 +1,11 @@
 package com.sheyito.economicmaster.economy;
 
 import com.sheyito.economicmaster.config.ConfigManager;
+import com.sheyito.economicmaster.config.TransmissionTaxConfig;
 import com.sheyito.economicmaster.data.DataPaths;
+import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.data.EconomyData;
+import com.sheyito.economicmaster.rent.RentManager;
 import com.sheyito.economicmaster.util.JsonFileUtil;
 import com.sheyito.economicmaster.util.LevelCurve;
 import com.sheyito.economicmaster.util.Money;
@@ -101,13 +104,56 @@ public class EconomyManager {
         return balances.getOrDefault(uuid, ConfigManager.general().startingBalance);
     }
 
+    /**
+     * No floor at 0 here on purpose: a negative result is what lets a player end up owing
+     * money, which is simply a negative balance visible via {@code /bal} - there is no separate
+     * tracked "debt" state anywhere in this mod. Every caller that must never go negative
+     * enforces that itself - {@link #take} validates funds before calling this, and
+     * {@code /eco set} restricts its Brigadier argument to non-negative values - so this stays
+     * a plain, unclamped setter.
+     *
+     * <p>This is the single choke point every mutator ({@link #give}, {@link #take},
+     * {@link #charge}) funnels through, so it's also where a liquidation grace period starts: if a
+     * balance crosses from >=0 to negative, {@code LiquidationManager} is notified generically here,
+     * regardless of which caller (today only {@code /eco charge}, later "pagos obligatorios")
+     * caused it.
+     */
     public void setBalance(UUID uuid, double amount) {
-        balances.put(uuid, Money.round(Math.max(0.0, amount)));
+        double rounded = Money.round(amount);
+        double previous = getBalance(uuid);
+        balances.put(uuid, rounded);
         dirty.set(true);
+
+        if (previous >= 0 && rounded < 0 && LiquidationManager.get() != null) {
+            LiquidationManager.get().onBalanceWentNegative(uuid);
+        }
     }
 
+    /**
+     * The single choke point for money flowing IN to a player from anywhere ({@code /pay}
+     * received, shop sale proceeds, subscription income, salary, quest/kill rewards, admin
+     * {@code /eco give}...) - so it's also where {@link RentManager} tracks gross "ganancias"
+     * for the progressive profit tax. Deliberately gross, not net: what a player later spends
+     * or loses is never subtracted back out here (see {@link #take}/{@link #charge}, neither of
+     * which touches this tracking) - confirmed with the user, a loss is unrelated spending, not
+     * a credit against future gains.
+     */
     public void give(UUID uuid, double amount) {
         setBalance(uuid, getBalance(uuid) + amount);
+        if (amount > 0 && RentManager.get() != null) {
+            RentManager.get().trackGain(uuid, amount);
+        }
+    }
+
+    /**
+     * Unlike {@link #give}/{@link #take}, this never validates funds and can leave the balance
+     * negative - the sole overdraft entry point in the economy, used by the death-penalty debt
+     * mechanic and by {@code /eco charge} for admin testing. Every other transaction path
+     * ({@code /pay}, {@code /trade}, shops, salary) keeps going through {@link #take}, which
+     * still refuses to go negative.
+     */
+    public void charge(UUID uuid, double amount) {
+        setBalance(uuid, getBalance(uuid) - amount);
     }
 
     /**
@@ -149,12 +195,47 @@ public class EconomyManager {
         return true;
     }
 
+    /**
+     * The peer-to-peer payment primitive - always taxed (see {@link #grossWithTax}/
+     * {@link #netAfterTax}), unlike {@link #give}/{@link #take} which admin adjustments,
+     * shops and subscriptions call directly where they need untaxed control of their own
+     * gross/net math.
+     */
     public boolean pay(UUID from, UUID to, double amount) {
-        if (amount <= 0 || !take(from, amount)) {
+        if (amount <= 0 || !take(from, grossWithTax(amount))) {
             return false;
         }
-        give(to, amount);
+        give(to, netAfterTax(amount));
         return true;
+    }
+
+    /**
+     * What a payer must have available to move {@code price} through a taxed transaction -
+     * "doble corte": {@link TransmissionTaxConfig#taxPercent} extra on top of the sticker
+     * price, burned. Returns {@code price} unchanged when the tax is disabled.
+     */
+    public double grossWithTax(double price) {
+        TransmissionTaxConfig config = ConfigManager.transmissionTax();
+        if (!config.enabled) {
+            return price;
+        }
+        return Money.round(price * (1 + config.taxPercent));
+    }
+
+    /**
+     * What a receiver actually gets from a taxed transaction - the same percentage taken off
+     * the sticker price, burned. The gap between {@link #grossWithTax} and this is destroyed,
+     * never credited to anyone. Backs {@link #pay}, the money leg of a trade
+     * ({@code TradeSession#complete}), shop buy/sell ({@code ShopTransactionService}), and
+     * subscription charges ({@code SubscriptionManager}); admin adjustments ({@code /eco}),
+     * quest rewards, salary and mob-kill income are never taxed.
+     */
+    public double netAfterTax(double price) {
+        TransmissionTaxConfig config = ConfigManager.transmissionTax();
+        if (!config.enabled) {
+            return price;
+        }
+        return Money.round(price * (1 - config.taxPercent));
     }
 
     public List<Map.Entry<UUID, Double>> top(int limit) {

@@ -20,6 +20,13 @@ public final class ConfigManager {
     private static volatile ShopConfig shop;
     private static volatile XpShopConfig xpShop;
     private static volatile MonopolyConfig monopoly;
+    private static volatile DebtConfig debt;
+    private static volatile WaystoneTollConfig waystoneToll;
+    private static volatile DimensionUnlockConfig dimensionUnlock;
+    private static volatile ChunkClaimConfig chunkClaim;
+    private static volatile TransmissionTaxConfig transmissionTax;
+    private static volatile LiquidationConfig liquidation;
+    private static volatile RentConfig rent;
 
     private ConfigManager() {
     }
@@ -42,6 +49,13 @@ public final class ConfigManager {
         shop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("shop.json"), ShopConfig.class, ShopConfig::defaults);
         xpShop = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("xp_shop.json"), XpShopConfig.class, XpShopConfig::defaults);
         monopoly = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("monopoly.json"), MonopolyConfig.class, MonopolyConfig::defaults);
+        debt = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("debt.json"), DebtConfig.class, DebtConfig::defaults);
+        waystoneToll = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("waystone_toll.json"), WaystoneTollConfig.class, WaystoneTollConfig::defaults);
+        dimensionUnlock = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("dimension_unlock.json"), DimensionUnlockConfig.class, DimensionUnlockConfig::defaults);
+        chunkClaim = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("chunk_claim.json"), ChunkClaimConfig.class, ChunkClaimConfig::defaults);
+        transmissionTax = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("transmission_tax.json"), TransmissionTaxConfig.class, TransmissionTaxConfig::defaults);
+        liquidation = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("embargo.json"), LiquidationConfig.class, LiquidationConfig::defaults);
+        rent = JsonFileUtil.loadOrCreate(CONFIG_DIR.resolve("rent.json"), RentConfig.class, RentConfig::defaults);
         EconomicMaster.LOGGER.info("Sheyito's currency: configuracion cargada desde {}", CONFIG_DIR);
     }
 
@@ -75,5 +89,31 @@ public final class ConfigManager {
 
     public static MonopolyConfig monopoly() {
         return monopoly;
+    public static DebtConfig debt() {
+        return debt;
+    }
+
+    public static WaystoneTollConfig waystoneToll() {
+        return waystoneToll;
+    }
+
+    public static DimensionUnlockConfig dimensionUnlock() {
+        return dimensionUnlock;
+    }
+
+    public static ChunkClaimConfig chunkClaim() {
+        return chunkClaim;
+    }
+
+    public static TransmissionTaxConfig transmissionTax() {
+        return transmissionTax;
+    }
+
+    public static LiquidationConfig liquidation() {
+        return liquidation;
+    }
+
+    public static RentConfig rent() {
+        return rent;
     }
 }

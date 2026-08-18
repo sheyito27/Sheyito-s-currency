@@ -1,7 +1,9 @@
 # Patrón: config autogenerada por feature
 
 Usado por: `GeneralConfig`, `MobRewardsConfig`, `SalaryConfig`, `QuestRewardsConfig`,
-`SubscriptionsConfig`, `ShopConfig`, `XpShopConfig`.
+`SubscriptionsConfig`, `ShopConfig`, `XpShopConfig`, `DebtConfig`, `WaystoneTollConfig`,
+`DimensionUnlockConfig`, `ChunkClaimConfig`, `TransmissionTaxConfig`, `LiquidationConfig`,
+`RentConfig`.
 
 ## Qué resuelve
 
