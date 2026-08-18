@@ -15,6 +15,7 @@ public class CommandRegistrar {
         EconomicMasterCommand.register(event.getDispatcher());
         TradeCommand.register(event.getDispatcher());
         BuyCommand.register(event.getDispatcher());
+        MonopolyCommand.register(event.getDispatcher());
         DimensionCommand.register(event.getDispatcher());
         ChunkCommand.register(event.getDispatcher());
         LiquidationCommand.register(event.getDispatcher());

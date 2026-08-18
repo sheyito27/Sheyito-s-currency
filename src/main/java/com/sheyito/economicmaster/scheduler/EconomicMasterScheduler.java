@@ -43,10 +43,20 @@ public class EconomicMasterScheduler {
         RentManager.get().processDueRent(event.getServer());
         FTBChunksCompat.processForceLoadRent(event.getServer());
 
+        if (MonopolyManager.get() != null) {
+            MonopolyManager.get().tick(event.getServer());
+        }
+        LiquidationManager.get().tickVoteClosing(event.getServer());
+        RentManager.get().processDueRent(event.getServer());
+        FTBChunksCompat.processForceLoadRent(event.getServer());
+
         EconomyManager.get().saveIfDirty();
         SalaryManager.get().saveIfDirty();
         SubscriptionManager.get().saveIfDirty();
         ShopManager.get().saveIfDirty();
+        if (MonopolyManager.get() != null) {
+            MonopolyManager.get().saveIfDirty();
+        }
         DimensionUnlockManager.get().saveIfDirty();
         ChunkClaimRegistry.get().saveIfDirty();
         LiquidationManager.get().saveIfDirty();

@@ -3,6 +3,7 @@ package com.sheyito.economicmaster.integration;
 import com.sheyito.economicmaster.EconomicMaster;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
+import com.sheyito.economicmaster.monopoly.MonopolyManager;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import dev.architectury.event.EventResult;
@@ -27,6 +28,9 @@ final class FtbQuestsIntegration {
     static void register() {
         ObjectCompletedEvent.QUEST.register(event -> {
             double amount = ConfigManager.questRewards().amount;
+            if (MonopolyManager.get() != null) {
+                amount = Money.round(amount * MonopolyManager.get().questRewardMultiplier());
+            }
             EconomyManager economy = EconomyManager.get();
             if (economy == null || amount <= 0) {
                 return EventResult.pass();

@@ -28,6 +28,7 @@ public class ServerLifecycleHandler {
         SubscriptionManager.init(event.getServer());
         TradeManager.init(event.getServer());
         ShopManager.init(event.getServer());
+        MonopolyManager.init(event.getServer());
         DimensionUnlockManager.init(event.getServer());
         ChunkClaimRegistry.init(event.getServer());
         LiquidationManager.init(event.getServer());
@@ -42,6 +43,7 @@ public class ServerLifecycleHandler {
         EconomyManager.shutdown();
         SalaryManager.shutdown();
         SubscriptionManager.shutdown();
+        MonopolyManager.shutdown();
         DimensionUnlockManager.shutdown();
         ChunkClaimRegistry.shutdown();
         LiquidationManager.shutdown();

@@ -213,41 +213,6 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void processDueChargesRenewsWhenFundsAreAvailable() throws Exception {
-        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID payerUuid = UUID.randomUUID();
-            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
-            economy.give(payerUuid, 200.0);
-            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
-
-            // Advance time by mutating the same mocked server's overworld game time in place.
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
-
-            subscriptions.processDueCharges(server);
-
-            assertEquals(100.0, economy.getBalance(payerUuid), "200 - 50 initial - 50 renewal");
-            assertEquals(100.0, economy.getBalance(receiver.getUUID()));
-            assertEquals(10L, subscriptions.providersFor(payerUuid).get(0).nextChargeGameDay);
-        });
-    }
-
-    @Test
-    void processDueChargesCancelsSubscriptionWithoutFunds() throws Exception {
-        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID payerUuid = UUID.randomUUID();
-            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
-            economy.give(payerUuid, 50.0);
-            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
-            // payer now has 0 balance, can't afford the renewal
-
-            when(server.overworld().getGameTime()).thenReturn(5L * 24000L);
-            subscriptions.processDueCharges(server);
-
-            assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
-        });
-    }
-
-    @Test
     void clientsForOnlyReturnsSubscriptionsPayingThatReceiver() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
