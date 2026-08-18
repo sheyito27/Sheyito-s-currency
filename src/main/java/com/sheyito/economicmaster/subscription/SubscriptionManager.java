@@ -178,10 +178,10 @@ public class SubscriptionManager {
      */
     public boolean subscribe(MinecraftServer server, ServerPlayer receiver, UUID payer, double price, int intervalGameDays, String description) {
         double rounded = Money.round(price);
-        if (!EconomyManager.get().take(payer, rounded)) {
+        if (!EconomyManager.get().take(payer, EconomyManager.get().grossWithTax(rounded))) {
             return false;
         }
-        EconomyManager.get().giveEarned(receiver.getUUID(), rounded);
+        EconomyManager.get().giveEarned(receiver.getUUID(), EconomyManager.get().netAfterTax(rounded));
 
         int interval = Math.max(1, intervalGameDays);
         long next = GameTime.currentDay(server) + interval;
@@ -190,7 +190,7 @@ public class SubscriptionManager {
 
         ServerPlayer payerPlayer = server.getPlayerList().getPlayer(payer);
         if (payerPlayer != null) {
-            payerPlayer.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + receiver.getGameProfile().getName() + " registro un acuerdo: le pagas " + Money.format(rounded) + " cada " + interval + " dias."
+            payerPlayer.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + receiver.getGameProfile().getName() + " registro un acuerdo: le pagas " + Money.format(rounded) + " cada " + interval + " dias (mas IVA)."
                     + (description.isBlank() ? "" : " (" + description + ")")));
         }
         return true;
@@ -230,7 +230,8 @@ public class SubscriptionManager {
             ServerPlayer sellerOnline = server.getPlayerList().getPlayer(sellerUuid);
             String sellerName = EconomyManager.get().getName(sellerUuid);
 
-            if (!EconomyManager.get().take(buyerUuid, sub.price)) {
+            double grossFromBuyer = EconomyManager.get().grossWithTax(sub.price);
+            if (!EconomyManager.get().take(buyerUuid, grossFromBuyer)) {
                 sub.active = false;
                 subscriptions.remove(sub);
                 dirty.set(true);
@@ -241,16 +242,17 @@ public class SubscriptionManager {
                 continue;
             }
 
-            EconomyManager.get().giveEarned(sellerUuid, sub.price);
+            double netToSeller = EconomyManager.get().netAfterTax(sub.price);
+            EconomyManager.get().giveEarned(sellerUuid, netToSeller);
             sub.nextChargeGameDay = currentDay + Math.max(1, sub.intervalGameDays);
             dirty.set(true);
 
             if (buyerOnline != null) {
-                buyerOnline.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSe renovo tu pago a " + sellerName + " por " + Money.format(sub.price) + "."));
+                buyerOnline.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fSe renovo tu pago a " + sellerName + " por " + Money.format(grossFromBuyer) + " (IVA incluido)."));
                 TransactionSounds.success(buyerOnline);
             }
             if (sellerOnline != null) {
-                sellerOnline.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fCobraste " + Money.format(sub.price) + " de " + EconomyManager.get().getName(buyerUuid) + "."));
+                sellerOnline.sendSystemMessage(Component.literal("§a[Sheyito's currency] §fCobraste " + Money.format(netToSeller) + " de " + EconomyManager.get().getName(buyerUuid) + " (IVA incluido)."));
                 TransactionSounds.success(sellerOnline);
             }
         }

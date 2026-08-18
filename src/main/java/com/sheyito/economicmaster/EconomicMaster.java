@@ -1,11 +1,16 @@
 package com.sheyito.economicmaster;
 
 import com.mojang.logging.LogUtils;
+import com.sheyito.economicmaster.auction.AuctionScheduler;
 import com.sheyito.economicmaster.commands.CommandRegistrar;
+import com.sheyito.economicmaster.liquidation.AuctionStandListener;
+import com.sheyito.economicmaster.liquidation.LiquidationBlockListener;
+import com.sheyito.economicmaster.liquidation.LiquidationScheduler;
 import com.sheyito.economicmaster.events.DimensionUnlockListener;
 import com.sheyito.economicmaster.events.MobKillListener;
 import com.sheyito.economicmaster.events.PlayerDeathPenaltyListener;
 import com.sheyito.economicmaster.events.ServerLifecycleHandler;
+import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.integration.FTBQuestsCompat;
 import com.sheyito.economicmaster.integration.WaystonesCompat;
 import com.sheyito.economicmaster.scheduler.EconomicMasterScheduler;
@@ -42,9 +47,14 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopCreationTracker());
         NeoForge.EVENT_BUS.register(new ShopTradeListener());
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
+        NeoForge.EVENT_BUS.register(new LiquidationScheduler());
+        NeoForge.EVENT_BUS.register(new LiquidationBlockListener());
+        NeoForge.EVENT_BUS.register(new AuctionStandListener());
+        NeoForge.EVENT_BUS.register(new AuctionScheduler());
 
         modEventBus.addListener((FMLCommonSetupEvent event) -> FTBQuestsCompat.logDetection());
         modEventBus.addListener((FMLCommonSetupEvent event) -> WaystonesCompat.logDetection());
+        modEventBus.addListener((FMLCommonSetupEvent event) -> FTBChunksCompat.logDetection());
 
         LOGGER.info("Sheyito's currency inicializado (server-side).");
     }

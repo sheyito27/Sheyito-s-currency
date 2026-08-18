@@ -16,26 +16,20 @@
 - [x] **Peaje de waystones**: Usar un waystone cobra SC (100 por defecto), bloqueando el teletransporte si no alcanza.
 - [x] **Desbloqueo de dimensiones**: Entrar a Nether/End/dimensión modded cuesta SC una vez, para siempre.
 - [ ] **Peajes de movilidad restantes**: /home, /back y /tpa aún no cobran SC.
-- [ ] **Renta de chunks**: SC por reclamar chunks.
+- [x] **Renta de chunks**: Reclamar con FTB Chunks cuesta 1.000·n^1.5 SC (n = chunk que reclamás), pago único, no configurable. Además, force-loadear cobra renta periódica (ver siguiente punto).
+- [x] **Renta de force-load de chunks**: Cada 7 días de juego, `10·n^1.5` SC (n = chunks force-loaded ahora mismo), también estando desconectado. Si no cubres, se descargan todos de golpe.
+- [x] **Renta progresiva sobre ganancias**: Cada 7 días, tramos 10%→40% (tipo plano) sobre lo ganado en el periodo, no sobre el patrimonio total.
 - [x] **Muerte**: Morir te hace perder 50% de tu saldo actual, sin riesgo de banca rota.
-- [ ] **Embargo silencioso y brutal**: Deuda impaga roba activos valiosos, anuncio público y subasta.
-- [ ] **Día de Renta**: Cada 7 días cobra chunks, cuotas, suscripciones y deudas con countdown.
+- [x] **Embargo silencioso y brutal**: Saldo negativo sin saldar en 30s (pausados offline) incauta armadura/armas/herramientas; votación secreta de la comunidad elige qué pieza va a la pool de subastas.
+- [ ] **Día de Renta**: Un único evento con countdown que unifique el cobro de chunks + cuotas + suscripciones + deudas (hoy cada una tiene su propia cadencia independiente).
 - [ ] **Descuento por pago anticipado**: Pagar la renta antes del día 5 ahorra un 10%.
-- [ ] **IVA de transmisión**: Comisión sobre /pay y el dinero del /trade que quema transferencias.
-- [ ] **Cuota de mantenimiento**: Coste periódico progresivo por patrimonio acumulado del jugador.
-- [ ] **Emergencias /health y /feed**: Curar vida y hambre con /health al instante a cambio de SC.
-- [ ] **Vuelo por suscripción**: Suscripción al comando /fly a cambio de una gran cantidad de SC al día.
-- [ ] **Buffs corporativos**: Efectos de poción recurrentes pagados mediante cuota diaria obligatoria.
+- [x] **IVA de transmisión**: Comisión sobre /pay, el dinero de /trade, tiendas y suscripciones que quema transferencias (10% por defecto, doble corte: paga de más, recibe de menos).
+- [ ] **Cuota de mantenimiento**: Coste periódico progresivo por patrimonio **acumulado** (no por ganancias, ver renta progresiva) del jugador.
 
 ## Dopamina
 
-- [ ] **Lotería con pozo creciente**: Pozo que crece si nadie gana; sorteo diario con comisión.
-- [ ] **Casino coinflip**: Apostar a 50/50 con edge de casa del 2%.
 - [ ] **Gacha con exclusivos no renovables**: Menú aleatorio; ediciones limitadas numeradas y , encantamientos op, loot de estructuras random, artefactos.
-- [ ] **Sobre misterioso**: Ítem aleatorio por precio fijo, con pool curado que excluye irreemplazables.
 - [ ] **Ofertas flash**: Descuentos temporales con temporizador en gacha, XP y conveniencias.
-- [ ] **Subastas de embargo y remates**: Bienes embargados y exclusivos subastados a la comunidad.
-- [ ] **Apuestas P2P**: Retar a otro jugador a un coinflip con comisión del 3% para el banco.
 - [x] **Compra de XP**: Intercambio directo de Sheyicoins por experiencia vanilla (`/buy xp`), 1:1 a propósito como sink.
 
 ## Salario

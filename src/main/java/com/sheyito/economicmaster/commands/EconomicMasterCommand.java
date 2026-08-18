@@ -15,15 +15,20 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Home of "/sheyitoscurrency reward <jugador>" - the single command this mod expects to be
- * wired into FTB Quests' "Command" reward type. Every quest pays the same flat amount
- * (quests_rewards.json's {@code amount}, 50 by default) - paste the exact same reward into
- * every quest, no per-quest setup needed:
- *   sheyitoscurrency reward @p
+ * Home of "/sc reward <jugador>" - the single command this mod expects to be wired into FTB
+ * Quests' "Command" reward type. Every quest pays the same flat amount (quests_rewards.json's
+ * {@code amount}, 50 by default) - paste the exact same reward into every quest, no per-quest
+ * setup needed:
+ *   sc reward @p
  * where {@code @p} (nearest player) is what FTB Quests resolves to "the player who completed
  * the quest" when the Command Reward is run with "Run as Player" OFF (console mode, which is
  * also what grants the permission level 2 this command requires). An optional trailing amount
- * overrides the configured value for that one call: "sheyitoscurrency reward @p 120".
+ * overrides the configured value for that one call: "sc reward @p 120".
+ *
+ * <p>{@code sc} is the shared root for every admin/dev command in this mod (see also
+ * {@code DimensionCommand}, {@code ChunkCommand}) - unrelated to {@link EconomicMaster#MODID}
+ * (still {@code "sheyitoscurrency"}, used for config/data folder paths), which was the old
+ * literal here before the command got its own short name.
  */
 public final class EconomicMasterCommand {
 
@@ -31,7 +36,7 @@ public final class EconomicMasterCommand {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal(EconomicMaster.MODID)
+        dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("reward")
                         .then(Commands.argument("jugador", EntityArgument.player())
@@ -42,7 +47,7 @@ public final class EconomicMasterCommand {
 
     private static int reward(CommandContext<CommandSourceStack> ctx, double amount) throws CommandSyntaxException {
         ServerPlayer player = EntityArgument.getPlayer(ctx, "jugador");
-        EconomicMaster.LOGGER.info("Sheyito's currency: /{} reward invocado para {} por {}", EconomicMaster.MODID, player.getGameProfile().getName(), amount);
+        EconomicMaster.LOGGER.info("Sheyito's currency: /sc reward invocado para {} por {}", player.getGameProfile().getName(), amount);
 
         EconomyManager.get().giveEarned(player.getUUID(), amount);
         EconomyManager.get().trackName(player.getUUID(), player.getGameProfile().getName());

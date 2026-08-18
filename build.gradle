@@ -45,6 +45,23 @@ runs {
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
     }
 
+    // Extra dev clients for local multiplayer testing (features like the liquidation vote need
+    // 2+ voters online besides the victim). runClient always logs in as NeoGradle's "Dev"
+    // placeholder - these fix a distinct --username instead, so each one is a stable, separate
+    // player (runs/server has online-mode=false, so any username connects with no real account).
+    // Names don't match a built-in run type, so runType points them at the client type explicitly.
+    client2 {
+        runType 'client'
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        arguments '--username', 'Tester2', '--quickPlayMultiplayer', 'localhost:25565'
+    }
+
+    client3 {
+        runType 'client'
+        systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        arguments '--username', 'Tester3', '--quickPlayMultiplayer', 'localhost:25565'
+    }
+
     server {
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         argument '--nogui'
@@ -83,6 +100,15 @@ dependencies {
     // gated behind ModList.get().isLoaded("waystones") in WaystonesCompat.
     compileOnly "net.blay09.mods:waystones-common:21.1.41+1.21.1"
     compileOnly "net.blay09.mods:balm-common:21.0.65+1.21.1"
+
+    // Soft-dependency only (compileOnly, never implementation): lets FtbChunksIntegration compile
+    // against FTB Chunks' ClaimedChunkEvent (Architectury-based, same system FTB Quests uses -
+    // architectury-neoforge above is shared) so reclaiming a chunk costs a one-time charge.
+    // ftb-library-neoforge is required too because ClaimResult imports its NameMap class. Never
+    // packaged into our jar and never required at runtime - gated behind
+    // ModList.get().isLoaded("ftbchunks") in FTBChunksCompat.
+    compileOnly "dev.ftb.mods:ftb-chunks-neoforge:2101.1.21"
+    compileOnly "dev.ftb.mods:ftb-library-neoforge:2101.1.35"
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

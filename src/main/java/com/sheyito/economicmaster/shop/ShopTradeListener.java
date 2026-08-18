@@ -1,5 +1,6 @@
 package com.sheyito.economicmaster.shop;
 
+import com.sheyito.economicmaster.economy.EconomyManager;
 import com.sheyito.economicmaster.util.Money;
 import com.sheyito.economicmaster.util.TransactionSounds;
 import net.minecraft.core.BlockPos;
@@ -50,8 +51,12 @@ public class ShopTradeListener {
 
         switch (result) {
             case OK -> {
-                String verb = shop.action() == ShopAction.SELL ? "Compraste" : "Vendiste";
-                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + verb + " " + shop.quantity() + "x " + shop.item().getDescription().getString() + " por " + Money.format(shop.price()) + "."));
+                boolean playerIsBuying = shop.action() == ShopAction.SELL;
+                String verb = playerIsBuying ? "Compraste" : "Vendiste";
+                double realAmount = playerIsBuying
+                        ? EconomyManager.get().grossWithTax(shop.price())
+                        : EconomyManager.get().netAfterTax(shop.price());
+                player.sendSystemMessage(Component.literal("§a[Sheyito's currency] §f" + verb + " " + shop.quantity() + "x " + shop.item().getDescription().getString() + " por " + Money.format(realAmount) + " (IVA incluido)."));
                 TransactionSounds.success(player);
                 refreshStatusLine(sign, shop, level);
             }

@@ -21,6 +21,11 @@ import java.util.UUID;
  * Admin-only testing tool for {@link com.sheyito.economicmaster.events.DimensionUnlockListener}:
  * resets a player's unlock state for a dimension so the paywall can be re-triggered without a
  * fresh world. Does not refund the price they paid - see {@link DimensionUnlockManager#lock}.
+ *
+ * <p>Lives under {@code /sc}, the shared root for every admin/dev command in this mod (see also
+ * {@code EconomicMasterCommand}, {@code ChunkCommand}) - Brigadier merges multiple
+ * {@code register(Commands.literal("sc")...)} calls from different classes into one command
+ * tree, so each class can keep owning its own subcommand independently.
  */
 public final class DimensionCommand {
 
@@ -28,12 +33,13 @@ public final class DimensionCommand {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("dimension")
+        dispatcher.register(Commands.literal("sc")
                 .requires(src -> src.hasPermission(2))
-                .then(Commands.literal("lock")
-                        .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
-                                .then(Commands.argument("dimension", DimensionArgument.dimension())
-                                        .executes(DimensionCommand::lock)))));
+                .then(Commands.literal("dimension")
+                        .then(Commands.literal("lock")
+                                .then(Commands.argument("jugador", GameProfileArgument.gameProfile())
+                                        .then(Commands.argument("dimension", DimensionArgument.dimension())
+                                                .executes(DimensionCommand::lock))))));
     }
 
     private static int lock(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
