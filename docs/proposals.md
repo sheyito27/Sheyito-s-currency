@@ -31,6 +31,7 @@
 - [ ] **Gacha con exclusivos no renovables**: Menú aleatorio; ediciones limitadas numeradas y , encantamientos op, loot de estructuras random, artefactos.
 - [ ] **Ofertas flash**: Descuentos temporales con temporizador en gacha, XP y conveniencias.
 - [x] **Compra de XP**: Intercambio directo de Sheyicoins por experiencia vanilla (`/buy xp`), 1:1 a propósito como sink.
+- [x] **Eventos económicos Monopoly**: Sorteo ponderado periódico (multiplicador de salario/misiones, mob buscado con bounty repartido, efecto de poción instantáneo, o cara o cruz contra La Casa vía `/monopoly coinflip`, con reto entre jugadores).
 
 ## Salario
 
