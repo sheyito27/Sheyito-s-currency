@@ -48,7 +48,6 @@ public class EconomicMaster {
         NeoForge.EVENT_BUS.register(new ShopCreationTracker());
         NeoForge.EVENT_BUS.register(new ShopTradeListener());
         NeoForge.EVENT_BUS.register(new ShopProtectionListener());
-        NeoForge.EVENT_BUS.register(new MonopolyEventListener());
         NeoForge.EVENT_BUS.register(new LiquidationScheduler());
         NeoForge.EVENT_BUS.register(new LiquidationBlockListener());
         NeoForge.EVENT_BUS.register(new AuctionStandListener());

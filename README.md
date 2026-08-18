@@ -86,10 +86,6 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/trade <jugador>` — invita a otro jugador a un intercambio seguro.
 - `/trade accept` / `/trade deny` — aceptar o rechazar una invitación pendiente.
 - `/trade cancel` — cancelar el intercambio en curso. El dinero se ofrece depositando ítems directamente en el GUI (ver más abajo), no con un comando.
-- `/monopoly status` — muestra el evento económico activo (si lo hay) y cuándo llega el siguiente.
-- `/monopoly coinflip <cantidad>` — cara o cruz contra La Casa (solo mientras el evento `HOUSE_COINFLIP` está activo; La Casa cobra una comisión que se quema).
-- `/monopoly coinflip <cantidad> <jugador>` — retar a otro jugador a un cara o cruz (ambos pagan la comisión de La Casa).
-- `/monopoly accept` / `/monopoly deny` — aceptar o rechazar un reto de cara o cruz pendiente.
 - `/liquidation vote` — si hay una votación de embargo activa en la que puedes participar (nunca si eres la víctima), abre el menú para votar qué objeto incautado se subasta (ver más abajo).
 - `/auction` — si hay una subasta activa en la que puedes participar (nunca si eres la víctima del objeto en juego), abre el menú para pujar (ver más abajo). Se puja clicando botones, no escribiendo cifras. Es el mismo comando que ejecuta el botón `[Pujar]` de los mensajes de inicio de subasta y de cada puja.
 
@@ -97,9 +93,6 @@ El `.jar` resultante queda en `build/libs/sheyitoscurrency-1.0.0.jar`. Cópialo 
 - `/eco give|take|set <jugador> <cantidad>` — modifica saldos manualmente (no otorga XP, es un ajuste administrativo).
 - `/eco charge <jugador> <cantidad>` — resta saldo sin comprobar fondos, puede dejarlo en negativo. No hay un estado de "deuda" separado: un saldo negativo se consulta con `/bal`, igual que uno positivo.
 - `/eco reload` — recarga todos los archivos de `config/sheyitoscurrency/` sin reiniciar el servidor.
-- `/monopoly roll [id]` — fuerza un sorteo de evento ahora mismo (con `id`, fuerza ese evento concreto).
-- `/monopoly end` — termina el evento actual; el siguiente llegará en la próxima frontera de periodo.
-- `/sheyitoscurrency reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc reward <jugador> [monto]` — otorga dinero; ver integración con FTB Quests más abajo.
 - `/sc dimension lock <jugador> <dimension>` — revierte el desbloqueo de una dimensión para ese jugador (sin reembolsar), para poder reprobar el flujo de pago sin reiniciar el mundo.
 - `/sc chunk reset <jugador>` — pone a 0 el recuento de chunks reclamados de ese jugador (sin reembolsar), para poder reprobar la curva de precio sin desreclamar chunk a chunk.

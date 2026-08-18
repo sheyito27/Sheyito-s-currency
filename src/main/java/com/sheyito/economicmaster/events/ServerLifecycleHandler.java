@@ -5,7 +5,6 @@ import com.sheyito.economicmaster.chunk.ChunkClaimRegistry;
 import com.sheyito.economicmaster.config.ConfigManager;
 import com.sheyito.economicmaster.dimension.DimensionUnlockManager;
 import com.sheyito.economicmaster.economy.EconomyManager;
-import com.sheyito.economicmaster.monopoly.MonopolyManager;
 import com.sheyito.economicmaster.liquidation.LiquidationManager;
 import com.sheyito.economicmaster.integration.FTBChunksCompat;
 import com.sheyito.economicmaster.rent.RentManager;
