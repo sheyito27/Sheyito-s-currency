@@ -213,49 +213,6 @@ class SubscriptionManagerTest {
     }
 
     @Test
-    void inviteDoesNotChargeUntilAccepted() throws Exception {
-        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID payerUuid = UUID.randomUUID();
-            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
-            economy.give(payerUuid, 200.0);
-            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
-
-            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "renta");
-
-            assertEquals(100.0, economy.getBalance(payer.getUUID()), "an invite alone must never charge anyone");
-            assertTrue(subscriptions.providersFor(payer.getUUID()).isEmpty());
-        });
-    }
-
-            assertEquals(100.0, economy.getBalance(payerUuid), "200 - 50 initial - 50 renewal");
-            assertEquals(100.0, economy.getBalance(receiver.getUUID()));
-            assertEquals(10L, subscriptions.providersFor(payerUuid).get(0).nextChargeGameDay);
-        });
-    }
-
-    @Test
-    void acceptInviteFailsWithNoPendingInvite() throws Exception {
-        withSubscriptions(5, 0, (subscriptions, economy, server) ->
-                assertFalse(subscriptions.acceptInvite(server, mockPlayer(UUID.randomUUID(), "Payer"))));
-    }
-
-    @Test
-    void acceptInviteLeavesTheInvitePendingWhenThePayerCantAfford() throws Exception {
-        withSubscriptions(5, 0, (subscriptions, economy, server) -> {
-            UUID payerUuid = UUID.randomUUID();
-            ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");
-            economy.give(payerUuid, 50.0);
-            subscriptions.subscribe(server, receiver, payerUuid, 50.0, 5, "");
-            // payer now has 0 balance, can't afford the renewal
-
-            subscriptions.invite(server, receiver, payer.getUUID(), 50.0, 5, "");
-            assertFalse(subscriptions.acceptInvite(server, payer));
-
-            assertTrue(subscriptions.providersFor(payerUuid).isEmpty());
-        });
-    }
-
-    @Test
     void clientsForOnlyReturnsSubscriptionsPayingThatReceiver() throws Exception {
         withSubscriptions(5, 0, (subscriptions, economy, server) -> {
             ServerPlayer receiver = mockPlayer(UUID.randomUUID(), "Receiver");

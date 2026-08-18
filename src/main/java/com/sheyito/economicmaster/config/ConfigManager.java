@@ -89,6 +89,8 @@ public final class ConfigManager {
 
     public static MonopolyConfig monopoly() {
         return monopoly;
+    }
+
     public static DebtConfig debt() {
         return debt;
     }
